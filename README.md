@@ -57,27 +57,43 @@ Code: SD6
 
 ### 2.1 网络结构
 
-![FCOS](https://d3i71xaburhd42.cloudfront.net/937a93b59c0a70236d34ac1516c26e7676e38967/3-Figure2-1.png)
+![FCOS](https://production-media.paperswithcode.com/methods/Screen_Shot_2020-06-23_at_3.34.09_PM_SAg1OBo.png)
 
 ### 2.2 训练目标
 
-- 类别概率 $$p^* = 1 \ if \ positive \ else \ 0$$
+- 分类目标
 
-- 边框距离 $$l^* = (x - x_0^{(i)}) / s, \ t^* = (y - y_0^{(i)}) / s \\
-r^* = (x_1^{(i)} - x) / s, \ b^* = (y_1^{(i)} - y) / s$$
+    正样本：![](http://latex.codecogs.com/svg.latex?p^*=1)
 
-- 中心程度 $$o^* = \sqrt{\frac{\min(l^*, r^*)}{\max(l^*, r^*)} \times \frac{\min(t^*, b^*)}{\max(t^*, b^*)}}$$
+    负样本：![](http://latex.codecogs.com/svg.latex?p^*=0)
+
+- 回归目标
+
+    ![](http://latex.codecogs.com/svg.latex?l^*=(x-x_0^{(i)})/s,t^*=(y-y_0^{(i)})/s)
+
+    ![](http://latex.codecogs.com/svg.latex?r^*=(x_1^{(i)}-x)/s,b^*=(y_1^{(i)}-y)/s)
+
+- 中心度目标
+
+    ![](http://latex.codecogs.com/svg.latex?o^*=\sqrt{\frac{\min(l^*,r^*)}{\max(l^*,r^*)}\times\frac{\min(t^*,b^*)}{\max(t^*,b^*)}})
 
 ### 2.3 损失函数
 
-$$
-\begin{align}
-L(\{p_{x,y}\}, \{t_{x,y}\}, \{c_{x,y}\}) = & L_{cls}(p_{x,y}, p_{x,y}^*) + L_{reg}(t_{x,y}, t_{x,y}^*) + L_{ctr}(o_{x,y}, o_{x,y}^*) \\
-= & \lambda_{cls} \frac{-1}{N_{pos}} \sum_{x,y} [\alpha (1 - p_{x,y})^\gamma p_{x,y}^* \log(p_{x,y}) + (1 - \alpha) p_{x,y}^\gamma (1 - p_{x,y}^*) \log(1 - p_{x,y})] \\
-+ & \lambda_{reg} \frac{1}{N_{pos}} \sum_{x,y} p_{x,y}^* L_{GIoU}(t_{x,y}, t_{x,y}^*) \\
-+ & \lambda_{ctr} \frac{-1}{N_{pos}} \sum_{x,y} p_{x,y}^* [o_{x,y}^* \log(o_{x,y}) + (1 - o_{x,y}^*) \log(1 - o_{x,y})]
-\end{align}
-$$
+- 总损失
+
+    ![](http://latex.codecogs.com/svg.latex?L({p_{x,y}},{t_{x,y}},{c_{x,y}})=L_{cls}(p_{x,y},p_{x,y}^*)+L_{reg}(t_{x,y},t_{x,y}^*)+L_{ctr}(o_{x,y},o_{x,y}^*))
+
+- 分类损失
+
+    ![](http://latex.codecogs.com/svg.latex?L_{cls}(p_{x,y},p_{x,y}^*)=\lambda_{cls}\frac{-1}{N_{pos}}\sum_{x,y}[\alpha(1-p_{x,y})^\gamma%20p_{x,y}^*\log(p_{x,y})+(1-\alpha)p_{x,y}^\gamma(1-p_{x,y}^*)\log(1-p_{x,y})])
+
+- 回归损失
+
+    ![](http://latex.codecogs.com/svg.latex?L_{reg}(t_{x,y},t_{x,y}^*)=\lambda_{reg}\frac{1}{N_{pos}}\sum_{x,y}p_{x,y}^*L_{GIoU}(t_{x,y},t_{x,y}^*))
+
+- 中心度损失
+
+    ![](http://latex.codecogs.com/svg.latex?L_{ctr}(o_{x,y},o_{x,y}^*)=\lambda_{ctr}\frac{-1}{N_{pos}}\sum_{x,y}p_{x,y}^*[o_{x,y}^*\log(o_{x,y})+(1-o_{x,y}^*)\log(1-o_{x,y})])
 
 ## 3 数据集
 
@@ -161,7 +177,9 @@ $$
 
 ### 4.1 准确性指标
 
-- 交并比 $$IoU = \frac{|B_{p} \cap B_{gt}|}{|B_{p} \cup B_{gt}|}$$
+- 交并比
+
+    ![](http://latex.codecogs.com/svg.latex?IoU=\frac{|B_{p}\cap%20B_{gt}|}{|B_{p}\cup%20B_{gt}|})
 
 - 混淆矩阵
 
@@ -170,20 +188,36 @@ $$
     |<b>P|TP|FP|
     |<b>N|FN|TN|
 
-- 精度 $$Precision = \frac{TP}{TP+FP}$$
+- 精度
 
-- 召回率 $$Recall = \frac{TP}{TP+FN}$$
+    ![](http://latex.codecogs.com/svg.latex?Precision=\frac{TP}{TP+FP})
 
-- 准确率 $$Accuracy = \frac{TP+TN}{TP+FP+TN+FN}$$
+- 召回率
 
-- F1分数 $$F1-score = \frac{2 \cdot Precision \cdot Recall}{Precision + Recall}$$
+    ![](http://latex.codecogs.com/svg.latex?Recall=\frac{TP}{TP+FN})
 
-- 平均精度 $$AP = \sum_{r=0}^1 (r_{n+1} - r_n) \cdot Percision(r_{n+1})$$
+- 准确率
 
-- 平均精度均值 $$mAP = \frac{1}{N}\sum_{i=1}^N AP_{c_i}$$
+    ![](http://latex.codecogs.com/svg.latex?Accuracy=\frac{TP+TN}{TP+FP+TN+FN})
+
+- F1分数
+
+    ![](http://latex.codecogs.com/svg.latex?F1-score=\frac{2\cdot%20Precision\cdot%20Recall}{Precision+Recall})
+
+- 平均精度
+
+    ![](http://latex.codecogs.com/svg.latex?AP=\sum_{r=0}^1(r_{n+1}-r_n)\cdot%20Percision(r_{n+1}))
+
+- 平均精度均值
+
+    ![](http://latex.codecogs.com/svg.latex?mAP=\frac{1}{N}\sum_{i=1}^N%20AP_{c_i})
 
 ### 4.2 实时性指标
 
-- 推理帧率 $\ge 25 \ FPS$
+- 推理帧率
 
-- 推理时间 $\le 40 \ ms$
+    ![](http://latex.codecogs.com/svg.latex?FPS\ge25)
+
+- 推理时间
+
+    ![](http://latex.codecogs.com/svg.latex?t\le40ms)
