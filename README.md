@@ -12,15 +12,15 @@ Code: SD6
 
 完成进度：
 
-- [ ] 数据集 ./dataset
+- [ ] 数据集 ./datasets
 
     - [ ] kitti.py
 
     - [ ] bdd100k.py
 
-    - [ ] transform.py
+    - [ ] 数据变换 transform.py
 
-- [ ] 模型 ./model
+- [ ] 模型 ./models
 
     - [ ] backbone.py
 
@@ -36,7 +36,7 @@ Code: SD6
 
     - [ ] 后处理 nms.py
 
-- [ ] 工具 ./tool
+- [ ] 工具 ./tools
 
     - [ ] 评估 eval.py
 
@@ -81,19 +81,19 @@ Code: SD6
 
 - 总损失
 
-    ![](http://latex.codecogs.com/svg.latex?L({p_{x,y}},{t_{x,y}},{c_{x,y}})=L_{cls}(p_{x,y},p_{x,y}^*)+L_{reg}(t_{x,y},t_{x,y}^*)+L_{ctr}(o_{x,y},o_{x,y}^*))
+    ![](http://latex.codecogs.com/svg.latex?L_{total}({p_{x,y}},{t_{x,y}},{c_{x,y}})=\lambda_{cls}L_{cls}(p_{x,y},p_{x,y}^*)+\lambda_{reg}L_{reg}(t_{x,y},t_{x,y}^*)+\lambda_{ctr}L_{ctr}(o_{x,y},o_{x,y}^*))
 
-- 分类损失
+- 分类损失：Focal Loss
 
-    ![](http://latex.codecogs.com/svg.latex?L_{cls}(p_{x,y},p_{x,y}^*)=\lambda_{cls}\frac{-1}{N_{pos}}\sum_{x,y}[\alpha(1-p_{x,y})^\gamma%20p_{x,y}^*\log(p_{x,y})+(1-\alpha)p_{x,y}^\gamma(1-p_{x,y}^*)\log(1-p_{x,y})])
+    ![](http://latex.codecogs.com/svg.latex?L_{cls}(p_{x,y},p_{x,y}^*)=-\frac{1}{N_{pos}}\sum_{x,y}[\alpha(1-p_{x,y})^\gamma%20p_{x,y}^*\log(p_{x,y})+(1-\alpha)p_{x,y}^\gamma(1-p_{x,y}^*)\log(1-p_{x,y})])
 
-- 回归损失
+- 回归损失：GIoU Loss
 
-    ![](http://latex.codecogs.com/svg.latex?L_{reg}(t_{x,y},t_{x,y}^*)=\lambda_{reg}\frac{1}{N_{pos}}\sum_{x,y}p_{x,y}^*L_{GIoU}(t_{x,y},t_{x,y}^*))
+    ![](http://latex.codecogs.com/svg.latex?L_{reg}(t_{x,y},t_{x,y}^*)=\frac{1}{N_{pos}}\sum_{x,y}p_{x,y}^*L_{GIoU}(t_{x,y},t_{x,y}^*))
 
-- 中心度损失
+- 中心度损失：BCE Loss
 
-    ![](http://latex.codecogs.com/svg.latex?L_{ctr}(o_{x,y},o_{x,y}^*)=\lambda_{ctr}\frac{-1}{N_{pos}}\sum_{x,y}p_{x,y}^*[o_{x,y}^*\log(o_{x,y})+(1-o_{x,y}^*)\log(1-o_{x,y})])
+    ![](http://latex.codecogs.com/svg.latex?L_{ctr}(o_{x,y},o_{x,y}^*)=-\frac{1}{N_{pos}}\sum_{x,y}p_{x,y}^*[o_{x,y}^*\log(o_{x,y})+(1-o_{x,y}^*)\log(1-o_{x,y})])
 
 ## 3 数据集
 
@@ -111,7 +111,9 @@ Code: SD6
 - kitti
     - training
         - image_2
+            - 000000.png
         - label_2
+            - 000000.txt
     - testing
         - image_2
 ```
@@ -121,6 +123,8 @@ Code: SD6
 - 类别数：8
 
 - 类别名称：Car, Van, Truck, Pedestrian, Person_sitting, Cyclist, Tram, Misc
+
+- 场景：City, Residential, Road, Campus, Person
 
 - 训练集图片数：7481
 
@@ -145,12 +149,14 @@ Code: SD6
     - images
         - 100k
             - train
+                - 0000f77c-62c2a288.jpg
             - val
             - test
     - labels
-        - det_20
-            - det_train.json
-            - det_val.json
+        - 100k
+            - train
+                - 0000f77c-62c2a288.json
+            - val
 ```
 
 统计信息：
@@ -160,6 +166,12 @@ Code: SD6
 - 类别数：10
 
 - 类别名称：Bus, Light, Sign, Person, Bike, Truck, Motor, Car, Train, Rider
+
+- 时间：Dawn/dusk, Daytime, Night
+
+- 天气：Clear, Partly Cloudy, Overcast, Rainy, Snowy, Foggy
+
+- 场景：Residential, Highway, City Street, Parking Lot, Gas stations, Tunnel
 
 - 训练集图片数：70k
 
@@ -202,7 +214,7 @@ Code: SD6
 
 - F1分数
 
-    ![](http://latex.codecogs.com/svg.latex?F1-score=\frac{2\cdot%20Precision\cdot%20Recall}{Precision+Recall})
+    ![](http://latex.codecogs.com/svg.latex?F_1-score=\frac{2\cdot%20Precision\cdot%20Recall}{Precision+Recall})
 
 - 平均精度
 
@@ -214,7 +226,7 @@ Code: SD6
 
 ### 4.2 实时性指标
 
-- 推理帧率
+- 帧率
 
     ![](http://latex.codecogs.com/svg.latex?FPS\ge25)
 
