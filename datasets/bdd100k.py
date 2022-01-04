@@ -24,13 +24,13 @@ class BDD100KDataset(Dataset):
         - images
             - 100k
                 - train
-                    - 0000f77c-62c2a288.jpg
+                    - 0000f77c-6257be58.jpg
                 - val
                 - test
         - labels
             - 100k
                 - train
-                    - 0000f77c-62c2a288.json
+                    - 0000f77c-6257be58.json
                 - val
     """
     cls_names = [
@@ -38,8 +38,10 @@ class BDD100KDataset(Dataset):
     ]
     cls_num = len(cls_names)
 
-    cls_names_dict = dict(zip(cls_names, range(1, cls_num + 1)))  # {name: id}
-    cls_ids_dict = dict(zip(range(1, cls_num + 1), cls_names))  # {id: name}
+    cls_names_dict = {name: i + 1
+                      for i, name in enumerate(cls_names)}  # {name: id}
+    cls_ids_dict = {i + 1: name
+                    for i, name in enumerate(cls_names)}  # {id: name}
 
     def __init__(self, root_dir, set_name, transform=None):
         super(BDD100KDataset, self).__init__()
@@ -69,7 +71,7 @@ class BDD100KDataset(Dataset):
         img_chw = img_rgb.transpose((2, 0, 1))  # hwc -> chw
         img_tensor = torch.from_numpy(img_chw).float()
 
-        cls_ids_tensor = torch.tensor(cls_ids, dtype=torch.float)
+        cls_ids_tensor = torch.tensor(cls_ids, dtype=torch.int)
         boxes_tensor = torch.tensor(boxes, dtype=torch.float)
 
         return img_tensor, cls_ids_tensor, boxes_tensor
@@ -80,21 +82,20 @@ class BDD100KDataset(Dataset):
 
     def _get_data_info(self):
         img_dir = os.path.join(self.root_dir, "images", "100k", self.set_name)
-        img_path = [
-            os.path.join(img_dir, img) for img in os.listdir(img_dir)
-            if img.endswith(".jpg")
-        ]
-        self.data_info = [
-            (path, path.replace("images", "labels").replace(".jpg", ".json"))
-            for path in img_path
-        ]
+        for img in os.listdir(img_dir):
+            if img.endswith(".jpg"):
+                img_path = os.path.join(img_dir, img)
+                label_path = img_path.replace("images", "labels").replace(
+                    ".jpg", ".json")
+                if os.path.exists(label_path):
+                    self.data_info.append((img_path, label_path))
         random.shuffle(self.data_info)
 
     def _get_json_label(self, json_path):
         with open(json_path, 'r') as f:
             labels = []
             anno = json.load(f)
-            objs = anno["frames"][0]["objects"]
+            objs = anno["labels"]
             for obj in objs:
                 if obj["category"] in self.cls_names:
                     labels.append([
@@ -113,7 +114,7 @@ class BDD100KDataset(Dataset):
 
 if __name__ == "__main__":
 
-    data_dir = os.path.join("examples", "bdd100k")
+    data_dir = os.path.join("samples", "bdd100k")
     train_set = BDD100KDataset(data_dir, "train")
     train_loader = DataLoader(train_set)
 

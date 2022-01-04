@@ -1,0 +1,101 @@
+{
+    "name": "0000f77c-62c2a288.jpg",
+    "attributes": {
+        "weather": "clear",
+        "timeofday": "dawn/dusk",
+        "scene": "highway"
+    },
+    "timestamp": 10000,
+    "labels": [
+        {
+            "id": "7",
+            "attributes": {
+                "occluded": false,
+                "truncated": false,
+                "trafficLightColor": "NA"
+            },
+            "category": "traffic sign",
+            "box2d": {
+                "x1": 250.549246,
+                "y1": 294.619798,
+                "x2": 308.085801,
+                "y2": 357.05308
+            }
+        },
+        {
+            "id": "8",
+            "attributes": {
+                "occluded": true,
+                "truncated": false,
+                "trafficLightColor": "NA"
+            },
+            "category": "traffic sign",
+            "box2d": {
+                "x1": 206.478694,
+                "y1": 299.516526,
+                "x2": 221.16888,
+                "y2": 321.551802
+            }
+        },
+        {
+            "id": "9",
+            "attributes": {
+                "occluded": false,
+                "truncated": false,
+                "trafficLightColor": "NA"
+            },
+            "category": "traffic sign",
+            "box2d": {
+                "x1": 924.665474,
+                "y1": 286.866651,
+                "x2": 936.907294,
+                "y2": 297.884289
+            }
+        },
+        {
+            "id": "10",
+            "attributes": {
+                "occluded": false,
+                "truncated": false,
+                "trafficLightColor": "NA"
+            },
+            "category": "pedestrian",
+            "box2d": {
+                "x1": 423.158909,
+                "y1": 336.241987,
+                "x2": 434.176547,
+                "y2": 358.277263
+            }
+        },
+        {
+            "id": "11",
+            "attributes": {
+                "occluded": false,
+                "truncated": false,
+                "trafficLightColor": "NA"
+            },
+            "category": "pedestrian",
+            "box2d": {
+                "x1": 563.939839,
+                "y1": 324.000165,
+                "x2": 573.733294,
+                "y2": 348.483804
+            }
+        },
+        {
+            "id": "12",
+            "attributes": {
+                "occluded": true,
+                "truncated": false,
+                "trafficLightColor": "NA"
+            },
+            "category": "pedestrian",
+            "box2d": {
+                "x1": 656.977672,
+                "y1": 315.838956,
+                "x2": 666.771127,
+                "y2": 345.219323
+            }
+        }
+    ]
+}

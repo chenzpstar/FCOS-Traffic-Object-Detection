@@ -14,9 +14,9 @@ Code: SD6
 
 - [ ] 数据集 ./datasets
 
-    - [ ] kitti.py
+    - [x] kitti.py
 
-    - [ ] bdd100k.py
+    - [x] bdd100k.py
 
     - [ ] 数据变换 transform.py
 
@@ -149,13 +149,13 @@ Code: SD6
     - images
         - 100k
             - train
-                - 0000f77c-62c2a288.jpg
+                - 0000f77c-6257be58.jpg
             - val
             - test
     - labels
         - 100k
             - train
-                - 0000f77c-62c2a288.json
+                - 0000f77c-6257be58.json
             - val
 ```
 
@@ -167,13 +167,13 @@ Code: SD6
 
 - 类别名称：Bus, Light, Sign, Person, Bike, Truck, Motor, Car, Train, Rider
 
-- 时间：Dawn/dusk, Daytime, Night
+- 时间：Dawn/Dusk, Daytime, Night
 
 - 天气：Clear, Partly Cloudy, Overcast, Rainy, Snowy, Foggy
 
-- 场景：Residential, Highway, City Street, Parking Lot, Gas stations, Tunnel
+- 场景：Residential, Highway, City Street, Parking Lot, Gas Stations, Tunnel
 
-- 训练集图片数：70k
+- 训练集图片数：70k (137张缺少标注)
 
 - 验证集图片数：10k
 

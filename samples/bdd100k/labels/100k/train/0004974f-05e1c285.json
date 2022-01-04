@@ -1,0 +1,101 @@
+{
+    "name": "0004974f-05e1c285.jpg",
+    "attributes": {
+        "weather": "rainy",
+        "timeofday": "night",
+        "scene": "highway"
+    },
+    "timestamp": 10000,
+    "labels": [
+        {
+            "id": "52",
+            "attributes": {
+                "occluded": false,
+                "truncated": false,
+                "trafficLightColor": "NA"
+            },
+            "category": "car",
+            "box2d": {
+                "x1": 529.961256,
+                "y1": 303.197187,
+                "x2": 564.285467,
+                "y2": 325.039867
+            }
+        },
+        {
+            "id": "53",
+            "attributes": {
+                "occluded": false,
+                "truncated": false,
+                "trafficLightColor": "NA"
+            },
+            "category": "car",
+            "box2d": {
+                "x1": 576.766998,
+                "y1": 286.035082,
+                "x2": 622.555327,
+                "y2": 322.502539
+            }
+        },
+        {
+            "id": "54",
+            "attributes": {
+                "occluded": true,
+                "truncated": false,
+                "trafficLightColor": "NA"
+            },
+            "category": "car",
+            "box2d": {
+                "x1": 235.085082,
+                "y1": 309.437954,
+                "x2": 314.654844,
+                "y2": 329.720443
+            }
+        },
+        {
+            "id": "55",
+            "attributes": {
+                "occluded": false,
+                "truncated": false,
+                "trafficLightColor": "NA"
+            },
+            "category": "car",
+            "box2d": {
+                "x1": 625.550705,
+                "y1": 292.548745,
+                "x2": 645.020673,
+                "y2": 304.530263
+            }
+        },
+        {
+            "id": "56",
+            "attributes": {
+                "occluded": false,
+                "truncated": false,
+                "trafficLightColor": "NA"
+            },
+            "category": "car",
+            "box2d": {
+                "x1": 643.522983,
+                "y1": 289.553363,
+                "x2": 661.495261,
+                "y2": 300.037192
+            }
+        },
+        {
+            "id": "57",
+            "attributes": {
+                "occluded": false,
+                "truncated": false,
+                "trafficLightColor": "NA"
+            },
+            "category": "car",
+            "box2d": {
+                "x1": 667.48602,
+                "y1": 285.060295,
+                "x2": 682.462918,
+                "y2": 297.041814
+            }
+        }
+    ]
+}

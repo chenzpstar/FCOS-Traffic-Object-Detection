@@ -34,8 +34,10 @@ class KITTIDataset(Dataset):
     ]
     cls_num = len(cls_names)
 
-    cls_names_dict = dict(zip(cls_names, range(1, cls_num + 1)))  # {name: id}
-    cls_ids_dict = dict(zip(range(1, cls_num + 1), cls_names))  # {id: name}
+    cls_names_dict = {name: i + 1
+                      for i, name in enumerate(cls_names)}  # {name: id}
+    cls_ids_dict = {i + 1: name
+                    for i, name in enumerate(cls_names)}  # {id: name}
 
     def __init__(self, root_dir, set_name, transform=None):
         super(KITTIDataset, self).__init__()
@@ -65,7 +67,7 @@ class KITTIDataset(Dataset):
         img_chw = img_rgb.transpose((2, 0, 1))  # hwc -> chw
         img_tensor = torch.from_numpy(img_chw).float()
 
-        cls_ids_tensor = torch.tensor(cls_ids, dtype=torch.float)
+        cls_ids_tensor = torch.tensor(cls_ids, dtype=torch.int)
         boxes_tensor = torch.tensor(boxes, dtype=torch.float)
 
         return img_tensor, cls_ids_tensor, boxes_tensor
@@ -76,14 +78,13 @@ class KITTIDataset(Dataset):
 
     def _get_data_info(self):
         img_dir = os.path.join(self.root_dir, self.set_name, "image_2")
-        img_path = [
-            os.path.join(img_dir, img) for img in os.listdir(img_dir)
-            if img.endswith(".png")
-        ]
-        self.data_info = [
-            (path, path.replace("image_2", "label_2").replace(".png", ".txt"))
-            for path in img_path
-        ]
+        for img in os.listdir(img_dir):
+            if img.endswith(".png"):
+                img_path = os.path.join(img_dir, img)
+                label_path = img_path.replace("image_2", "label_2").replace(
+                    ".png", ".txt")
+                if os.path.exists(label_path):
+                    self.data_info.append((img_path, label_path))
         random.shuffle(self.data_info)
 
     def _get_txt_label(self, txt_path):
@@ -105,7 +106,7 @@ class KITTIDataset(Dataset):
 
 if __name__ == "__main__":
 
-    data_dir = os.path.join("examples", "kitti")
+    data_dir = os.path.join("samples", "kitti")
     train_set = KITTIDataset(data_dir, "training")
     train_loader = DataLoader(train_set)
 
