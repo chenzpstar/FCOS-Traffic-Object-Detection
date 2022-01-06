@@ -22,11 +22,11 @@ Code: SD6
 
 - [ ] 模型 ./models
 
-    - [ ] backbone.py
+    - [x] ./backbones
 
-    - [ ] neck.py
+    - [x] ./necks
 
-    - [ ] head.py
+    - [x] head.py
 
     - [ ] fcos.py
 
