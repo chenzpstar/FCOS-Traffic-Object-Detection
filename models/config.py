@@ -22,4 +22,15 @@ class FCOSConfig():
     prior = 0.01
 
     # loss
+    cls_loss = "focal"
+    reg_loss = "giou"
     use_ctr = True
+
+    # target
+    strides = [8, 16, 32, 64, 128]
+    ranges = [[-1, 64], [64, 128], [128, 256], [256, 512], [512, 99999999]]
+
+    # nms
+    score_thr = 0.05
+    nms_iou_thr = 0.5
+    max_boxes_num = 150

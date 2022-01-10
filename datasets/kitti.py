@@ -54,10 +54,8 @@ class KITTIDataset(Dataset):
         img_bgr = cv2.imread(img_path, cv2.IMREAD_COLOR)
         img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)  # bgr -> rgb
 
-        # [[id, x1, y1, x2, y2],]
-        labels = self._get_txt_label(label_path)
-        cls_ids = labels[..., 0]
-        boxes = labels[..., 1:]
+        # [id,], [[x1, y1, x2, y2],]
+        cls_ids, boxes = self._get_txt_label(label_path)
 
         # step 2: 数据预处理
         if self.transform is not None:
@@ -83,22 +81,20 @@ class KITTIDataset(Dataset):
                 img_path = os.path.join(img_dir, img)
                 label_path = img_path.replace("image_2", "label_2").replace(
                     ".png", ".txt")
-                if os.path.exists(label_path):
+                if os.path.isfile(label_path):
                     self.data_info.append((img_path, label_path))
         random.shuffle(self.data_info)
 
     def _get_txt_label(self, txt_path):
+        cls_ids, boxes = [], []
         with open(txt_path, 'r') as f:
-            labels = []
             for line in f.readlines():
                 obj = line.rstrip().split(' ')
                 if obj[0] in self.cls_names:
-                    labels.append([
-                        self.cls_names_dict[obj[0]],
-                        *obj[4:8],
-                    ])
+                    cls_ids.append(self.cls_names_dict[obj[0]])
+                    boxes.append(list(map(float, obj[4:8])))
 
-        return np.asarray(labels, dtype=float)
+        return cls_ids, boxes
 
     # def _collate_fn(self, data):
     #     pass

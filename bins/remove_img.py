@@ -19,7 +19,7 @@ def remove_nolabel_img(img_dir, out_dir):
             img_path = os.path.join(img_dir, img)
             label_path = img_path.replace("images",
                                           "labels").replace(".jpg", ".json")
-            if not os.path.exists(label_path):
+            if not os.path.isfile(label_path):
                 shutil.move(img_path, out_dir)
 
 

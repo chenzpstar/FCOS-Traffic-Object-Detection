@@ -62,18 +62,24 @@ def make_layers(cfg, batch_norm=False, flag=True):
             if v == 'M':
                 layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
             else:
-                conv2d = nn.Conv2d(in_channels,
-                                   v,
-                                   kernel_size=(1, 3)[flag],
-                                   padding=(0, 1)[flag])
                 if batch_norm:
                     layers += [
-                        conv2d,
+                        nn.Conv2d(in_channels,
+                                  v,
+                                  kernel_size=(1, 3)[flag],
+                                  padding=(0, 1)[flag],
+                                  bias=False),
                         nn.BatchNorm2d(v),
-                        nn.ReLU(inplace=True)
+                        nn.ReLU(inplace=True),
                     ]
                 else:
-                    layers += [conv2d, nn.ReLU(inplace=True)]
+                    layers += [
+                        nn.Conv2d(in_channels,
+                                  v,
+                                  kernel_size=(1, 3)[flag],
+                                  padding=(0, 1)[flag]),
+                        nn.ReLU(inplace=True),
+                    ]
                 in_channels = v
             flag = not flag
         stages.append(nn.Sequential(*layers))

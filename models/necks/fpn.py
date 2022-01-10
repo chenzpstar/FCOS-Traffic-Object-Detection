@@ -41,7 +41,7 @@ class FPN(nn.Module):
         return F.interpolate(src_feat, tar_feat.shape[2:], mode="nearest")
 
     def forward(self, feats):
-        c3, c4, c5 = feats
+        _, c3, c4, c5 = feats
 
         p5 = self.proj5(c5)
         p4 = self.proj4(c4) + self.upsample(p5, c4)
@@ -53,7 +53,7 @@ class FPN(nn.Module):
 
         in_feat = p5 if self.use_p5 else c5
         p6 = self.conv6(in_feat)
-        p7 = self.conv7(F.relu(p6))
+        p7 = self.conv7(F.relu(p6, inplace=True))
 
         return [p3, p4, p5, p6, p7]
 

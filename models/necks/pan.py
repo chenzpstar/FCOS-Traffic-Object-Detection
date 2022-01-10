@@ -11,7 +11,7 @@ import torch.nn.functional as F
 
 
 class PAN(nn.Module):
-    def __init__(self, in_feats, num_feat=256, init_weights=True):
+    def __init__(self, in_feats, num_feat=256, use_p5=True, init_weights=True):
         super(PAN, self).__init__()
         self.proj5 = nn.Conv2d(in_feats[0], num_feat, kernel_size=1, padding=0)
         self.proj4 = nn.Conv2d(in_feats[1], num_feat, kernel_size=1, padding=0)
@@ -43,6 +43,8 @@ class PAN(nn.Module):
         self.conv_n4 = nn.Conv2d(num_feat, num_feat, kernel_size=3, padding=1)
         self.conv_n5 = nn.Conv2d(num_feat, num_feat, kernel_size=3, padding=1)
 
+        self.relu = nn.ReLU(inplace=True)
+
         if init_weights:
             self._initialize_weights()
 
@@ -52,24 +54,24 @@ class PAN(nn.Module):
     def forward(self, feats):
         c2, c3, c4, c5 = feats
 
-        p5 = F.relu(self.proj5(c5))
-        p4 = F.relu(self.proj4(c4)) + self.upsample(p5, c4)
-        p3 = F.relu(self.proj3(c3)) + self.upsample(p4, c3)
-        p2 = F.relu(self.proj2(c2)) + self.upsample(p3, c2)
+        p5 = self.relu(self.proj5(c5))
+        p4 = self.relu(self.proj4(c4)) + self.upsample(p5, c4)
+        p3 = self.relu(self.proj3(c3)) + self.upsample(p4, c3)
+        p2 = self.relu(self.proj2(c2)) + self.upsample(p3, c2)
 
-        p5 = F.relu(self.conv_p5(p5))
-        p4 = F.relu(self.conv_p4(p4))
-        p3 = F.relu(self.conv_p3(p3))
-        p2 = F.relu(self.conv_p2(p2))
+        p5 = self.relu(self.conv_p5(p5))
+        p4 = self.relu(self.conv_p4(p4))
+        p3 = self.relu(self.conv_p3(p3))
+        p2 = self.relu(self.conv_p2(p2))
 
         n2 = p2
-        n3 = p3 + F.relu(self.new3(n2))
-        n4 = p4 + F.relu(self.new3(n3))
-        n5 = p5 + F.relu(self.new3(n4))
+        n3 = p3 + self.relu(self.new3(n2))
+        n4 = p4 + self.relu(self.new3(n3))
+        n5 = p5 + self.relu(self.new3(n4))
 
-        n3 = F.relu(self.conv_n3(n3))
-        n4 = F.relu(self.conv_n4(n4))
-        n5 = F.relu(self.conv_n5(n5))
+        n3 = self.relu(self.conv_n3(n3))
+        n4 = self.relu(self.conv_n4(n4))
+        n5 = self.relu(self.conv_n5(n5))
 
         return [n2, n3, n4, n5]
 

@@ -19,20 +19,23 @@ class FCOS(nn.Module):
     def __init__(self, backbone, neck, head, cfg=None):
         super(FCOS, self).__init__()
         if cfg is None:
-            cfg = FCOSConfig
-        self.backbone = backbone(pretrained=cfg.pretrained)
-        self.neck = neck(num_feat=cfg.num_feat, use_p5=cfg.use_p5)
+            self.cfg = FCOSConfig
+        else:
+            self.cfg = cfg
+
+        self.backbone = backbone(pretrained=self.cfg.pretrained)
+        self.neck = neck(num_feat=self.cfg.num_feat, use_p5=self.cfg.use_p5)
         self.head = head(
-            num_feat=cfg.num_feat,
-            num_cls=cfg.num_cls,
-            use_gn=cfg.use_gn,
-            ctr_on_reg=cfg.ctr_on_reg,
-            prior=cfg.prior,
+            num_feat=self.cfg.num_feat,
+            num_cls=self.cfg.num_cls,
+            use_gn=self.cfg.use_gn,
+            ctr_on_reg=self.cfg.ctr_on_reg,
+            prior=self.cfg.prior,
         )
 
     def forward(self, x):
         conv_out = self.backbone(x)
-        proj_out = self.neck(conv_out[1:])
+        proj_out = self.neck(conv_out)
         cls_logits, reg_preds, ctr_logits = self.head(proj_out)
 
         return cls_logits, reg_preds, ctr_logits

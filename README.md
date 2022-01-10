@@ -30,11 +30,11 @@ Code: SD6
 
     - [ ] fcos.py
 
-    - [ ] 训练目标 target.py
+    - [x] 训练目标 target.py
 
-    - [ ] 损失函数 loss.py
+    - [x] 损失函数 loss.py
 
-    - [ ] 后处理 nms.py
+    - [ ] 检测 detect.py
 
 - [ ] 工具 ./tools
 

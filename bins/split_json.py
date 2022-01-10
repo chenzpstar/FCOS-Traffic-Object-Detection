@@ -26,7 +26,7 @@ def split_json_file(file_dir):
             if not os.path.isdir(out_dir):
                 os.makedirs(out_dir)
 
-            for i, anno in tqdm(enumerate(annos)):
+            for anno in tqdm(annos):
                 out_path = os.path.join(out_dir,
                                         anno["name"].replace(".jpg", ".json"))
 
