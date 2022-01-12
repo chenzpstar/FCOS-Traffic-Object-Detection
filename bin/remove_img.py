@@ -25,7 +25,7 @@ def remove_nolabel_img(img_dir, out_dir):
 
 if __name__ == "__main__":
 
-    root_dir = "/home/vipuser/Documents/datasets/bdd100k/images/100k"
+    root_dir = "/home/vipuser/Documents/data/bdd100k/images/100k"
     img_dir = os.path.join(root_dir, "train")
     out_dir = os.path.join(root_dir, "train_nolabel")
     remove_nolabel_img(img_dir, out_dir)

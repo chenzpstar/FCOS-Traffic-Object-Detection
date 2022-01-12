@@ -12,7 +12,7 @@ Code: SD6
 
 完成进度：
 
-- [ ] 数据集 ./datasets
+- [ ] 数据集 ./data
 
     - [x] kitti.py
 
@@ -20,7 +20,7 @@ Code: SD6
 
     - [ ] 数据变换 transform.py
 
-- [ ] 模型 ./models
+- [x] 模型 ./models
 
     - [x] ./backbones
 
@@ -28,13 +28,13 @@ Code: SD6
 
     - [x] head.py
 
-    - [ ] fcos.py
+    - [x] fcos.py
 
     - [x] 训练目标 target.py
 
     - [x] 损失函数 loss.py
 
-    - [ ] 检测 detect.py
+    - [x] 检测后处理 detect.py
 
 - [ ] 工具 ./tools
 

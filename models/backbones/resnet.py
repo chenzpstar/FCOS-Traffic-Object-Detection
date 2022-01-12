@@ -3,7 +3,7 @@
 # @file name  : resnet.py
 # @author     : chenzhanpeng https://github.com/chenzpstar
 # @date       : 2022-01-04
-# @brief      : ResNet模型
+# @brief      : ResNet模型类
 """
 
 import torch.nn as nn

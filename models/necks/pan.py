@@ -3,7 +3,7 @@
 # @file name  : pan.py
 # @author     : chenzhanpeng https://github.com/chenzpstar
 # @date       : 2022-01-04
-# @brief      : PAN模型
+# @brief      : PAN模型类
 """
 
 import torch.nn as nn
@@ -48,6 +48,13 @@ class PAN(nn.Module):
         if init_weights:
             self._initialize_weights()
 
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+
     def upsample(self, src_feat, tar_feat):
         return F.interpolate(src_feat, tar_feat.shape[2:], mode="nearest")
 
@@ -74,13 +81,6 @@ class PAN(nn.Module):
         n5 = self.relu(self.conv_n5(n5))
 
         return [n2, n3, n4, n5]
-
-    def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_uniform_(m.weight)
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
 
 
 def vgg16_pan(**kwargs):

@@ -3,23 +3,13 @@
 # @file name  : head.py
 # @author     : chenzhanpeng https://github.com/chenzpstar
 # @date       : 2022-01-05
-# @brief      : FCOS检测器
+# @brief      : FCOS检测网络类
 """
 
 import math
 
 import torch
 import torch.nn as nn
-
-
-class ScaleExp(nn.Module):
-    def __init__(self, init_value=1.0):
-        super(ScaleExp, self).__init__()
-        self.scale = nn.Parameter(
-            torch.tensor([init_value], dtype=torch.float32))
-
-    def forward(self, x):
-        return torch.exp(x * self.scale)
 
 
 class FCOSHead(nn.Module):
@@ -32,8 +22,9 @@ class FCOSHead(nn.Module):
                  init_weights=True):
         super(FCOSHead, self).__init__()
         self.num_cls = num_cls
-        self.prior = prior
+        self.use_gn = use_gn
         self.ctr_on_reg = ctr_on_reg
+        self.prior = prior
 
         cls_branch = []
         reg_branch = []
@@ -68,6 +59,16 @@ class FCOSHead(nn.Module):
             (1 - prior) / prior))  # cls bias init
         self.scale_exp = nn.ModuleList([ScaleExp(1.0) for _ in range(5)])
 
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.normal_(m.weight, 0, 0.01)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.GroupNorm):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
     def forward(self, feats):
         cls_logits = []
         reg_preds = []
@@ -87,12 +88,15 @@ class FCOSHead(nn.Module):
 
         return cls_logits, reg_preds, ctr_logits
 
-    def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.normal_(m.weight, 0, 0.01)
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
+
+class ScaleExp(nn.Module):
+    def __init__(self, init_value=1.0):
+        super(ScaleExp, self).__init__()
+        self.scale = nn.Parameter(torch.tensor([init_value],
+                                               dtype=torch.float))
+
+    def forward(self, x):
+        return torch.exp(x * self.scale)
 
 
 if __name__ == "__main__":

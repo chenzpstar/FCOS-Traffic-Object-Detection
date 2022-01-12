@@ -3,7 +3,7 @@
 # @file name  : darknet.py
 # @author     : chenzhanpeng https://github.com/chenzpstar
 # @date       : 2022-01-04
-# @brief      : DarkNet模型
+# @brief      : DarkNet模型类
 """
 
 import torch.nn as nn

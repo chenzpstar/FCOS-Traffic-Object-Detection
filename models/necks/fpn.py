@@ -3,7 +3,7 @@
 # @file name  : fpn.py
 # @author     : chenzhanpeng https://github.com/chenzpstar
 # @date       : 2022-01-04
-# @brief      : FPN模型
+# @brief      : FPN模型类
 """
 
 import torch.nn as nn
@@ -37,6 +37,13 @@ class FPN(nn.Module):
         if init_weights:
             self._initialize_weights()
 
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+
     def upsample(self, src_feat, tar_feat):
         return F.interpolate(src_feat, tar_feat.shape[2:], mode="nearest")
 
@@ -56,13 +63,6 @@ class FPN(nn.Module):
         p7 = self.conv7(F.relu(p6, inplace=True))
 
         return [p3, p4, p5, p6, p7]
-
-    def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_uniform_(m.weight)
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
 
 
 def vgg16_fpn(**kwargs):

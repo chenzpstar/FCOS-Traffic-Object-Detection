@@ -36,6 +36,6 @@ def split_json_file(file_dir):
 
 if __name__ == "__main__":
 
-    json_dir = "/home/vipuser/Documents/datasets/bdd100k/labels/100k"
+    json_dir = "/home/vipuser/Documents/data/bdd100k/labels/100k"
     split_json_file(json_dir)
     print("split json file finish!")

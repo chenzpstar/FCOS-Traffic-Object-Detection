@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-# @file name  : bdd100k.py
+# @file name  : kitti.py
 # @author     : chenzhanpeng https://github.com/chenzpstar
-# @date       : 2022-01-01
-# @brief      : bdd100k数据集读取类
+# @date       : 2022-01-02
+# @brief      : KITTI数据集读取类
 """
 
-import json
 import os
 import random
 
@@ -16,25 +15,22 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 
 
-class BDD100KDataset(Dataset):
+class KITTIDataset(Dataset):
     """
-    BDD100K dataset
+    KITTI dataset
 
-    - bdd100k
-        - images
-            - 100k
-                - train
-                    - 0000f77c-6257be58.jpg
-                - val
-                - test
-        - labels
-            - 100k
-                - train
-                    - 0000f77c-6257be58.json
-                - val
+    - kitti
+        - training
+            - image_2
+                - 000000.png
+            - label_2
+                - 000000.txt
+        - testing
+            - image_2
     """
     cls_names = [
-        "car", "bus", "truck", "motor", "bike", "pedestrian", "rider", "train"
+        "Car", "Van", "Truck", "Pedestrian", "Person_sitting", "Cyclist",
+        "Tram", "Misc"
     ]
     cls_num = len(cls_names)
 
@@ -44,7 +40,7 @@ class BDD100KDataset(Dataset):
                     for i, name in enumerate(cls_names)}  # {id: name}
 
     def __init__(self, root_dir, set_name, transform=None):
-        super(BDD100KDataset, self).__init__()
+        super(KITTIDataset, self).__init__()
         self.root_dir = root_dir
         self.set_name = set_name
         self.transform = transform
@@ -59,7 +55,7 @@ class BDD100KDataset(Dataset):
         img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)  # bgr -> rgb
 
         # [id,], [[x1, y1, x2, y2],]
-        cls_ids, boxes = self._get_json_label(label_path)
+        cls_ids, boxes = self._get_txt_label(label_path)
 
         # step 2: 数据预处理
         if self.transform is not None:
@@ -79,30 +75,24 @@ class BDD100KDataset(Dataset):
         return len(self.data_info)
 
     def _get_data_info(self):
-        img_dir = os.path.join(self.root_dir, "images", "100k", self.set_name)
+        img_dir = os.path.join(self.root_dir, self.set_name, "image_2")
         for img in os.listdir(img_dir):
-            if img.endswith(".jpg"):
+            if img.endswith(".png"):
                 img_path = os.path.join(img_dir, img)
-                label_path = img_path.replace("images", "labels").replace(
-                    ".jpg", ".json")
+                label_path = img_path.replace("image_2", "label_2").replace(
+                    ".png", ".txt")
                 if os.path.isfile(label_path):
                     self.data_info.append((img_path, label_path))
         random.shuffle(self.data_info)
 
-    def _get_json_label(self, json_path):
+    def _get_txt_label(self, txt_path):
         cls_ids, boxes = [], []
-        with open(json_path, 'r') as f:
-            anno = json.load(f)
-            objs = anno["labels"]
-            for obj in objs:
-                if obj["category"] in self.cls_names:
-                    cls_ids.append(self.cls_names_dict[obj["category"]])
-                    boxes.append([
-                        obj["box2d"]["x1"],
-                        obj["box2d"]["y1"],
-                        obj["box2d"]["x2"],
-                        obj["box2d"]["y2"],
-                    ])
+        with open(txt_path, 'r') as f:
+            for line in f.readlines():
+                obj = line.rstrip().split(' ')
+                if obj[0] in self.cls_names:
+                    cls_ids.append(self.cls_names_dict[obj[0]])
+                    boxes.append(list(map(float, obj[4:8])))
 
         return cls_ids, boxes
 
@@ -112,8 +102,8 @@ class BDD100KDataset(Dataset):
 
 if __name__ == "__main__":
 
-    data_dir = os.path.join("samples", "bdd100k")
-    train_set = BDD100KDataset(data_dir, "train")
+    data_dir = os.path.join("data", "sample", "kitti")
+    train_set = KITTIDataset(data_dir, "training")
     train_loader = DataLoader(train_set)
 
     img, cls_ids, boxes = next(iter(train_loader))
