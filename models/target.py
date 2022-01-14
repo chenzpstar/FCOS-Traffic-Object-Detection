@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 
 from config import FCOSConfig
+from utils import coords2centers, coords2offsets, decode_coords, reshape_feat
 
 
 class FCOSTarget(nn.Module):
@@ -24,19 +25,17 @@ class FCOSTarget(nn.Module):
         self.ranges = self.cfg.ranges
         assert len(self.strides) == len(self.ranges)
 
-    def forward(self, preds, cls_ids, boxes):
-        cls_logits, reg_preds, ctr_logits = preds
+    def forward(self, feats, cls_ids, boxes):
         stages_num = len(self.strides)
-        assert len(cls_logits) == stages_num
+        assert len(feats) == stages_num
 
         cls_targets = []
         reg_targets = []
         ctr_targets = []
 
         for i in range(stages_num):
-            stage_out = [cls_logits[i], reg_preds[i], ctr_logits[i]]
             stage_targets = self._gen_stage_targets(
-                stage_out,
+                feats[i],
                 cls_ids,
                 boxes,
                 self.strides[i],
@@ -46,44 +45,23 @@ class FCOSTarget(nn.Module):
             reg_targets.append(stage_targets[1])
             ctr_targets.append(stage_targets[2])
 
-        return (
-            torch.cat(cls_targets, dim=1),
-            torch.cat(reg_targets, dim=1),
-            torch.cat(ctr_targets, dim=1),
-        )
+        return cls_targets, reg_targets, ctr_targets
 
     def _gen_stage_targets(self,
-                           preds,
+                           feat,
                            cls_ids,
                            boxes,
                            stride,
                            range,
                            sample_radio=1.5):
-        cls_logits, reg_preds, ctr_logits = preds
-        batch_size, cls_num = cls_logits.shape[:2]  # bchw
+        coords = decode_coords(feat, stride).to(device=boxes.device)
+        feat = reshape_feat(feat)  # bchw -> b(hw)c
+
+        batch_size, hw = feat.shape[:2]  # b(hw)c
         boxes_num = boxes.shape[1]  # bnc
 
-        coords = self.decode_coords(cls_logits, stride).to(device=boxes.device)
-        cls_logits = cls_logits.permute(0, 2, 3, 1)  # bchw -> bhwc
-        cls_logits = cls_logits.reshape(
-            (batch_size, -1, cls_num))  # bhwc -> b(hw)c
-        reg_preds = reg_preds.permute(0, 2, 3, 1)  # bchw -> bhwc
-        reg_preds = reg_preds.reshape((batch_size, -1, 4))  # bhwc -> b(hw)c
-        ctr_logits = ctr_logits.permute(0, 2, 3, 1)  # bchw -> bhwc
-        ctr_logits = ctr_logits.reshape((batch_size, -1, 1))  # bhwc -> b(hw)c
-
-        hw = cls_logits.shape[1]
-
         # 1.计算每个坐标到所有标注框四边的偏移量
-        x = coords[:, 0]
-        y = coords[:, 1]
-        # [1,h*w,1] - [b,1,n] -> [b,h*w,n]
-        l_offsets = x[None, :, None] - boxes[..., 0][:, None, :]
-        t_offsets = y[None, :, None] - boxes[..., 1][:, None, :]
-        r_offsets = boxes[..., 2][:, None, :] - x[None, :, None]
-        b_offsets = boxes[..., 3][:, None, :] - y[None, :, None]
-        offsets = torch.stack([l_offsets, t_offsets, r_offsets, b_offsets],
-                              dim=-1)
+        offsets = coords2offsets(coords, boxes)
         assert offsets.shape == (batch_size, hw, boxes_num, 4)
 
         offsets_min = offsets.min(dim=-1)[0]
@@ -92,16 +70,7 @@ class FCOSTarget(nn.Module):
         stage_mask = (offsets_max > range[0]) & (offsets_max <= range[1])
 
         # 2.计算每个坐标到所有标注框中心的偏移量
-        boxes_cx = (boxes[..., 0] + boxes[..., 2]) / 2
-        boxes_cy = (boxes[..., 1] + boxes[..., 3]) / 2
-        # [1,h*w,1] - [b,1,n] -> [b,h*w,n]
-        l_ctr_offsets = x[None, :, None] - boxes_cx[:, None, :]
-        t_ctr_offsets = y[None, :, None] - boxes_cy[:, None, :]
-        r_ctr_offsets = -l_ctr_offsets
-        b_ctr_offsets = -t_ctr_offsets
-        ctr_offsets = torch.stack(
-            [l_ctr_offsets, t_ctr_offsets, r_ctr_offsets, b_ctr_offsets],
-            dim=-1)
+        ctr_offsets = coords2centers(coords, boxes)
         assert ctr_offsets.shape == (batch_size, hw, boxes_num, 4)
 
         radius = sample_radio * stride
@@ -152,18 +121,6 @@ class FCOSTarget(nn.Module):
 
         return cls_targets, reg_targets, ctr_targets
 
-    @staticmethod
-    def decode_coords(feat, stride):
-        h, w = feat.shape[2:]  # bchw
-        x_shifts = torch.arange(0, w * stride, stride, dtype=float)
-        y_shifts = torch.arange(0, h * stride, stride, dtype=float)
-
-        y_shift, x_shift = torch.meshgrid(y_shifts, x_shifts)
-        x_shift = x_shift.reshape(-1)
-        y_shift = y_shift.reshape(-1)
-
-        return torch.stack([x_shift, y_shift], dim=-1) + stride // 2
-
 
 if __name__ == "__main__":
 
@@ -172,13 +129,13 @@ if __name__ == "__main__":
 
     model = FCOSTarget()
 
-    preds = [
+    preds = (
         [torch.rand(2, 3, 2, 2)] * 5,
         [torch.rand(2, 4, 2, 2)] * 5,
         [torch.rand(2, 1, 2, 2)] * 5,
-    ]
+    )
     cls_ids = torch.rand(2, 3)
     boxes = torch.rand(2, 3, 4)
 
-    out = model(preds, cls_ids, boxes)
-    [print(branch_out.shape) for branch_out in out]
+    out = model(preds[0], cls_ids, boxes)
+    [print(stage_out.shape) for branch_out in out for stage_out in branch_out]

@@ -11,8 +11,15 @@ import torch.nn.functional as F
 
 
 class PAN(nn.Module):
-    def __init__(self, in_feats, num_feat=256, use_p5=True, init_weights=True):
+    def __init__(self, backbone, num_feat=256, use_p5=True, init_weights=True):
         super(PAN, self).__init__()
+        if backbone == "resnet50":
+            in_feats = [2048, 1024, 512, 256]
+        elif backbone == "darknet19":
+            in_feats = [1024, 512, 256, 128]
+        elif backbone == "vgg16":
+            in_feats = [512, 512, 256, 128]
+
         self.proj5 = nn.Conv2d(in_feats[0], num_feat, kernel_size=1, padding=0)
         self.proj4 = nn.Conv2d(in_feats[1], num_feat, kernel_size=1, padding=0)
         self.proj3 = nn.Conv2d(in_feats[2], num_feat, kernel_size=1, padding=0)
@@ -84,17 +91,17 @@ class PAN(nn.Module):
 
 
 def vgg16_pan(**kwargs):
-    model = PAN([512, 512, 256, 128], **kwargs)
+    model = PAN(backbone="vgg16", **kwargs)
     return model
 
 
 def resnet50_pan(**kwargs):
-    model = PAN([2048, 1024, 512, 256], **kwargs)
+    model = PAN(backbone="resnet50", **kwargs)
     return model
 
 
 def darknet19_pan(**kwargs):
-    model = PAN([1024, 512, 256, 128], **kwargs)
+    model = PAN(backbone="darknet19", **kwargs)
     return model
 
 

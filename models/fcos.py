@@ -8,32 +8,43 @@
 
 import torch.nn as nn
 
-from backbones import darknet19_bn
+from backbones import darknet19_bn, resnet50, vgg16_bn
 from config import FCOSConfig
 from detect import FCOSDetect
 from head import FCOSHead
 from loss import FCOSLoss
-from necks import darknet19_fpn
+from necks import FPN, PAN
 from target import FCOSTarget
 
 
 class FCOS(nn.Module):
-    def __init__(self, backbone, neck, mode="train", cfg=None):
+    def __init__(self, mode="train", cfg=None):
         super(FCOS, self).__init__()
         if cfg is None:
             self.cfg = FCOSConfig
         else:
             self.cfg = cfg
 
-        self.backbone = backbone(pretrained=self.cfg.pretrained)
-        self.neck = neck(num_feat=self.cfg.num_feat, use_p5=self.cfg.use_p5)
-        self.head = FCOSHead(
-            num_feat=self.cfg.num_feat,
-            num_cls=self.cfg.num_cls,
-            use_gn=self.cfg.use_gn,
-            ctr_on_reg=self.cfg.ctr_on_reg,
-            prior=self.cfg.prior,
-        )
+        if self.cfg.backbone == "resnet50":
+            self.backbone = resnet50(pretrained=self.cfg.pretrained)
+        elif self.cfg.backbone == "darknet19":
+            self.backbone = darknet19_bn(pretrained=self.cfg.pretrained)
+        elif self.cfg.backbone == "vgg16":
+            self.backbone = vgg16_bn(pretrained=self.cfg.pretrained)
+
+        if self.cfg.neck == "fpn":
+            self.neck = FPN(backbone=self.cfg.backbone,
+                            num_feat=self.cfg.num_feat,
+                            use_p5=self.cfg.use_p5)
+        elif self.cfg.neck == "pan":
+            self.neck = PAN(backbone=self.cfg.backbone,
+                            num_feat=self.cfg.num_feat)
+
+        self.head = FCOSHead(num_feat=self.cfg.num_feat,
+                             num_cls=self.cfg.num_cls,
+                             use_gn=self.cfg.use_gn,
+                             ctr_on_reg=self.cfg.ctr_on_reg,
+                             prior=self.cfg.prior)
 
         self.mode = mode
         if mode == "train":
@@ -51,7 +62,7 @@ class FCOS(nn.Module):
             neck_out = self.neck(backbone_out)
             preds = self.head(neck_out)
 
-            targets = self.target_layer(preds, cls_ids, boxes)
+            targets = self.target_layer(preds[0], cls_ids, boxes)
             losses = self.loss_layer(preds, targets)
 
             return losses
@@ -63,12 +74,13 @@ class FCOS(nn.Module):
             neck_out = self.neck(backbone_out)
             preds = self.head(neck_out)
 
-            cls_scores, cls_ids, boxes = self.detect_layer(preds)
-            boxes = [
-                self.clip_boxes(img, box) for img, box in zip(imgs, boxes)
+            cls_scores, cls_ids, pred_boxes = self.detect_layer(preds)
+            pred_boxes = [
+                self.clip_boxes(img, boxes)
+                for img, boxes in zip(imgs, pred_boxes)
             ]
 
-            return cls_scores, cls_ids, boxes
+            return cls_scores, cls_ids, pred_boxes
 
 
 class ClipBoxes(nn.Module):
@@ -92,7 +104,7 @@ if __name__ == "__main__":
     flag = 2
 
     if flag == 1:
-        model = FCOS(darknet19_bn, darknet19_fpn, mode="train")
+        model = FCOS(mode="train")
 
         imgs = torch.rand(2, 3, 224, 224)
         cls_ids = torch.rand(2, 3)
@@ -102,7 +114,7 @@ if __name__ == "__main__":
         [print(branch_out.item()) for branch_out in out]
 
     if flag == 2:
-        model = FCOS(darknet19_bn, darknet19_fpn, mode="inference")
+        model = FCOS(mode="inference")
 
         imgs = torch.rand(2, 3, 224, 224)
         out = model(imgs)

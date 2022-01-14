@@ -11,8 +11,15 @@ import torch.nn.functional as F
 
 
 class FPN(nn.Module):
-    def __init__(self, in_feats, num_feat=256, use_p5=True, init_weights=True):
+    def __init__(self, backbone, num_feat=256, use_p5=True, init_weights=True):
         super(FPN, self).__init__()
+        if backbone == "resnet50":
+            in_feats = [2048, 1024, 512]
+        elif backbone == "darknet19":
+            in_feats = [1024, 512, 256]
+        elif backbone == "vgg16":
+            in_feats = [512, 512, 256]
+
         self.proj5 = nn.Conv2d(in_feats[0], num_feat, kernel_size=1, padding=0)
         self.proj4 = nn.Conv2d(in_feats[1], num_feat, kernel_size=1, padding=0)
         self.proj3 = nn.Conv2d(in_feats[2], num_feat, kernel_size=1, padding=0)
@@ -66,17 +73,17 @@ class FPN(nn.Module):
 
 
 def vgg16_fpn(**kwargs):
-    model = FPN([512, 512, 256], **kwargs)
+    model = FPN(backbone="vgg16", **kwargs)
     return model
 
 
 def resnet50_fpn(**kwargs):
-    model = FPN([2048, 1024, 512], **kwargs)
+    model = FPN(backbone="resnet50", **kwargs)
     return model
 
 
 def darknet19_fpn(**kwargs):
-    model = FPN([1024, 512, 256], **kwargs)
+    model = FPN(backbone="darknet19", **kwargs)
     return model
 
 
@@ -89,6 +96,7 @@ if __name__ == "__main__":
     c5 = torch.rand(2, 1024, 7, 7)
     c4 = torch.rand(2, 512, 14, 14)
     c3 = torch.rand(2, 256, 28, 28)
+    c2 = torch.rand(2, 256, 56, 56)
 
-    out = model([c3, c4, c5])
+    out = model([c2, c3, c4, c5])
     [print(stage_out.shape) for stage_out in out]

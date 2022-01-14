@@ -69,7 +69,7 @@ class BDD100KDataset(Dataset):
         img_chw = img_rgb.transpose((2, 0, 1))  # hwc -> chw
         img_tensor = torch.from_numpy(img_chw).float()
 
-        cls_ids_tensor = torch.tensor(cls_ids, dtype=torch.int)
+        cls_ids_tensor = torch.tensor(cls_ids, dtype=torch.long)
         boxes_tensor = torch.tensor(boxes, dtype=torch.float)
 
         return img_tensor, cls_ids_tensor, boxes_tensor
@@ -112,7 +112,7 @@ class BDD100KDataset(Dataset):
 
 if __name__ == "__main__":
 
-    data_dir = os.path.join("data", "sample", "bdd100k")
+    data_dir = os.path.join("data", "samples", "bdd100k")
     train_set = BDD100KDataset(data_dir, "train")
     train_loader = DataLoader(train_set)
 
@@ -122,8 +122,8 @@ if __name__ == "__main__":
     img = img.transpose((1, 2, 0))  # chw -> hwc
     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)  # rgb -> bgr
 
-    cls_ids = cls_ids.squeeze(0).data.numpy().astype(int)
-    boxes = boxes.squeeze(0).data.numpy().astype(int)
+    cls_ids = cls_ids.squeeze(0).data.numpy().astype(np.int64)
+    boxes = boxes.squeeze(0).data.numpy().astype(np.int64)
 
     for cls_id, box in zip(cls_ids, boxes):
         cls_name = train_set.cls_ids_dict[cls_id]

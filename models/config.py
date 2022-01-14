@@ -9,23 +9,23 @@
 
 class FCOSConfig():
     # backbone
-    backbone = "darknet19"
+    backbone = "darknet19"  # ["resnet50", "darknet19", "vgg16"]
     pretrained = False
 
     # neck
-    neck = "fpn"
-    num_feat = 256
+    neck = "fpn"  # ["fpn, pan"]
+    num_feat = 256  # 256
     use_p5 = True
 
     # head
     num_cls = 3
     use_gn = True
     ctr_on_reg = True
-    prior = 0.01
+    prior = 0.01  # 0.01
 
     # loss
-    cls_loss = "focal"
-    reg_loss = "giou"
+    cls_loss = "focal"  # ["bce", "focal"]
+    reg_loss = "giou"  # ["smooth_l1", "iou", "giou", "diou"]
     use_ctr = True
 
     # target
@@ -36,3 +36,4 @@ class FCOSConfig():
     score_thr = 0.05  # 0.05
     nms_iou_thr = 0.5  # 0.6
     max_boxes_num = 150  # 1000
+    nms_mode = "iou"  # ["iou", "diou"]
