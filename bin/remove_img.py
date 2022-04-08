@@ -17,9 +17,9 @@ def remove_nolabel_img(img_dir, out_dir):
     for img in os.listdir(img_dir):
         if img.endswith(".jpg"):
             img_path = os.path.join(img_dir, img)
-            label_path = img_path.replace("images",
-                                          "labels").replace(".jpg", ".json")
-            if not os.path.isfile(label_path):
+            anno_path = img_path.replace("images",
+                                         "labels").replace(".jpg", ".json")
+            if not os.path.isfile(anno_path):
                 shutil.move(img_path, out_dir)
 
 
@@ -29,4 +29,4 @@ if __name__ == "__main__":
     img_dir = os.path.join(root_dir, "train")
     out_dir = os.path.join(root_dir, "train_nolabel")
     remove_nolabel_img(img_dir, out_dir)
-    print("remove nolabel img finish!")
+    print("finish removing nolabel img")

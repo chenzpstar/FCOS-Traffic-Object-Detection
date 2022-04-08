@@ -10,7 +10,7 @@
 class FCOSConfig():
     # backbone
     backbone = "darknet19"  # ["resnet50", "darknet19", "vgg16"]
-    pretrained = False
+    pretrained = True
 
     # neck
     neck = "fpn"  # ["fpn, pan"]
@@ -30,7 +30,7 @@ class FCOSConfig():
 
     # target
     strides = [8, 16, 32, 64, 128]
-    ranges = [[-1, 64], [64, 128], [128, 256], [256, 512], [512, 99999999]]
+    ranges = [[-1, 64], [64, 128], [128, 256], [256, 512], [512, 999999]]
 
     # detect
     score_thr = 0.05  # 0.05

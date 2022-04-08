@@ -9,12 +9,10 @@
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 
-__all__ = ['DarkNet', 'darknet19', 'darknet19_bn']
+__all__ = ['DarkNet', 'darknet19']
 
 model_urls = {
     'darknet19':
-    'https://s3.ap-northeast-2.amazonaws.com/deepbaksuvision/darknet19-deepBakSu-e1b3ec1e.pth',
-    'darknet19_bn':
     'https://s3.ap-northeast-2.amazonaws.com/deepbaksuvision/darknet19-deepBakSu-e1b3ec1e.pth'
 }
 
@@ -92,20 +90,6 @@ cfg = [[32, 'M', 64], ['M', 128, 64, 128], ['M', 256, 128, 256],
 
 
 def darknet19(pretrained=False, **kwargs):
-    """DarkNet 19-layer model
-
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-    """
-    if pretrained:
-        kwargs['init_weights'] = False
-    model = DarkNet(make_layers(cfg), **kwargs)
-    if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['darknet19']))
-    return model
-
-
-def darknet19_bn(pretrained=False, **kwargs):
     """DarkNet 19-layer model with batch normalization
 
     Args:
@@ -115,7 +99,7 @@ def darknet19_bn(pretrained=False, **kwargs):
         kwargs['init_weights'] = False
     model = DarkNet(make_layers(cfg, batch_norm=True), **kwargs)
     if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['darknet19_bn']))
+        model.load_state_dict(model_zoo.load_url(model_urls['darknet19']))
     return model
 
 

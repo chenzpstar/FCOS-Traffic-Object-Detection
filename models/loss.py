@@ -30,10 +30,8 @@ def focal_loss(logits, targets, alpha=0.25, gamma=2.0, eps=1e-10):
 
 
 def smooth_l1_loss(preds, targets):
-    loss = (preds - targets).abs()
-    mask = loss < 1
-    loss[mask] = 0.5 * loss[mask].pow(2)
-    loss[~mask] -= 0.5
+    res = (preds - targets).abs()
+    loss = torch.where(res < 1, 0.5 * res.pow(2), res - 0.5)
 
     return loss.sum()
 

@@ -12,19 +12,23 @@ Code: SD6
 
 完成进度：
 
-- [ ] 数据集 ./data
+- [x] 数据集 ./data
 
     - [x] kitti.py
 
     - [x] bdd100k.py
 
-    - [ ] 数据变换 transform.py
+    - [x] 数据变换 transform.py
+
+    - [x] 数据打包 collate.py
 
 - [x] 模型 ./models
 
     - [x] ./backbones
 
     - [x] ./necks
+
+    - [x] ./layers
 
     - [x] head.py
 
@@ -36,15 +40,15 @@ Code: SD6
 
     - [x] 检测后处理 detect.py
 
-- [ ] 工具 ./tools
+- [x] 工具 ./tools
 
-    - [ ] 评估 eval.py
+    - [x] 评估 eval.py
 
-    - [ ] 训练 train.py
+    - [x] 训练 train.py
 
-    - [ ] 测试 test.py
+    - [x] 测试 test.py
 
-    - [ ] 推理 inference.py
+    - [x] 推理 inference.py
 
 
 ## 2 模型

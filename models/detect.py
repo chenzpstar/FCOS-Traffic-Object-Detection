@@ -36,17 +36,17 @@ class FCOSDetect(nn.Module):
         cls_preds = cls_logits.sigmoid()
         ctr_preds = ctr_logits.sigmoid()
 
-        cls_scores, cls_ids = cls_preds.max(dim=-1)  # b(hw)c -> b(hw)
+        cls_scores, pred_labels = cls_preds.max(dim=-1)  # b(hw)c -> b(hw)
         if self.use_ctr:
             cls_scores = (cls_scores * ctr_preds.squeeze(dim=-1)).sqrt()
-        cls_ids += 1
+        pred_labels += 1
 
         pred_boxes = decode_preds(reg_preds, self.strides)  # bchw -> b(hw)c
 
-        return self._post_process((cls_scores, cls_ids, pred_boxes))
+        return self._post_process((cls_scores, pred_labels, pred_boxes))
 
     def _post_process(self, preds):
-        cls_scores, cls_ids, pred_boxes = preds
+        cls_scores, pred_labels, pred_boxes = preds
         batch_size = cls_scores.shape[0]  # b(hw)
 
         max_num = min(self.max_boxes_num, cls_scores.shape[-1])
@@ -54,42 +54,42 @@ class FCOSDetect(nn.Module):
         assert topk_idx.shape == (batch_size, max_num)
 
         nms_cls_scores = []
-        nms_cls_ids = []
+        nms_pred_labels = []
         nms_pred_boxes = []
 
         for i in range(batch_size):
             # 1.挑选topk
             topk_cls_scores = cls_scores[i][topk_idx[i]]
-            topk_cls_ids = cls_ids[i][topk_idx[i]]
+            topk_pred_labels = pred_labels[i][topk_idx[i]]
             topk_pred_boxes = pred_boxes[i][topk_idx[i]]
 
             # 2.过滤低分
             score_mask = topk_cls_scores > self.score_thr
             filter_cls_scores = topk_cls_scores[score_mask]
-            filter_cls_ids = topk_cls_ids[score_mask]
+            filter_pred_labels = topk_pred_labels[score_mask]
             filter_pred_boxes = topk_pred_boxes[score_mask]
 
             # 3.计算nms
             nms_idx = self._batch_nms(
                 filter_cls_scores,
-                filter_cls_ids,
+                filter_pred_labels,
                 filter_pred_boxes,
                 self.nms_iou_thr,
                 self.nms_mode,
             )
             nms_cls_scores.append(filter_cls_scores[nms_idx])
-            nms_cls_ids.append(filter_cls_ids[nms_idx])
+            nms_pred_labels.append(filter_pred_labels[nms_idx])
             nms_pred_boxes.append(filter_pred_boxes[nms_idx])
 
-        return nms_cls_scores, nms_cls_ids, nms_pred_boxes
+        return nms_cls_scores, nms_pred_labels, nms_pred_boxes
 
-    def _batch_nms(self, cls_scores, cls_ids, boxes, thr, mode="iou"):
+    def _batch_nms(self, cls_scores, labels, boxes, thr, mode="iou"):
         if boxes.numel() == 0:
             return torch.zeros(0, dtype=torch.long, device=boxes.device)
         assert boxes.shape[-1] == 4
 
         coord_max = boxes.max()
-        offsets = cls_ids.to(boxes.device) * (coord_max + 1)
+        offsets = labels.to(boxes) * (coord_max + 1)
         nms_boxes = boxes + offsets.unsqueeze(dim=-1)
 
         return box_nms(cls_scores, nms_boxes, thr, mode)

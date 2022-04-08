@@ -1,5 +1,6 @@
 from .backbones import *
 from .necks import *
+from .layers import *
 from .head import FCOSHead
 from .loss import FCOSLoss
 from .target import FCOSTarget

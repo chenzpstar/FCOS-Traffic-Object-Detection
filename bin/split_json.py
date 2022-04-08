@@ -38,4 +38,4 @@ if __name__ == "__main__":
 
     json_dir = "/home/vipuser/Documents/data/bdd100k/labels/100k"
     split_json_file(json_dir)
-    print("split json file finish!")
+    print("finish splitting json file")

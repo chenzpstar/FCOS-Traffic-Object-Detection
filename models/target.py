@@ -25,7 +25,7 @@ class FCOSTarget(nn.Module):
         self.ranges = self.cfg.ranges
         assert len(self.strides) == len(self.ranges)
 
-    def forward(self, feats, cls_ids, boxes):
+    def forward(self, feats, labels, boxes):
         stages_num = len(self.strides)
         assert len(feats) == stages_num
 
@@ -36,7 +36,7 @@ class FCOSTarget(nn.Module):
         for i in range(stages_num):
             stage_targets = self._gen_stage_targets(
                 feats[i],
-                cls_ids,
+                labels,
                 boxes,
                 self.strides[i],
                 self.ranges[i],
@@ -49,7 +49,7 @@ class FCOSTarget(nn.Module):
 
     def _gen_stage_targets(self,
                            feat,
-                           cls_ids,
+                           labels,
                            boxes,
                            stride,
                            range,
@@ -83,16 +83,16 @@ class FCOSTarget(nn.Module):
         # 3.计算所有标注框面积
         areas = (offsets[..., 0] + offsets[..., 2]) * (offsets[..., 1] +
                                                        offsets[..., 3])
-        areas[~pos_mask] = 99999999  # neg_areas
+        areas[~pos_mask] = 999999  # neg_areas
         areas_min_idx = areas.min(dim=-1)[1].unsqueeze(dim=-1)
         areas_min_mask = torch.zeros_like(areas, dtype=torch.bool).scatter(
             -1, areas_min_idx, 1)
         assert areas_min_mask.shape == (batch_size, hw, boxes_num)
 
         # 4.计算分类目标
-        cls_ids = torch.broadcast_tensors(
-            cls_ids[:, None, :], areas.long())[0]  # [b,1,n] -> [b,h*w,n]
-        cls_targets = cls_ids[areas_min_mask].reshape((batch_size, -1, 1))
+        labels = torch.broadcast_tensors(
+            labels[:, None, :], areas.long())[0]  # [b,1,n] -> [b,h*w,n]
+        cls_targets = labels[areas_min_mask].reshape((batch_size, -1, 1))
         assert cls_targets.shape == (batch_size, hw, 1)
 
         # 5.计算回归目标
@@ -111,7 +111,7 @@ class FCOSTarget(nn.Module):
         assert ctr_targets.shape == (batch_size, hw, 1)
 
         # 7.处理负样本
-        pos_mask = pos_mask.sum(dim=-1).long()
+        pos_mask = pos_mask.long().sum(dim=-1)
         pos_mask = pos_mask >= 1
         assert pos_mask.shape == (batch_size, hw)
 
@@ -134,8 +134,8 @@ if __name__ == "__main__":
         [torch.rand(2, 4, 2, 2)] * 5,
         [torch.rand(2, 1, 2, 2)] * 5,
     )
-    cls_ids = torch.rand(2, 3)
+    labels = torch.rand(2, 3)
     boxes = torch.rand(2, 3, 4)
 
-    out = model(preds[0], cls_ids, boxes)
+    out = model(preds[0], labels, boxes)
     [print(stage_out.shape) for branch_out in out for stage_out in branch_out]

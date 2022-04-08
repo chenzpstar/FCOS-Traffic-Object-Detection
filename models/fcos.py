@@ -8,7 +8,7 @@
 
 import torch.nn as nn
 
-from backbones import darknet19_bn, resnet50, vgg16_bn
+from backbones import darknet19, resnet50, vgg16_bn
 from config import FCOSConfig
 from detect import FCOSDetect
 from head import FCOSHead
@@ -18,7 +18,7 @@ from target import FCOSTarget
 
 
 class FCOS(nn.Module):
-    def __init__(self, mode="train", cfg=None):
+    def __init__(self, cfg=None):
         super(FCOS, self).__init__()
         if cfg is None:
             self.cfg = FCOSConfig
@@ -28,7 +28,7 @@ class FCOS(nn.Module):
         if self.cfg.backbone == "resnet50":
             self.backbone = resnet50(pretrained=self.cfg.pretrained)
         elif self.cfg.backbone == "darknet19":
-            self.backbone = darknet19_bn(pretrained=self.cfg.pretrained)
+            self.backbone = darknet19(pretrained=self.cfg.pretrained)
         elif self.cfg.backbone == "vgg16":
             self.backbone = vgg16_bn(pretrained=self.cfg.pretrained)
 
@@ -46,6 +46,23 @@ class FCOS(nn.Module):
                              ctr_on_reg=self.cfg.ctr_on_reg,
                              prior=self.cfg.prior)
 
+    def forward(self, imgs):
+        backbone_out = self.backbone(imgs)
+        neck_out = self.neck(backbone_out)
+        preds = self.head(neck_out)
+
+        return preds
+
+
+class FCOSDetector(nn.Module):
+    def __init__(self, mode="train", cfg=None):
+        super(FCOSDetector, self).__init__()
+        if cfg is None:
+            self.cfg = FCOSConfig
+        else:
+            self.cfg = cfg
+
+        self.fcos = FCOS(cfg=cfg)
         self.mode = mode
         if mode == "train":
             self.target_layer = FCOSTarget(self.cfg)
@@ -56,31 +73,23 @@ class FCOS(nn.Module):
 
     def forward(self, inputs):
         if self.mode == "train":
-            imgs, cls_ids, boxes = inputs
-
-            backbone_out = self.backbone(imgs)
-            neck_out = self.neck(backbone_out)
-            preds = self.head(neck_out)
-
-            targets = self.target_layer(preds[0], cls_ids, boxes)
+            imgs, labels, boxes = inputs
+            preds = self.fcos(imgs)
+            targets = self.target_layer(preds[0], labels, boxes)
             losses = self.loss_layer(preds, targets)
 
             return losses
 
         elif self.mode == "inference":
             imgs = inputs
-
-            backbone_out = self.backbone(imgs)
-            neck_out = self.neck(backbone_out)
-            preds = self.head(neck_out)
-
-            cls_scores, cls_ids, pred_boxes = self.detect_layer(preds)
+            preds = self.fcos(imgs)
+            cls_scores, pred_labels, pred_boxes = self.detect_layer(preds)
             pred_boxes = [
                 self.clip_boxes(img, boxes)
                 for img, boxes in zip(imgs, pred_boxes)
             ]
 
-            return cls_scores, cls_ids, pred_boxes
+            return cls_scores, pred_labels, pred_boxes
 
 
 class ClipBoxes(nn.Module):
@@ -104,17 +113,17 @@ if __name__ == "__main__":
     flag = 2
 
     if flag == 1:
-        model = FCOS(mode="train")
+        model = FCOSDetector(mode="train")
 
         imgs = torch.rand(2, 3, 224, 224)
-        cls_ids = torch.rand(2, 3)
+        labels = torch.rand(2, 3)
         boxes = torch.rand(2, 3, 4)
 
-        out = model((imgs, cls_ids, boxes))
+        out = model((imgs, labels, boxes))
         [print(branch_out.item()) for branch_out in out]
 
     if flag == 2:
-        model = FCOS(mode="inference")
+        model = FCOSDetector(mode="inference")
 
         imgs = torch.rand(2, 3, 224, 224)
         out = model(imgs)
