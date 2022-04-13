@@ -8,7 +8,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(BASE_DIR, ".."))
 
 import torch
-from data.transform import TestTransform, TrainTransform
+from data.transform import AugTransform, BaseTransform
 from easydict import EasyDict
 
 cfg = EasyDict()
@@ -38,8 +38,8 @@ cfg.ctr_on_reg = True
 cfg.prior = 0.01  # 0.01
 
 # loss
-cfg.cls_loss = "bce"  # ["bce", "focal"]
-# cfg.cls_loss = "focal"
+# cfg.cls_loss = "bce"  # ["bce", "focal"]
+cfg.cls_loss = "focal"
 cfg.reg_loss = "iou"  # ["smooth_l1", "iou", "giou", "diou"]
 # cfg.reg_loss = "giou"
 # cfg.reg_loss = "diou"
@@ -76,8 +76,8 @@ cfg.max_epoch = 12
 
 # transform
 cfg.size = [800, 1333]
-cfg.mean = [0.485, 0.456, 0.406]
-cfg.std = [0.229, 0.224, 0.225]
+cfg.mean = [0.3665, 0.3857, 0.3744]  # [0.485, 0.456, 0.406]
+cfg.std = [0.3160, 0.3205, 0.3262]  # [0.229, 0.224, 0.225]
 
-cfg.train_trans = TrainTransform(cfg.size, cfg.mean, cfg.std)
-cfg.valid_trans = TestTransform(cfg.size, cfg.mean, cfg.std)
+cfg.aug_trans = AugTransform(cfg.size, cfg.mean, cfg.std)
+cfg.base_trans = BaseTransform(cfg.size, cfg.mean, cfg.std)

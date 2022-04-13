@@ -3,7 +3,7 @@
 # @file name  : eval.py
 # @author     : chenzhanpeng https://github.com/chenzpstar
 # @date       : 2022-01-17
-# @brief      : FCOS评估
+# @brief      : 评估函数
 """
 
 import numpy as np

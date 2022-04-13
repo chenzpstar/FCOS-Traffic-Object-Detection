@@ -95,28 +95,38 @@ class BDD100KDataset(Dataset):
         labels, boxes = [], []
         with open(json_path, 'r') as f:
             anno = json.load(f)
-            objs = anno["labels"]
-            for obj in objs:
-                if obj["category"] in self.cls_names:
-                    labels.append(self.cls_names_dict[obj["category"]])
-                    boxes.append([
-                        obj["box2d"]["x1"],
-                        obj["box2d"]["y1"],
-                        obj["box2d"]["x2"],
-                        obj["box2d"]["y2"],
-                    ])
+            try:
+                objs = anno["labels"]
+            except KeyError:
+                pass
+            else:
+                for obj in objs:
+                    if obj["category"] in self.cls_names:
+                        labels.append(self.cls_names_dict[obj["category"]])
+                        boxes.append([
+                            obj["box2d"]["x1"],
+                            obj["box2d"]["y1"],
+                            obj["box2d"]["x2"],
+                            obj["box2d"]["y2"],
+                        ])
 
         return np.array(labels), np.array(boxes)
 
 
 if __name__ == "__main__":
 
+    import os
+    import sys
+
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    sys.path.append(os.path.join(BASE_DIR, ".."))
+
     import matplotlib.pyplot as plt
 
     cmap = plt.get_cmap("rainbow")
     colors = [cmap(i) for i in np.linspace(0, 1, 10)]
 
-    data_dir = os.path.join("data", "samples", "bdd100k")
+    data_dir = os.path.join(BASE_DIR, "..", "data", "samples", "bdd100k")
     train_set = BDD100KDataset(data_dir, "train")
     train_loader = DataLoader(train_set)
 

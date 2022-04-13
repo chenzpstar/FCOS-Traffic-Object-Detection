@@ -17,7 +17,7 @@ import torch
 from data.bdd100k import BDD100KDataset
 from data.collate import Collate
 from data.kitti import KITTIDataset
-from data.transform import TestTransform
+from data.transform import BaseTransform
 from models.fcos import FCOSDetector
 from torch.utils.data import DataLoader
 
@@ -49,7 +49,7 @@ if __name__ == "__main__":
     # 1. dataset
     test_set = BDD100KDataset(data_dir,
                               set_name="test",
-                              transform=TestTransform(size, mean, std))
+                              transform=BaseTransform(size, mean, std))
     print("INFO ==> test dataset has {} imgs".format(len(test_set)))
 
     test_loader = DataLoader(

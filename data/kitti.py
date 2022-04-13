@@ -100,12 +100,18 @@ class KITTIDataset(Dataset):
 
 if __name__ == "__main__":
 
+    import os
+    import sys
+
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    sys.path.append(os.path.join(BASE_DIR, ".."))
+
     import matplotlib.pyplot as plt
 
     cmap = plt.get_cmap("rainbow")
     colors = [cmap(i) for i in np.linspace(0, 1, 10)]
 
-    data_dir = os.path.join("data", "samples", "kitti")
+    data_dir = os.path.join(BASE_DIR, "..", "data", "samples", "kitti")
     train_set = KITTIDataset(data_dir, "training")
     train_loader = DataLoader(train_set)
 

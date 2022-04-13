@@ -72,12 +72,12 @@ if __name__ == "__main__":
     train_set = BDD100KDataset(
         data_dir,
         set_name="train",
-        transform=cfg.train_trans,
+        transform=cfg.aug_trans,
     )
     valid_set = BDD100KDataset(
         data_dir,
         set_name="val",
-        transform=cfg.valid_trans,
+        transform=cfg.base_trans,
     )
 
     # 构建DataLoder

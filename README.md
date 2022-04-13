@@ -2,9 +2,7 @@
 
 This project is for personal study and under development, please click 'watch' or 'star' my repo and check back later if you are interested in it.
 
-Time: 2022.1.1 - 2022.1.31
-
-Code: SD6
+Time: 2022.1.1 - 2022.4.30
 
 ## 1 任务简述
 

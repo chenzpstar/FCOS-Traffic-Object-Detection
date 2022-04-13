@@ -34,8 +34,15 @@ class Collate:
                       value=0.))
             pad_labels_list.append(
                 F.pad(labels, (0, max_num - labels.shape[0]), value=-1))
-            pad_boxes_list.append(
-                F.pad(boxes, (0, 0, 0, max_num - boxes.shape[0]), value=-1))
+            if boxes.shape[0] == 0:
+                boxes = boxes.unsqueeze(0)
+                pad_boxes_list.append(
+                    F.pad(boxes, (0, 4, 0, max_num - boxes.shape[0]),
+                          value=-1))
+            else:
+                pad_boxes_list.append(
+                    F.pad(boxes, (0, 0, 0, max_num - boxes.shape[0]),
+                          value=-1))
 
         batch_imgs = torch.stack(pad_imgs_list)
         batch_labels = torch.stack(pad_labels_list)
@@ -47,13 +54,25 @@ class Collate:
 if __name__ == "__main__":
 
     import os
+    import sys
+
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    sys.path.append(os.path.join(BASE_DIR, ".."))
 
     from torch.utils.data import DataLoader
 
     from bdd100k import BDD100KDataset
+    from kitti import KITTIDataset
+    from transform import BaseTransform
 
-    data_dir = os.path.join("data", "samples", "bdd100k")
-    train_set = BDD100KDataset(data_dir, "train")
+    size = [800, 1333]
+    mean = [0.485, 0.456, 0.406]
+    std = [0.229, 0.224, 0.225]
+
+    data_dir = os.path.join(BASE_DIR, "..", "data", "samples", "kitti")
+    train_set = KITTIDataset(data_dir,
+                             "training",
+                             transform=BaseTransform(size, mean, std))
     train_loader = DataLoader(train_set, batch_size=4, collate_fn=Collate())
 
     imgs, labels, boxes = next(iter(train_loader))

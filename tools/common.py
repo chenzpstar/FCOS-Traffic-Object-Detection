@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
-# common.py
+"""
+# @file name  : common.py
+# @author     : chenzhanpeng https://github.com/chenzpstar
+# @date       : 2022-01-16
+# @brief      : 通用函数
+"""
 
 import logging
 import os
