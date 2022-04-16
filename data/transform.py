@@ -282,8 +282,8 @@ if __name__ == "__main__":
     boxes = boxes.squeeze(0).data.numpy().astype(np.int64)
 
     for label, box in zip(labels, boxes):
-        color = [i * 255 for i in colors[int(label) - 1]]
-        cls_name = train_set.labels_dict[int(label)]
+        color = [i * 255 for i in colors[label - 1]]
+        cls_name = train_set.labels_dict[label]
         cv2.rectangle(img, box[:2], box[2:], color, 2)
         cv2.rectangle(img, box[:2], (box[0] + len(cls_name) * 15, box[1] - 25),
                       color, -1)

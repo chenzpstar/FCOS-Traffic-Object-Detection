@@ -24,11 +24,11 @@ def calc_mean_std(data_loader):
 
     for data in tqdm(data_loader):
         img = data[0]
-        img_c = img.shape[1]
+        chn_num = img.shape[1]
         img = img / 255.0
-        img = img.permute(1, 0, 2, 3).reshape(img_c, -1)
-        img_mean_sigma += img.mean(dim=1)
-        img_std_sigma += img.pow(2).mean(dim=1)
+        img = img.permute(0, 2, 3, 1).reshape((-1, chn_num))  # bchw -> (bhw)c
+        img_mean_sigma += img.mean(dim=0)
+        img_std_sigma += img.pow(2).mean(dim=0)
 
     num_batches = len(data_loader)
     img_mean = img_mean_sigma / num_batches

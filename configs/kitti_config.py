@@ -32,7 +32,7 @@ cfg.num_feat = 256  # 256
 cfg.use_p5 = True
 
 # head
-cfg.num_cls = 3
+cfg.num_cls = 8
 cfg.use_gn = True
 cfg.ctr_on_reg = True
 cfg.prior = 0.01  # 0.01
@@ -40,7 +40,8 @@ cfg.prior = 0.01  # 0.01
 # loss
 # cfg.cls_loss = "bce"  # ["bce", "focal"]
 cfg.cls_loss = "focal"
-cfg.reg_loss = "iou"  # ["smooth_l1", "iou", "giou", "diou"]
+# cfg.reg_loss = "smooth_l1"  # ["smooth_l1", "iou", "giou", "diou"]
+cfg.reg_loss = "iou"
 # cfg.reg_loss = "giou"
 # cfg.reg_loss = "diou"
 cfg.use_ctr = True
@@ -57,14 +58,14 @@ cfg.nms_mode = "iou"  # ["iou", "diou"]
 # cfg.nms_mode = "diou"
 
 # dataloader
-cfg.train_bs = 8
+cfg.train_bs = 4
 cfg.valid_bs = 4
 cfg.workers = 16
 
 # optimizer
-cfg.lr_init = 0.01
-cfg.momentum = 0.9
-cfg.weight_decay = 1e-4
+cfg.lr_init = 0.005  # 0.01
+cfg.momentum = 0.9  # 0.9
+cfg.weight_decay = 1e-4  # 1e-4
 
 # scheduler
 cfg.exp_lr = False

@@ -8,13 +8,13 @@
 
 import torch.nn as nn
 
-from backbones import darknet19, resnet50, vgg16_bn
-from config import FCOSConfig
-from detect import FCOSDetect
-from head import FCOSHead
-from loss import FCOSLoss
-from necks import FPN, PAN
-from target import FCOSTarget
+from .backbones import darknet19, resnet50, vgg16_bn
+from .config import FCOSConfig
+from .detect import FCOSDetect
+from .head import FCOSHead
+from .loss import FCOSLoss
+from .necks import FPN, PAN
+from .target import FCOSTarget
 
 
 class FCOS(nn.Module):

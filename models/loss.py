@@ -9,8 +9,8 @@
 import torch
 import torch.nn as nn
 
-from config import FCOSConfig
-from utils import decode_preds, decode_targets, reshape_feats
+from .config import FCOSConfig
+from .utils import decode_preds, decode_targets, reshape_feats
 
 
 def bce_loss(logits, targets, eps=1e-10):
@@ -147,7 +147,7 @@ def diou_loss(preds, targets):
     return loss.sum()
 
 
-def cal_cls_loss(logits, targets, mode="focal"):
+def calc_cls_loss(logits, targets, mode="focal"):
     # logits: [b,h*w,c]
     # targets: [b,h*w,1]
     # pos_mask: [b,h*w]
@@ -176,7 +176,7 @@ def cal_cls_loss(logits, targets, mode="focal"):
     return torch.stack(loss, dim=0)
 
 
-def cal_reg_loss(preds, targets, pos_mask, mode="giou"):
+def calc_reg_loss(preds, targets, pos_mask, mode="iou"):
     # preds: [b,h*w,4]
     # targets: [b,h*w,4]
     # pos_mask: [b,h*w]
@@ -205,7 +205,7 @@ def cal_reg_loss(preds, targets, pos_mask, mode="giou"):
     return torch.stack(loss, dim=0)
 
 
-def cal_ctr_loss(logits, targets, pos_mask):
+def calc_ctr_loss(logits, targets, pos_mask):
     # logits: [b,h*w,1]
     # targets: [b,h*w,1]
     # pos_mask: [b,h*w]
@@ -247,20 +247,20 @@ class FCOSLoss(nn.Module):
         pos_mask = (ctr_targets > -1).squeeze(dim=-1)  # b(hw)c -> b(hw)
         pos_num = pos_mask.sum(dim=-1).clamp(min=1).float()
 
-        cls_loss = cal_cls_loss(cls_logits, cls_targets,
-                                self.cls_loss) / pos_num
-        ctr_loss = cal_ctr_loss(ctr_logits, ctr_targets, pos_mask) / pos_num
+        cls_loss = calc_cls_loss(cls_logits, cls_targets,
+                                 self.cls_loss) / pos_num
+        ctr_loss = calc_ctr_loss(ctr_logits, ctr_targets, pos_mask) / pos_num
 
         if self.reg_loss == "diou":
             pred_boxes = decode_preds(reg_preds)  # bchw -> b(hw)c
             target_boxes = decode_targets(reg_preds, reg_targets)  # b(hw)c
-            reg_loss = cal_reg_loss(pred_boxes, target_boxes, pos_mask,
-                                    self.reg_loss) / pos_num
+            reg_loss = calc_reg_loss(pred_boxes, target_boxes, pos_mask,
+                                     self.reg_loss) / pos_num
         else:
             reg_preds = reshape_feats(reg_preds)  # bchw -> b(hw)c
             reg_targets = torch.cat(reg_targets, dim=1)
-            reg_loss = cal_reg_loss(reg_preds, reg_targets, pos_mask,
-                                    self.reg_loss) / pos_num
+            reg_loss = calc_reg_loss(reg_preds, reg_targets, pos_mask,
+                                     self.reg_loss) / pos_num
 
         cls_loss = cls_loss.mean()
         reg_loss = reg_loss.mean()
@@ -269,7 +269,7 @@ class FCOSLoss(nn.Module):
         flag = 1.0 if self.use_ctr else 0.0
         total_loss = cls_loss + reg_loss + ctr_loss * flag
 
-        return cls_loss, reg_loss, ctr_loss, total_loss
+        return total_loss, cls_loss, reg_loss, ctr_loss
 
 
 if __name__ == "__main__":

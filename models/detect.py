@@ -9,8 +9,8 @@
 import torch
 import torch.nn as nn
 
-from config import FCOSConfig
-from utils import box_nms, decode_preds, reshape_feats
+from .config import FCOSConfig
+from .utils import box_nms, decode_preds, reshape_feats
 
 
 class FCOSDetect(nn.Module):

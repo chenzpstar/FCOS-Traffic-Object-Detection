@@ -12,6 +12,7 @@ import random
 import cv2
 import numpy as np
 import torch
+from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset
 
 
@@ -29,8 +30,8 @@ class KITTIDataset(Dataset):
             - image_2
     """
     cls_names = [
-        "Background", "Car", "Van", "Truck", "Pedestrian", "Person_sitting",
-        "Cyclist", "Tram", "Misc"
+        "background", "car", "van", "truck", "pedestrian", "person_sitting",
+        "cyclist", "tram", "misc"
     ]
     cls_num = len(cls_names)
 
@@ -39,13 +40,29 @@ class KITTIDataset(Dataset):
     labels_dict = {idx: name
                    for idx, name in enumerate(cls_names)}  # {idx: name}
 
-    def __init__(self, root_dir, set_name, transform=None):
+    def __init__(self,
+                 root_dir,
+                 set_name,
+                 mode="train",
+                 split=False,
+                 transform=None):
         super(KITTIDataset, self).__init__()
         self.root_dir = root_dir
         self.set_name = set_name
+        self.mode = mode
+        self.split = split
         self.transform = transform
         self.data_info = []
+        self.train_data_info = []
+        self.valid_data_info = []
         self._get_data_info()
+
+        if self.split:
+            if mode == "train":
+                self.data_info = self.train_data_info
+            elif mode == "valid":
+                self.data_info = self.valid_data_info
+
         print("INFO ==> finish loading kitti dataset")
 
     def __getitem__(self, index):
@@ -76,6 +93,7 @@ class KITTIDataset(Dataset):
         return len(self.data_info)
 
     def _get_data_info(self):
+        img_info, anno_info = [], []
         img_dir = os.path.join(self.root_dir, self.set_name, "image_2")
         for img in os.listdir(img_dir):
             if img.endswith(".png"):
@@ -83,16 +101,28 @@ class KITTIDataset(Dataset):
                 anno_path = img_path.replace("image_2", "label_2").replace(
                     ".png", ".txt")
                 if os.path.isfile(anno_path):
-                    self.data_info.append((img_path, anno_path))
-        random.shuffle(self.data_info)
+                    img_info.append(img_path)
+                    anno_info.append(anno_path)
+
+        if self.split:
+            train_img_path, valid_img_path, train_anno_path, valid_anno_path = train_test_split(
+                img_info, anno_info, test_size=0.2, random_state=0)
+            for img_path, anno_path in zip(train_img_path, train_anno_path):
+                self.train_data_info.append((img_path, anno_path))
+            for img_path, anno_path in zip(valid_img_path, valid_anno_path):
+                self.valid_data_info.append((img_path, anno_path))
+        else:
+            for img_path, anno_path in zip(img_info, anno_info):
+                self.data_info.append((img_path, anno_path))
 
     def _get_txt_anno(self, txt_path):
         labels, boxes = [], []
         with open(txt_path, 'r') as f:
             for line in f.readlines():
                 obj = line.rstrip().split(' ')
-                if obj[0] in self.cls_names:
-                    labels.append(self.cls_names_dict[obj[0]])
+                name = obj[0].lower()
+                if name in self.cls_names:
+                    labels.append(self.cls_names_dict[name])
                     boxes.append(list(map(float, obj[4:8])))
 
         return np.array(labels), np.array(boxes)
@@ -112,7 +142,7 @@ if __name__ == "__main__":
     colors = [cmap(i) for i in np.linspace(0, 1, 10)]
 
     data_dir = os.path.join(BASE_DIR, "..", "data", "samples", "kitti")
-    train_set = KITTIDataset(data_dir, "training")
+    train_set = KITTIDataset(data_dir, "training", mode="train", split=True)
     train_loader = DataLoader(train_set)
 
     img, labels, boxes = next(iter(train_loader))
@@ -125,8 +155,8 @@ if __name__ == "__main__":
     boxes = boxes.squeeze(0).data.numpy().astype(np.int64)
 
     for label, box in zip(labels, boxes):
-        color = [i * 255 for i in colors[int(label) - 1]]
-        cls_name = train_set.labels_dict[int(label)]
+        color = [i * 255 for i in colors[label - 1]]
+        cls_name = train_set.labels_dict[label]
         cv2.rectangle(img, box[:2], box[2:], color, 2)
         cv2.rectangle(img, box[:2], (box[0] + len(cls_name) * 15, box[1] - 25),
                       color, -1)

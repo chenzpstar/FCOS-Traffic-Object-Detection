@@ -101,7 +101,13 @@ def vgg16(pretrained=False, **kwargs):
         kwargs['init_weights'] = False
     model = VGG(make_layers(cfg['D']), **kwargs)
     if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['vgg16']))
+        model_weights = model_zoo.load_url(model_urls['vgg16'])
+        model_weights = {
+            k:
+            model_weights[k] if k in model_weights else model.state_dict()[k]
+            for k in model.state_dict()
+        }
+        model.load_state_dict(model_weights)
     return model
 
 
@@ -115,7 +121,13 @@ def vgg16_bn(pretrained=False, **kwargs):
         kwargs['init_weights'] = False
     model = VGG(make_layers(cfg['D'], batch_norm=True), **kwargs)
     if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['vgg16_bn']))
+        model_weights = model_zoo.load_url(model_urls['vgg16_bn'])
+        model_weights = {
+            k:
+            model_weights[k] if k in model_weights else model.state_dict()[k]
+            for k in model.state_dict()
+        }
+        model.load_state_dict(model_weights)
     return model
 
 
@@ -129,7 +141,13 @@ def vgg19(pretrained=False, **kwargs):
         kwargs['init_weights'] = False
     model = VGG(make_layers(cfg['E']), **kwargs)
     if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['vgg19']))
+        model_weights = model_zoo.load_url(model_urls['vgg19'])
+        model_weights = {
+            k:
+            model_weights[k] if k in model_weights else model.state_dict()[k]
+            for k in model.state_dict()
+        }
+        model.load_state_dict(model_weights)
     return model
 
 
@@ -143,7 +161,13 @@ def vgg19_bn(pretrained=False, **kwargs):
         kwargs['init_weights'] = False
     model = VGG(make_layers(cfg['E'], batch_norm=True), **kwargs)
     if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['vgg19_bn']))
+        model_weights = model_zoo.load_url(model_urls['vgg19_bn'])
+        model_weights = {
+            k:
+            model_weights[k] if k in model_weights else model.state_dict()[k]
+            for k in model.state_dict()
+        }
+        model.load_state_dict(model_weights)
     return model
 
 

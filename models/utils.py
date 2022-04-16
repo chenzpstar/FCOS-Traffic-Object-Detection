@@ -136,7 +136,7 @@ def box_nms(cls_scores, boxes, thr=0.6, mode="iou"):
             p_dist = cwh[:, 0].pow(2) + cwh[:, 1].pow(2)
             iou -= p_dist / c_dist.clamp(min=1e-10)
 
-        idx = (iou <= thr).nonzero().squeeze(dim=-1)
+        idx = torch.where(iou <= thr)[0]
         if idx.numel() == 0:
             break
         order = order[idx]

@@ -220,11 +220,11 @@ Time: 2022.1.1 - 2022.4.30
 
 - 平均精度
 
-    ![](http://latex.codecogs.com/svg.latex?AP=\sum_{r=0}^1(r_{n+1}-r_n)\cdot%20Percision(r_{n+1}))
+    ![](http://latex.codecogs.com/svg.latex?AP=\sum_{n=0}^{N-1}(r_{n+1}-r_n)\cdot%20P(r_{n+1}))
 
 - 平均精度均值
 
-    ![](http://latex.codecogs.com/svg.latex?mAP=\frac{1}{N}\sum_{i=1}^N%20AP_{c_i})
+    ![](http://latex.codecogs.com/svg.latex?mAP=\frac{1}{C}\sum_{c=1}^C%20AP_{c})
 
 ### 4.2 实时性指标
 

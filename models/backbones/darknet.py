@@ -99,7 +99,13 @@ def darknet19(pretrained=False, **kwargs):
         kwargs['init_weights'] = False
     model = DarkNet(make_layers(cfg, batch_norm=True), **kwargs)
     if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['darknet19']))
+        model_weights = model_zoo.load_url(model_urls['darknet19'])
+        model_weights = {
+            k:
+            model_weights[k] if k in model_weights else model.state_dict()[k]
+            for k in model.state_dict()
+        }
+        model.load_state_dict(model_weights)
     return model
 
 

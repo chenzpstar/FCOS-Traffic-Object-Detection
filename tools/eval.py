@@ -109,8 +109,8 @@ def _compute_ap(recall, precision):
     return ap
 
 
-def eval_ap(gt_labels, gt_boxes, pred_scores, pred_labels, pred_boxes, iou_thr,
-            cls_num):
+def eval_metrics(gt_labels, gt_boxes, pred_scores, pred_labels, pred_boxes,
+                 iou_thr, cls_num):
     """
     :param gt_boxes: list of 2d array,shape[(a,(x1,y1,x2,y2)),(b,(x1,y1,x2,y2))...]
     :param gt_labels: list of 1d array,shape[(a),(b)...],value is sparse label index
@@ -121,7 +121,7 @@ def eval_ap(gt_labels, gt_boxes, pred_scores, pred_labels, pred_boxes, iou_thr,
     :param cls_num: eg. 4, total number of class including background which is equal to 0
     :return: a dict containing average precision for each cls
     """
-    all_ap = {}
+    recalls, precisions, f1s, aps = [], [], [], []
     for label in range(cls_num)[1:]:
         # get samples with specific label
         gt_label_loc = [sample_labels == label for sample_labels in gt_labels]
@@ -188,18 +188,20 @@ def eval_ap(gt_labels, gt_boxes, pred_scores, pred_labels, pred_boxes, iou_thr,
         # compute recall and precision
         recall = tp / total_gts
         precision = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
-        f1 = 2 * recall * precision / np.maximum(recall + precision,
-                                                 np.finfo(np.float64).eps)
+        f1 = 2 * recall[-1] * precision[-1] / np.maximum(
+            recall[-1] + precision[-1],
+            np.finfo(np.float64).eps)
         ap = _compute_ap(recall, precision)
-        all_ap[label] = ap
-        print(
-            "label: {}, recall: {:.4f}, precision: {:.4f}, f1: {:.4f}, ap: {:.4f}"
-            .format(label, recall, precision, f1, ap))
 
-    return all_ap
+        recalls.append(recall[-1])
+        precisions.append(precision[-1])
+        f1s.append(f1)
+        aps.append(ap)
+
+    return recalls, precisions, f1s, aps
 
 
-def evalate_ap(data_set, data_loader, model, device="cpu"):
+def eval_model(data_set, data_loader, model, device="cpu"):
     # 获取数据
     gt_labels, gt_boxes, pred_scores, pred_labels, pred_boxes = get_eval_data(
         data_loader, model, device=device)
@@ -208,8 +210,10 @@ def evalate_ap(data_set, data_loader, model, device="cpu"):
     pred_scores, pred_labels, pred_boxes = sort_by_score(
         pred_scores, pred_labels, pred_boxes)
 
-    # 计算AP
-    all_AP = eval_ap(gt_labels, gt_boxes, pred_scores, pred_labels, pred_boxes,
-                     0.5, data_set.cls_num)
+    # 评估指标
+    recalls, precisions, f1s, aps = eval_metrics(gt_labels, gt_boxes,
+                                                 pred_scores, pred_labels,
+                                                 pred_boxes, 0.5,
+                                                 data_set.cls_num)
 
-    return all_AP
+    return recalls, precisions, f1s, aps

@@ -85,26 +85,32 @@ def make_logger(out_dir, cfg):
     return logger, log_dir
 
 
-def plot_line(train_x, train_y, valid_x, valid_y, mode, out_dir):
+def plot_line(train_x,
+              train_y,
+              valid_x,
+              valid_y,
+              mode="loss",
+              kind="total",
+              out_dir=None):
     """
     绘制训练和验证集的loss曲线/acc曲线
     :param train_x: epoch
     :param train_y: 标量值
     :param valid_x:
     :param valid_y:
-    :param mode:  'loss' or 'acc'
+    :param mode: 'loss' or 'acc'
     :param out_dir:
     :return:
     """
     plt.plot(train_x, train_y, label="Train")
     plt.plot(valid_x, valid_y, label="Valid")
 
-    plt.ylabel(str(mode))
-    plt.xlabel("Epoch")
+    plt.xlabel("epoch")
+    plt.ylabel(mode)
 
     location = "upper right" if mode == "loss" else "upper left"
     plt.legend(loc=location)
 
-    plt.title("_".join([mode]))
-    plt.savefig(os.path.join(out_dir, mode + ".png"))
+    plt.title(" ".join([kind, mode]).title())
+    plt.savefig(os.path.join(out_dir, "_".join([kind, mode]) + ".png"))
     plt.close()

@@ -9,8 +9,8 @@
 import torch
 import torch.nn as nn
 
-from config import FCOSConfig
-from utils import coords2centers, coords2offsets, decode_coords, reshape_feat
+from .config import FCOSConfig
+from .utils import coords2centers, coords2offsets, decode_coords, reshape_feat
 
 
 class FCOSTarget(nn.Module):
