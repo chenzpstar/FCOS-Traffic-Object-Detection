@@ -38,7 +38,7 @@ class FCOSDetect(nn.Module):
 
         cls_scores, pred_labels = cls_preds.max(dim=-1)  # b(hw)c -> b(hw)
         if self.use_ctr:
-            cls_scores = (cls_scores * ctr_preds.squeeze(dim=-1)).sqrt()
+            cls_scores = torch.sqrt(cls_scores * ctr_preds.squeeze(dim=-1))
         pred_labels += 1
 
         pred_boxes = decode_preds(reg_preds, self.strides)  # bchw -> b(hw)c

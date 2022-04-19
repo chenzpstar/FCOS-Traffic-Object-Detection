@@ -105,9 +105,9 @@ class FCOSTarget(nn.Module):
         lr_max = torch.max(reg_targets[..., 0], reg_targets[..., 2])
         tb_min = torch.min(reg_targets[..., 1], reg_targets[..., 3])
         tb_max = torch.max(reg_targets[..., 1], reg_targets[..., 3])
-        ctr_targets = ((lr_min * tb_min) /
-                       (lr_max * tb_max).clamp(min=1e-10)).sqrt().unsqueeze(
-                           dim=-1)
+        ctr_targets = torch.sqrt(
+            (lr_min * tb_min) /
+            (lr_max * tb_max).clamp(min=1e-8)).unsqueeze(dim=-1)
         assert ctr_targets.shape == (batch_size, hw, 1)
 
         # 7.处理负样本

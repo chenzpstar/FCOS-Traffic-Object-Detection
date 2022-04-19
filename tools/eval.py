@@ -76,7 +76,8 @@ def _compute_iou(boxes_a, boxes_b):
     area_b = np.prod(boxes_b[..., 2:] - boxes_b[..., :2], axis=-1)
 
     # compute iou
-    iou = overlap / (area_a + area_b - overlap)
+    union = area_a + area_b - overlap
+    iou = overlap / np.maximum(union, np.finfo(np.float64).eps)
 
     return iou
 
@@ -186,7 +187,7 @@ def eval_metrics(gt_labels, gt_boxes, pred_scores, pred_labels, pred_boxes,
         fp = np.cumsum(fp)
         tp = np.cumsum(tp)
         # compute recall and precision
-        recall = tp / total_gts
+        recall = tp / np.maximum(total_gts, np.finfo(np.float64).eps)
         precision = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
         f1 = 2 * recall[-1] * precision[-1] / np.maximum(
             recall[-1] + precision[-1],

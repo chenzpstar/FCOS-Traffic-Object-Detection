@@ -47,7 +47,9 @@ class FPN(nn.Module):
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_uniform_(m.weight)
+                nn.init.kaiming_uniform_(m.weight,
+                                         mode='fan_out',
+                                         nonlinearity='relu')
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
 
@@ -67,7 +69,7 @@ class FPN(nn.Module):
 
         in_feat = p5 if self.use_p5 else c5
         p6 = self.conv6(in_feat)
-        p7 = self.conv7(F.relu(p6, inplace=True))
+        p7 = self.conv7(F.relu(p6))
 
         return [p3, p4, p5, p6, p7]
 

@@ -63,7 +63,7 @@ if __name__ == "__main__":
 
     # 2. model
     model = FCOSDetector(mode="inference", cfg=cfg)
-    ckpt_folder = "kitti_12e_2022-04-16_14-52"
+    ckpt_folder = "kitti_12e_2022-04-19_18-42"
     ckpt_path = os.path.join(BASE_DIR, "..", "..", "results", ckpt_folder,
                              "checkpoint_12.pth")
     model_weights = torch.load(ckpt_path, map_location=torch.device("cpu"))

@@ -53,7 +53,7 @@ if __name__ == "__main__":
 
     # 2. model
     model = FCOSDetector(mode="inference", cfg=cfg)
-    ckpt_folder = "kitti_12e_2022-04-16_14-52"
+    ckpt_folder = "kitti_12e_2022-04-19_18-42"
     ckpt_path = os.path.join(BASE_DIR, "..", "..", "results", ckpt_folder,
                              "checkpoint_12.pth")
     model_weights = torch.load(ckpt_path, map_location=torch.device("cpu"))
@@ -95,13 +95,13 @@ if __name__ == "__main__":
         for score, label, box in zip(scores, labels, boxes):
             color = [i * 255 for i in colors[label - 1]]
             cls_name = KITTIDataset.labels_dict[label]
-            cv2.rectangle(img_pad, box[:2], box[2:], color, 2)
+            cv2.rectangle(img_pad, box[:2], box[2:], color, 1)
             cv2.rectangle(img_pad, box[:2],
-                          (box[0] + len(cls_name) * 15 + 100, box[1] - 25),
+                          (box[0] + len(cls_name) * 10 + 72, box[1] - 20),
                           color, -1)
             cv2.putText(img_pad, "{}: {:.4f}".format(cls_name, score),
-                        (box[0], box[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
-                        (0, 0, 0), 2)
+                        (box[0] + 2, box[1] - 5), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5, (255, 255, 255), 1)
             print("{}: {:.4f}".format(cls_name, score))
 
         cv2.imshow("out", img_pad)

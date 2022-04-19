@@ -18,6 +18,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from apex import amp
 # from configs.bdd100k_config import cfg
 from configs.kitti_config import cfg
 from data import BDD100KDataset, Collate, KITTIDataset
@@ -25,7 +26,7 @@ from models.fcos import FCOSDetector
 from torch.optim.lr_scheduler import ExponentialLR, MultiStepLR
 from torch.utils.data import DataLoader
 
-from common import make_logger, plot_line, setup_seed
+from common import WarmupLR, make_logger, plot_line, setup_seed
 
 # 添加解析参数
 parser = argparse.ArgumentParser(description="Train")
@@ -48,12 +49,13 @@ cfg.train_bs = args.bs if args.bs else cfg.train_bs
 cfg.max_epoch = args.max_epoch if args.max_epoch else cfg.max_epoch
 
 cfg.data_folder = args.data_folder if args.data_folder else cfg.data_folder
-cfg.ckpt_folder = (args.ckpt_folder if args.ckpt_folder else cfg.ckpt_folder)
+cfg.ckpt_folder = args.ckpt_folder if args.ckpt_folder else cfg.ckpt_folder
 
 
 def train_model(data_loader,
                 model,
                 optimizer,
+                scheduler,
                 cfg,
                 logger,
                 epoch,
@@ -78,10 +80,24 @@ def train_model(data_loader,
 
             # 2. backward
             optimizer.zero_grad()
-            total_loss.backward()
+
+            if cfg.use_fp16:
+                with amp.scale_loss(total_loss, optimizer) as scaled_loss:
+                    scaled_loss.backward()
+                if cfg.clip_grad:
+                    torch.nn.utils.clip_grad_norm_(
+                        amp.master_params(optimizer), 5)
+            else:
+                total_loss.backward()
+                if cfg.clip_grad:
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), 5)
 
             # 3. update weights
             optimizer.step()
+
+            # 4. update lr
+            if cfg.warmup:
+                scheduler.step()
 
         elif mode == "valid":
             # 1. forward
@@ -98,7 +114,7 @@ def train_model(data_loader,
         reg_loss_sigma.append(reg_loss.item())
         ctr_loss_sigma.append(ctr_loss.item())
 
-        if (i + 1) % 50 == 0:
+        if (i + 1) % cfg.log_interval == 0:
             logger.info(
                 "{}: epoch: [{:0>2}/{:0>2}], iter: [{:0>3}/{:0>3}], total loss: {:.4f}, cls loss: {:.4f}, reg loss: {:.4f}, ctr loss: {:.4f}, cost time: {} ms"
                 .format(mode.title(), epoch + 1, cfg.max_epoch, i + 1,
@@ -202,6 +218,18 @@ if __name__ == "__main__":
         weight_decay=cfg.weight_decay,
     )
 
+    if cfg.use_fp16:
+        model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
+
+    if cfg.warmup:
+        warmup_scheduler = WarmupLR(
+            optimizer,
+            warmup_factor=cfg.warmup_factor,
+            warmup_iters=len(train_loader),
+        )
+    else:
+        warmup_scheduler = None
+
     if cfg.exp_lr:
         scheduler = ExponentialLR(
             optimizer,
@@ -210,8 +238,8 @@ if __name__ == "__main__":
     else:
         scheduler = MultiStepLR(
             optimizer,
-            gamma=cfg.factor,
             milestones=cfg.milestones,
+            gamma=cfg.factor,
         )
 
     # 4. loop
@@ -230,15 +258,19 @@ if __name__ == "__main__":
         # 1. train
         model.train()
         train_total_loss, train_cls_loss, train_reg_loss, train_ctr_loss = train_model(
-            train_loader, model, optimizer, cfg, logger, epoch, mode="train")
+            train_loader,
+            model,
+            optimizer,
+            warmup_scheduler,
+            cfg,
+            logger,
+            epoch,
+            mode="train")
 
         # 2. valid
         model.eval()
         valid_total_loss, valid_cls_loss, valid_reg_loss, valid_ctr_loss = train_model(
-            valid_loader, model, optimizer, cfg, logger, epoch, mode="valid")
-
-        # 3. update lr
-        scheduler.step()
+            valid_loader, model, None, None, cfg, logger, epoch, mode="valid")
 
         logger.info(
             "Epoch: [{:0>2}/{:0>2}], lr: {}\n"
@@ -248,6 +280,10 @@ if __name__ == "__main__":
                     train_total_loss, train_cls_loss, train_reg_loss,
                     train_ctr_loss, valid_total_loss, valid_cls_loss,
                     valid_reg_loss, valid_ctr_loss))
+
+        # 3. update lr
+        scheduler.step()
+        cfg.warmup = False
 
         # 记录loss信息
         total_loss_rec["train"].append(train_total_loss)
@@ -299,8 +335,9 @@ if __name__ == "__main__":
         )
 
         # 保存模型
-        torch.save(
-            model.state_dict(),
-            os.path.join(log_dir, "checkpoint_{}.pth".format(epoch + 1)))
+        if epoch >= cfg.milestones[0]:
+            ckpt_path = os.path.join(log_dir,
+                                     "checkpoint_{}.pth".format(epoch + 1))
+            torch.save(model.state_dict(), ckpt_path)
 
     logger.info("finish training model")

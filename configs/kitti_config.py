@@ -20,6 +20,10 @@ cfg.data_folder = "kitti"
 cfg.ckpt_root_dir = os.path.join(BASE_DIR, "..", "..", "results")
 cfg.ckpt_folder = None
 
+cfg.use_fp16 = False
+cfg.clip_grad = False
+cfg.log_interval = 100
+
 # backbone
 cfg.backbone = "resnet50"  # ["resnet50", "darknet19", "vgg16"]
 # cfg.backbone = "darknet19"
@@ -65,9 +69,12 @@ cfg.workers = 16
 # optimizer
 cfg.lr_init = 0.005  # 0.01
 cfg.momentum = 0.9  # 0.9
-cfg.weight_decay = 1e-4  # 1e-4
+cfg.weight_decay = 5e-4  # 1e-4
 
 # scheduler
+cfg.warmup = True
+cfg.warmup_factor = 0.001
+
 cfg.exp_lr = False
 cfg.exp_factor = 0.98
 

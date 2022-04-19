@@ -13,14 +13,14 @@ from .config import FCOSConfig
 from .utils import decode_preds, decode_targets, reshape_feats
 
 
-def bce_loss(logits, targets, eps=1e-10):
+def bce_loss(logits, targets, eps=1e-8):
     probs = logits.sigmoid().clamp(min=eps, max=1.0 - eps)
     loss = -(targets * probs.log() + (1.0 - targets) * (1.0 - probs).log())
 
     return loss.sum()
 
 
-def focal_loss(logits, targets, alpha=0.25, gamma=2.0, eps=1e-10):
+def focal_loss(logits, targets, alpha=0.25, gamma=2.0, eps=1e-8):
     probs = logits.sigmoid().clamp(min=eps, max=1.0 - eps)
     loss = -(alpha * (1.0 - probs).pow(gamma) * targets * probs.log() +
              (1.0 - alpha) * probs.pow(gamma) * (1.0 - targets) *
@@ -47,7 +47,7 @@ def iou_loss(preds, targets):
     target_area = (targets[:, 0] + targets[:, 2]) * (targets[:, 1] +
                                                      targets[:, 3])
     union = pred_area + target_area - overlap
-    iou = overlap / union.clamp(min=1e-10)
+    iou = overlap / union.clamp(min=1e-8)
     loss = 1.0 - iou
 
     return loss.sum()
@@ -64,7 +64,7 @@ def iou_loss(preds, targets):
 #     target_area = (targets[:, 2] - targets[:, 0]) * (targets[:, 3] -
 #                                                      targets[:, 1])
 #     union = pred_area + target_area - overlap
-#     iou = overlap / union.clamp(min=1e-10)
+#     iou = overlap / union.clamp(min=1e-8)
 #     loss = 1.0 - iou
 
 #     return loss.sum()
@@ -81,14 +81,14 @@ def giou_loss(preds, targets):
     target_area = (targets[:, 0] + targets[:, 2]) * (targets[:, 1] +
                                                      targets[:, 3])
     union = pred_area + target_area - overlap
-    iou = overlap / union.clamp(min=1e-10)
+    iou = overlap / union.clamp(min=1e-8)
 
     lt_max = torch.max(preds[:, :2], targets[:, :2])
     rb_max = torch.max(preds[:, 2:], targets[:, 2:])
     wh_max = (lt_max + rb_max).clamp(min=0)
     C_area = wh_max[:, 0] * wh_max[:, 1]
 
-    giou = iou - (C_area - union) / C_area.clamp(min=1e-10)
+    giou = iou - (C_area - union) / C_area.clamp(min=1e-8)
     loss = 1.0 - giou
 
     return loss.sum()
@@ -105,14 +105,14 @@ def giou_loss(preds, targets):
 #     target_area = (targets[:, 2] - targets[:, 0]) * (targets[:, 3] -
 #                                                      targets[:, 1])
 #     union = pred_area + target_area - overlap
-#     iou = overlap / union.clamp(min=1e-10)
+#     iou = overlap / union.clamp(min=1e-8)
 
 #     xy1_min = torch.min(preds[:, :2], targets[:, :2])
 #     xy2_max = torch.max(preds[:, 2:], targets[:, 2:])
 #     wh_max = xy2_max - xy1_min
 #     C_area = wh_max[:, 0] * wh_max[:, 1]
 
-#     giou = iou - (C_area - union) / C_area.clamp(min=1e-10)
+#     giou = iou - (C_area - union) / C_area.clamp(min=1e-8)
 #     loss = 1.0 - giou
 
 #     return loss.sum()
@@ -129,19 +129,19 @@ def diou_loss(preds, targets):
     target_area = (targets[:, 2] - targets[:, 0]) * (targets[:, 3] -
                                                      targets[:, 1])
     union = pred_area + target_area - overlap
-    iou = overlap / union.clamp(min=1e-10)
+    iou = overlap / union.clamp(min=1e-8)
 
     xy1_min = torch.min(preds[:, :2], targets[:, :2])
     xy2_max = torch.max(preds[:, 2:], targets[:, 2:])
     wh_max = xy2_max - xy1_min
     c_dist = wh_max[:, 0].pow(2) + wh_max[:, 1].pow(2)
 
-    pred_cxy = (preds[:, :2] + preds[:, 2:]) / 2
-    target_cxy = (targets[:, :2] + targets[:, 2:]) / 2
+    pred_cxy = (preds[:, :2] + preds[:, 2:]) / 2.0
+    target_cxy = (targets[:, :2] + targets[:, 2:]) / 2.0
     cwh = pred_cxy - target_cxy
     p_dist = cwh[:, 0].pow(2) + cwh[:, 1].pow(2)
 
-    diou = iou - p_dist / c_dist.clamp(min=1e-10)
+    diou = iou - p_dist / c_dist.clamp(min=1e-8)
     loss = 1.0 - diou
 
     return loss.sum()

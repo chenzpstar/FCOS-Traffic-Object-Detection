@@ -18,6 +18,7 @@ sys.path.append(os.path.join(BASE_DIR, ".."))
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from torch.optim.lr_scheduler import _LRScheduler
 
 
 def setup_seed(seed=0):
@@ -114,3 +115,50 @@ def plot_line(train_x,
     plt.title(" ".join([kind, mode]).title())
     plt.savefig(os.path.join(out_dir, "_".join([kind, mode]) + ".png"))
     plt.close()
+
+
+class WarmupLR(_LRScheduler):
+    def __init__(self,
+                 optimizer,
+                 warmup_factor=0.001,
+                 warmup_iters=1000,
+                 warmup_method="linear",
+                 last_epoch=-1,
+                 verbose=False):
+        self.warmup_factor = warmup_factor
+        self.warmup_iters = warmup_iters
+        self.warmup_method = warmup_method
+        super(WarmupLR, self).__init__(optimizer, last_epoch, verbose)
+
+    def get_lr(self):
+        warmup_factor = self._get_warmup_factor_at_iter(
+            self.warmup_method, self.last_epoch, self.warmup_iters,
+            self.warmup_factor)
+        return [base_lr * warmup_factor for base_lr in self.base_lrs]
+
+    def _get_warmup_factor_at_iter(self, method, iter, warmup_iters,
+                                   warmup_factor):
+        """
+        Return the learning rate warmup factor at a specific iteration.
+        See https://arxiv.org/abs/1706.02677 for more details.
+
+        Args:
+            method (str): warmup method; either "constant" or "linear".
+            iter (int): iteration at which to calculate the warmup factor.
+            warmup_iters (int): the number of warmup iterations.
+            warmup_factor (float): the base warmup factor (the meaning changes according
+                to the method used).
+
+        Returns:
+            float: the effective warmup factor at the given iteration.
+        """
+        if iter >= warmup_iters:
+            return 1.0
+
+        if method == "constant":
+            return warmup_factor
+        elif method == "linear":
+            alpha = iter / warmup_iters
+            return warmup_factor * (1 - alpha) + alpha
+        else:
+            raise ValueError("Unknown warmup method: {}".format(method))

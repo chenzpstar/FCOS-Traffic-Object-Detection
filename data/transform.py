@@ -269,26 +269,26 @@ if __name__ == "__main__":
                              transform=AugTransform(size, mean, std))
     train_loader = DataLoader(train_set)
 
-    img, labels, boxes = next(iter(train_loader))
+    for (img, labels, boxes) in train_loader:
+        img = img.squeeze(0).data.numpy()  # bchw -> chw
+        img = img.transpose((1, 2, 0))  # chw -> hwc
+        for i in range(3):
+            img[..., i] = (img[..., i] * std[i] + mean[i]) * 255.0
+        img = img.astype(np.uint8)
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)  # rgb -> bgr
 
-    img = img.squeeze(0).data.numpy()  # bchw -> chw
-    img = img.transpose((1, 2, 0))  # chw -> hwc
-    for i in range(3):
-        img[..., i] = (img[..., i] * std[i] + mean[i]) * 255.0
-    img = img.astype(np.uint8)
-    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)  # rgb -> bgr
+        labels = labels.squeeze(0).data.numpy().astype(np.int64)
+        boxes = boxes.squeeze(0).data.numpy().astype(np.int64)
 
-    labels = labels.squeeze(0).data.numpy().astype(np.int64)
-    boxes = boxes.squeeze(0).data.numpy().astype(np.int64)
+        for label, box in zip(labels, boxes):
+            color = [i * 255 for i in colors[label - 1]]
+            cls_name = train_set.labels_dict[label]
+            cv2.rectangle(img, box[:2], box[2:], color, 1)
+            cv2.rectangle(img, box[:2],
+                          (box[0] + len(cls_name) * 10 + 2, box[1] - 20),
+                          color, -1)
+            cv2.putText(img, cls_name, (box[0] + 2, box[1] - 5),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
-    for label, box in zip(labels, boxes):
-        color = [i * 255 for i in colors[label - 1]]
-        cls_name = train_set.labels_dict[label]
-        cv2.rectangle(img, box[:2], box[2:], color, 2)
-        cv2.rectangle(img, box[:2], (box[0] + len(cls_name) * 15, box[1] - 25),
-                      color, -1)
-        cv2.putText(img, cls_name, (box[0], box[1] - 5),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 0), 2)
-
-    cv2.imshow("out", img)
-    cv2.waitKey()
+        cv2.imshow("out", img)
+        cv2.waitKey()

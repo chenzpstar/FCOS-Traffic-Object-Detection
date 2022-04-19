@@ -10,9 +10,9 @@ import torch
 
 
 def reshape_feats(feats):
-    feats_reshape = [reshape_feat(feat) for feat in feats]
+    out = [reshape_feat(feat) for feat in feats]
 
-    return torch.cat(feats_reshape, dim=1)
+    return torch.cat(out, dim=1)
 
 
 def reshape_feat(feat):
@@ -86,7 +86,7 @@ def coords2offsets(coords, boxes):
 
 def coords2centers(coords, boxes):
     # (xy1 + xy2) / 2 -> cxy
-    boxes_cxy = (boxes[..., :2] + boxes[..., 2:]) / 2
+    boxes_cxy = (boxes[..., :2] + boxes[..., 2:]) / 2.0
     # xy - cxy -> lt
     lt_ctr_offsets = coords[None, :, None] - boxes_cxy[:, None, :]
     # cxy - xy -> rb
@@ -102,7 +102,7 @@ def box_nms(cls_scores, boxes, thr=0.6, mode="iou"):
 
     xy1, xy2 = boxes[:, :2], boxes[:, 2:]
     if mode == "diou":
-        cxy = (xy1 + xy2) / 2
+        cxy = (xy1 + xy2) / 2.0
     wh = xy2 - xy1
     areas = wh[:, 0] * wh[:, 1]
     order = cls_scores.sort(dim=0, descending=True)[1]
@@ -124,7 +124,7 @@ def box_nms(cls_scores, boxes, thr=0.6, mode="iou"):
 
         overlap = wh_min[:, 0] * wh_min[:, 1]
         union = areas[i] + areas[order] - overlap
-        iou = overlap / union.clamp(min=1e-10)
+        iou = overlap / union.clamp(min=1e-8)
 
         if mode == "diou":
             xy1_min = torch.min(xy1[i], xy1[order])
@@ -134,7 +134,7 @@ def box_nms(cls_scores, boxes, thr=0.6, mode="iou"):
 
             c_dist = wh_max[:, 0].pow(2) + wh_max[:, 1].pow(2)
             p_dist = cwh[:, 0].pow(2) + cwh[:, 1].pow(2)
-            iou -= p_dist / c_dist.clamp(min=1e-10)
+            iou -= p_dist / c_dist.clamp(min=1e-8)
 
         idx = torch.where(iou <= thr)[0]
         if idx.numel() == 0:
