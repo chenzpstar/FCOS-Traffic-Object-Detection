@@ -25,8 +25,11 @@ cfg.clip_grad = False
 cfg.log_interval = 100
 
 # backbone
-cfg.backbone = "resnet50"  # ["resnet50", "darknet19", "vgg16"]
+# cfg.backbone = "vgg16"  # ["vgg16", "resnet50", "darknet19", "mobilenet", "shufflenet"]
+cfg.backbone = "resnet50"
 # cfg.backbone = "darknet19"
+# cfg.backbone = "mobilenet"
+# cfg.backbone = "shufflenet"
 cfg.pretrained = True
 
 # neck
@@ -76,7 +79,10 @@ cfg.warmup = True
 cfg.warmup_factor = 0.001
 
 cfg.exp_lr = False
-cfg.exp_factor = 0.98
+cfg.exp_factor = 0.66
+
+cfg.cos_lr = False
+cfg.lr_final = 5e-5
 
 cfg.factor = 0.1
 cfg.milestones = [8, 11]

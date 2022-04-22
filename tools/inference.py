@@ -48,14 +48,16 @@ if __name__ == "__main__":
     data_dir = os.path.join(BASE_DIR, "..", "..", "datasets", "kitti")
     assert os.path.exists(data_dir)
 
+    ckpt_dir = os.path.join(BASE_DIR, "..", "..", "results")
+    ckpt_folder = "kitti_12e_2022-04-22_15-10"
+    ckpt_path = os.path.join(ckpt_dir, ckpt_folder, "checkpoint_12.pth")
+    assert os.path.exists(ckpt_path)
+
     # 1. dataset
     img_dir = os.path.join(data_dir, "testing", "image_2")
 
     # 2. model
     model = FCOSDetector(mode="inference", cfg=cfg)
-    ckpt_folder = "kitti_12e_2022-04-19_18-42"
-    ckpt_path = os.path.join(BASE_DIR, "..", "..", "results", ckpt_folder,
-                             "checkpoint_12.pth")
     model_weights = torch.load(ckpt_path, map_location=torch.device("cpu"))
     model_weights = {
         k: model_weights[k] if k in model_weights else model.state_dict()[k]

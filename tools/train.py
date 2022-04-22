@@ -23,10 +23,11 @@ from apex import amp
 from configs.kitti_config import cfg
 from data import BDD100KDataset, Collate, KITTIDataset
 from models.fcos import FCOSDetector
-from torch.optim.lr_scheduler import ExponentialLR, MultiStepLR
+from torch.optim.lr_scheduler import (CosineAnnealingLR, ExponentialLR,
+                                      MultiStepLR)
 from torch.utils.data import DataLoader
 
-from common import WarmupLR, make_logger, plot_line, setup_seed
+from common import WarmupLR, make_logger, plot_curve, setup_seed
 
 # 添加解析参数
 parser = argparse.ArgumentParser(description="Train")
@@ -52,13 +53,13 @@ cfg.data_folder = args.data_folder if args.data_folder else cfg.data_folder
 cfg.ckpt_folder = args.ckpt_folder if args.ckpt_folder else cfg.ckpt_folder
 
 
-def train_model(data_loader,
+def train_model(cfg,
+                data_loader,
                 model,
-                optimizer,
-                scheduler,
-                cfg,
-                logger,
                 epoch,
+                logger,
+                optimizer=None,
+                scheduler=None,
                 mode="train"):
     total_loss_sigma = []
     cls_loss_sigma = []
@@ -135,42 +136,44 @@ if __name__ == "__main__":
 
     # 设置路径
     if cfg.ckpt_folder is not None:
-        ckpt_path = os.path.join(cfg.ckpt_root_dir, cfg.ckpt_folder,
-                                 "checkpoint_best.pth")
+        ckpt_dir = os.path.join(cfg.ckpt_root_dir, cfg.ckpt_folder)
+        ckpt_path = os.path.join(ckpt_dir, "checkpoint_12.pth")
+        assert os.path.exists(ckpt_path)
 
     data_dir = os.path.join(cfg.data_root_dir, cfg.data_folder)
     assert os.path.exists(data_dir)
 
     # 创建logger
-    out_dir = os.path.join(BASE_DIR, "..", "..", "results")
-    logger, log_dir = make_logger(out_dir, cfg)
+    logger, log_dir = make_logger(cfg)
 
     # 1. dataset
     # 构建Dataset
-    # train_set = BDD100KDataset(
-    #     data_dir,
-    #     set_name="train",
-    #     transform=cfg.aug_trans,
-    # )
-    # valid_set = BDD100KDataset(
-    #     data_dir,
-    #     set_name="val",
-    #     transform=cfg.base_trans,
-    # )
-    train_set = KITTIDataset(
-        data_dir,
-        set_name="training",
-        mode="train",
-        split=True,
-        transform=cfg.aug_trans,
-    )
-    valid_set = KITTIDataset(
-        data_dir,
-        set_name="training",
-        mode="valid",
-        split=True,
-        transform=cfg.base_trans,
-    )
+    if cfg.data_folder == "kitti":
+        train_set = KITTIDataset(
+            data_dir,
+            set_name="training",
+            mode="train",
+            split=True,
+            transform=cfg.aug_trans,
+        )
+        valid_set = KITTIDataset(
+            data_dir,
+            set_name="training",
+            mode="valid",
+            split=True,
+            transform=cfg.base_trans,
+        )
+    elif cfg.data_folder == "bdd100k":
+        train_set = BDD100KDataset(
+            data_dir,
+            set_name="train",
+            transform=cfg.aug_trans,
+        )
+        valid_set = BDD100KDataset(
+            data_dir,
+            set_name="val",
+            transform=cfg.base_trans,
+        )
     logger.info("train set has {} imgs".format(len(train_set)))
     logger.info("valid set has {} imgs".format(len(valid_set)))
 
@@ -221,6 +224,24 @@ if __name__ == "__main__":
     if cfg.use_fp16:
         model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
 
+    if cfg.exp_lr:
+        scheduler = ExponentialLR(
+            optimizer,
+            gamma=cfg.exp_factor,
+        )
+    elif cfg.cos_lr:
+        scheduler = CosineAnnealingLR(
+            optimizer,
+            T_max=cfg.max_epoch - 1,
+            eta_min=cfg.lr_final,
+        )
+    else:
+        scheduler = MultiStepLR(
+            optimizer,
+            milestones=cfg.milestones,
+            gamma=cfg.factor,
+        )
+
     if cfg.warmup:
         warmup_scheduler = WarmupLR(
             optimizer,
@@ -229,18 +250,6 @@ if __name__ == "__main__":
         )
     else:
         warmup_scheduler = None
-
-    if cfg.exp_lr:
-        scheduler = ExponentialLR(
-            optimizer,
-            gamma=cfg.exp_factor,
-        )
-    else:
-        scheduler = MultiStepLR(
-            optimizer,
-            milestones=cfg.milestones,
-            gamma=cfg.factor,
-        )
 
     # 4. loop
     # 记录配置信息
@@ -258,20 +267,21 @@ if __name__ == "__main__":
         # 1. train
         model.train()
         train_total_loss, train_cls_loss, train_reg_loss, train_ctr_loss = train_model(
+            cfg,
             train_loader,
             model,
-            optimizer,
-            warmup_scheduler,
-            cfg,
-            logger,
             epoch,
+            logger,
+            optimizer=optimizer,
+            scheduler=warmup_scheduler,
             mode="train")
 
         # 2. valid
         model.eval()
         valid_total_loss, valid_cls_loss, valid_reg_loss, valid_ctr_loss = train_model(
-            valid_loader, model, None, None, cfg, logger, epoch, mode="valid")
+            cfg, valid_loader, model, epoch, logger, mode="valid")
 
+        # 记录训练信息
         logger.info(
             "Epoch: [{:0>2}/{:0>2}], lr: {}\n"
             "Train: total loss: {:.4f}, cls loss: {:.4f}, reg loss: {:.4f}, ctr loss: {:.4f}\n"
@@ -295,9 +305,9 @@ if __name__ == "__main__":
         ctr_loss_rec["train"].append(train_ctr_loss)
         ctr_loss_rec["valid"].append(valid_ctr_loss)
 
-        # 保存loss曲线
+        # 绘制loss曲线
         plt_x = np.arange(1, epoch + 2)
-        plot_line(
+        plot_curve(
             plt_x,
             total_loss_rec["train"],
             plt_x,
@@ -306,7 +316,7 @@ if __name__ == "__main__":
             kind="total",
             out_dir=log_dir,
         )
-        plot_line(
+        plot_curve(
             plt_x,
             cls_loss_rec["train"],
             plt_x,
@@ -315,7 +325,7 @@ if __name__ == "__main__":
             kind="classification",
             out_dir=log_dir,
         )
-        plot_line(
+        plot_curve(
             plt_x,
             reg_loss_rec["train"],
             plt_x,
@@ -324,7 +334,7 @@ if __name__ == "__main__":
             kind="regression",
             out_dir=log_dir,
         )
-        plot_line(
+        plot_curve(
             plt_x,
             ctr_loss_rec["train"],
             plt_x,

@@ -13,12 +13,16 @@ import torch.nn.functional as F
 class PAN(nn.Module):
     def __init__(self, backbone, num_feat=256, use_p5=True, init_weights=True):
         super(PAN, self).__init__()
-        if backbone == "resnet50":
+        if backbone == "vgg16":
+            in_feats = [512, 512, 256, 128]
+        elif backbone == "resnet50":
             in_feats = [2048, 1024, 512, 256]
         elif backbone == "darknet19":
             in_feats = [1024, 512, 256, 128]
-        elif backbone == "vgg16":
-            in_feats = [512, 512, 256, 128]
+        elif backbone == "mobilenet":
+            in_feats = [320, 96, 32, 24]
+        elif backbone == "shufflenet":
+            in_feats = [464, 232, 116, 24]
 
         self.proj5 = nn.Conv2d(in_feats[0], num_feat, kernel_size=1, padding=0)
         self.proj4 = nn.Conv2d(in_feats[1], num_feat, kernel_size=1, padding=0)
@@ -82,8 +86,8 @@ class PAN(nn.Module):
 
         n2 = p2
         n3 = p3 + self.relu(self.new3(n2))
-        n4 = p4 + self.relu(self.new3(n3))
-        n5 = p5 + self.relu(self.new3(n4))
+        n4 = p4 + self.relu(self.new4(n3))
+        n5 = p5 + self.relu(self.new5(n4))
 
         n3 = self.relu(self.conv_n3(n3))
         n4 = self.relu(self.conv_n4(n4))
@@ -104,6 +108,16 @@ def resnet50_pan(**kwargs):
 
 def darknet19_pan(**kwargs):
     model = PAN(backbone="darknet19", **kwargs)
+    return model
+
+
+def mobilenet_pan(**kwargs):
+    model = PAN(backbone="mobilenet", **kwargs)
+    return model
+
+
+def shufflenet_pan(**kwargs):
+    model = PAN(backbone="shufflenet", **kwargs)
     return model
 
 

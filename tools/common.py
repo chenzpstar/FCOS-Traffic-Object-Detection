@@ -65,7 +65,7 @@ class Logger(object):
         return logger
 
 
-def make_logger(out_dir, cfg):
+def make_logger(cfg):
     """
     在out_dir文件夹下以当前时间命名，创建日志文件夹，并创建logger用于记录信息
     :param out_dir: str
@@ -74,25 +74,26 @@ def make_logger(out_dir, cfg):
     now_time = datetime.now()
     time_str = datetime.strftime(now_time, "%Y-%m-%d_%H-%M")
     folder_name = "{}_{}e_{}".format(cfg.data_folder, cfg.max_epoch, time_str)
-    log_dir = os.path.join(out_dir, folder_name)  # 根据config中的创建时间作为文件夹名
+    log_dir = os.path.join(cfg.ckpt_root_dir,
+                           folder_name)  # 根据config中的创建时间作为文件夹名
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
 
     # 创建logger
-    path_log = os.path.join(log_dir, "log.log")
-    logger = Logger(path_log)
+    log_path = os.path.join(log_dir, "log.log")
+    logger = Logger(log_path)
     logger = logger.init_logger()
 
     return logger, log_dir
 
 
-def plot_line(train_x,
-              train_y,
-              valid_x,
-              valid_y,
-              mode="loss",
-              kind="total",
-              out_dir=None):
+def plot_curve(train_x,
+               train_y,
+               valid_x,
+               valid_y,
+               mode="loss",
+               kind="total",
+               out_dir=None):
     """
     绘制训练和验证集的loss曲线/acc曲线
     :param train_x: epoch

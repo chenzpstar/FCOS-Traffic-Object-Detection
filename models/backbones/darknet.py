@@ -13,7 +13,7 @@ __all__ = ['DarkNet', 'darknet19']
 
 model_urls = {
     'darknet19':
-    'https://s3.ap-northeast-2.amazonaws.com/deepbaksuvision/darknet19-deepBakSu-e1b3ec1e.pth'
+    'https://s3.ap-northeast-2.amazonaws.com/deepbaksuvision/darknet19-deepBakSu-e1b3ec1e.pth',
 }
 
 
@@ -90,20 +90,12 @@ cfg = [[32, 'M', 64], ['M', 128, 64, 128], ['M', 256, 128, 256],
 
 
 def darknet19(pretrained=False, **kwargs):
-    """DarkNet 19-layer model with batch normalization
-
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-    """
-    if pretrained:
-        kwargs['init_weights'] = False
     model = DarkNet(make_layers(cfg, batch_norm=True), **kwargs)
     if pretrained:
         model_weights = model_zoo.load_url(model_urls['darknet19'])
         model_weights = {
-            k:
-            model_weights[k] if k in model_weights else model.state_dict()[k]
-            for k in model.state_dict()
+            k: v
+            for k, v in zip(model.state_dict(), model_weights.values())
         }
         model.load_state_dict(model_weights)
     return model

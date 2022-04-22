@@ -45,12 +45,19 @@ if __name__ == "__main__":
     data_dir = os.path.join(BASE_DIR, "..", "..", "datasets", "kitti")
     assert os.path.exists(data_dir)
 
+    ckpt_dir = os.path.join(BASE_DIR, "..", "..", "results")
+    ckpt_folder = "kitti_12e_2022-04-22_15-10"
+    ckpt_path = os.path.join(ckpt_dir, ckpt_folder, "checkpoint_12.pth")
+    assert os.path.exists(ckpt_path)
+
     # 1. dataset
-    test_set = KITTIDataset(data_dir,
-                            set_name="training",
-                            mode="valid",
-                            split=True,
-                            transform=BaseTransform(size, mean, std))
+    test_set = KITTIDataset(
+        data_dir,
+        set_name="training",
+        mode="valid",
+        split=True,
+        transform=BaseTransform(size, mean, std),
+    )
     print("INFO ==> test set has {} imgs".format(len(test_set)))
 
     test_loader = DataLoader(
@@ -63,9 +70,6 @@ if __name__ == "__main__":
 
     # 2. model
     model = FCOSDetector(mode="inference", cfg=cfg)
-    ckpt_folder = "kitti_12e_2022-04-19_18-42"
-    ckpt_path = os.path.join(BASE_DIR, "..", "..", "results", ckpt_folder,
-                             "checkpoint_12.pth")
     model_weights = torch.load(ckpt_path, map_location=torch.device("cpu"))
     model_weights = {
         k: model_weights[k] if k in model_weights else model.state_dict()[k]
@@ -78,17 +82,23 @@ if __name__ == "__main__":
 
     # 3. test
     # 评估指标
-    recalls, precisions, f1s, aps = eval_model(test_set,
-                                               test_loader,
-                                               model,
-                                               device=device)
-
-    for label in range(test_set.cls_num - 1):
-        print(
-            "class: {}, recall: {:.4f}, precision: {:.4f}, f1: {:.4f}, ap: {:.4f}"
-            .format(test_set.labels_dict[label + 1], recalls[label],
-                    precisions[label], f1s[label], aps[label]))
+    recalls, precisions, f1s, aps = eval_model(
+        test_set,
+        test_loader,
+        model,
+        device=device,
+    )
 
     # 计算mAP
     mAP = sum(aps) / (test_set.cls_num - 1)
-    print("mAP: {:.4f}".format(mAP))
+
+    # 输出结果
+    out_path = os.path.join(ckpt_dir, ckpt_folder, "eval.txt")
+    with open(out_path, "w") as f:
+        for label in range(test_set.cls_num - 1):
+            print(
+                "class: {}, recall: {:.4f}, precision: {:.4f}, f1: {:.4f}, ap: {:.4f}"
+                .format(test_set.labels_dict[label + 1], recalls[label],
+                        precisions[label], f1s[label], aps[label]),
+                file=f)
+        print("mAP: {:.4f}".format(mAP), file=f)

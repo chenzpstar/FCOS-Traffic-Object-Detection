@@ -13,12 +13,16 @@ import torch.nn.functional as F
 class FPN(nn.Module):
     def __init__(self, backbone, num_feat=256, use_p5=True, init_weights=True):
         super(FPN, self).__init__()
-        if backbone == "resnet50":
+        if backbone == "vgg16":
+            in_feats = [512, 512, 256]
+        elif backbone == "resnet50":
             in_feats = [2048, 1024, 512]
         elif backbone == "darknet19":
             in_feats = [1024, 512, 256]
-        elif backbone == "vgg16":
-            in_feats = [512, 512, 256]
+        elif backbone == "mobilenet":
+            in_feats = [320, 96, 32]
+        elif backbone == "shufflenet":
+            in_feats = [464, 232, 116]
 
         self.proj5 = nn.Conv2d(in_feats[0], num_feat, kernel_size=1, padding=0)
         self.proj4 = nn.Conv2d(in_feats[1], num_feat, kernel_size=1, padding=0)
@@ -86,6 +90,16 @@ def resnet50_fpn(**kwargs):
 
 def darknet19_fpn(**kwargs):
     model = FPN(backbone="darknet19", **kwargs)
+    return model
+
+
+def mobilenet_fpn(**kwargs):
+    model = FPN(backbone="mobilenet", **kwargs)
+    return model
+
+
+def shufflenet_fpn(**kwargs):
+    model = FPN(backbone="shufflenet", **kwargs)
     return model
 
 
