@@ -200,12 +200,12 @@ if __name__ == "__main__":
     if cfg.ckpt_folder is not None:
         if os.path.exists(ckpt_path):
             model_weights = torch.load(ckpt_path, map_location="cpu")
-            model_weights = {
+            state_dict = {
                 k: model_weights[k]
                 if k in model_weights else model.state_dict()[k]
                 for k in model.state_dict()
             }
-            model.load_state_dict(model_weights)
+            model.load_state_dict(state_dict)
             logger.info("finish loading checkpoint")
         else:
             logger.info(

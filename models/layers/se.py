@@ -16,7 +16,9 @@ class SELayer(nn.Module):
         self.fc = nn.Sequential(
             nn.Linear(channel, channel // reduction, bias=False),
             nn.ReLU(inplace=True),
-            nn.Linear(channel // reduction, channel, bias=False), nn.Sigmoid())
+            nn.Linear(channel // reduction, channel, bias=False),
+            nn.Sigmoid(),
+        )
 
     def forward(self, x):
         b, c, _, _ = x.size()

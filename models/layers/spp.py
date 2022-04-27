@@ -20,17 +20,16 @@ def autopad(k, p=None):  # kernel, padding
 class Conv(nn.Module):
     # Standard convolution
     # ch_in, ch_out, kernel, stride, padding, groups
-    def __init__(self, c1, c2, k=1, s=1, p=None, g=1, act=True):
+    def __init__(self, c1, c2, k=1, s=1, p=None, act=True):
         super(Conv, self).__init__()
         self.conv = nn.Conv2d(c1,
                               c2,
-                              k,
-                              s,
-                              autopad(k, p),
-                              groups=g,
+                              kernel_size=k,
+                              stride=s,
+                              padding=autopad(k, p),
                               bias=False)
         self.bn = nn.BatchNorm2d(c2)
-        self.act = nn.ReLU(inplace=True) if act is True else (
+        self.act = nn.ReLU(inplace=True) if act else (
             act if isinstance(act, nn.Module) else nn.Identity())
 
     def forward(self, x):
@@ -41,7 +40,7 @@ class Conv(nn.Module):
 
 
 class SPP(nn.Module):
-    # Spatial pyramid pooling layer used in YOLOv3-SPP
+    # Spatial Pyramid Pooling layer used in YOLOv3-SPP
     def __init__(self, c1, c2, k=(5, 9, 13)):
         super(SPP, self).__init__()
         c_ = c1 // 2  # hidden channels
@@ -52,7 +51,7 @@ class SPP(nn.Module):
 
     def forward(self, x):
         x = self.cv1(x)
-        return self.cv2(torch.cat([x] + [m(x) for m in self.m], 1))
+        return self.cv2(torch.cat([x] + [m(x) for m in self.m], dim=1))
 
 
 class SPPF(nn.Module):
@@ -68,4 +67,5 @@ class SPPF(nn.Module):
         x = self.cv1(x)
         y1 = self.m(x)
         y2 = self.m(y1)
-        return self.cv2(torch.cat([x, y1, y2, self.m(y2)], 1))
+        y3 = self.m(y2)
+        return self.cv2(torch.cat([x, y1, y2, y3], dim=1))

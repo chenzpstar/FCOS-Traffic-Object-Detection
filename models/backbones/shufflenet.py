@@ -9,7 +9,10 @@
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 
-__all__ = ['ShuffleNetV2', 'shufflenetv2_x0_5', 'shufflenetv2_x1_0']
+__all__ = [
+    'ShuffleNetV2', 'shufflenetv2_x0_5', 'shufflenetv2_x1_0',
+    'shufflenetv2_x1_5', 'shufflenetv2_x2_0'
+]
 
 model_urls = {
     'shufflenetv2_x0.5':
@@ -35,7 +38,6 @@ def channel_shuffle(x, groups):
         x: input tensor
         groups: input branch number
     """
-
     batch_size, channels, height, width = x.size()
     channels_per_group = int(channels / groups)
 
@@ -54,55 +56,60 @@ class ShuffleUnit(nn.Module):
         self.stride = stride
 
         if stride != 1 or in_channels != out_channels:
+            out_channels = int(out_channels / 2)
             self.residual = nn.Sequential(
-                nn.Conv2d(in_channels, in_channels, 1),
+                nn.Conv2d(in_channels, in_channels, kernel_size=1, bias=False),
                 nn.BatchNorm2d(in_channels),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(in_channels,
                           in_channels,
-                          3,
+                          kernel_size=3,
                           stride=stride,
                           padding=1,
-                          groups=in_channels),
+                          groups=in_channels,
+                          bias=False),
                 nn.BatchNorm2d(in_channels),
-                nn.Conv2d(in_channels, int(out_channels / 2), 1),
-                nn.BatchNorm2d(int(out_channels / 2)),
+                nn.Conv2d(in_channels, out_channels, kernel_size=1,
+                          bias=False),
+                nn.BatchNorm2d(out_channels),
                 nn.ReLU(inplace=True),
             )
             self.shortcut = nn.Sequential(
                 nn.Conv2d(in_channels,
                           in_channels,
-                          3,
+                          kernel_size=3,
                           stride=stride,
                           padding=1,
-                          groups=in_channels),
+                          groups=in_channels,
+                          bias=False),
                 nn.BatchNorm2d(in_channels),
-                nn.Conv2d(in_channels, int(out_channels / 2), 1),
-                nn.BatchNorm2d(int(out_channels / 2)),
+                nn.Conv2d(in_channels, out_channels, kernel_size=1,
+                          bias=False),
+                nn.BatchNorm2d(out_channels),
                 nn.ReLU(inplace=True),
             )
         else:
             in_channels = int(in_channels / 2)
             self.residual = nn.Sequential(
-                nn.Conv2d(in_channels, in_channels, 1),
+                nn.Conv2d(in_channels, in_channels, kernel_size=1, bias=False),
                 nn.BatchNorm2d(in_channels),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(in_channels,
                           in_channels,
-                          3,
+                          kernel_size=3,
                           stride=stride,
                           padding=1,
-                          groups=in_channels),
+                          groups=in_channels,
+                          bias=False),
                 nn.BatchNorm2d(in_channels),
-                nn.Conv2d(in_channels, in_channels, 1),
+                nn.Conv2d(in_channels, in_channels, kernel_size=1, bias=False),
                 nn.BatchNorm2d(in_channels),
                 nn.ReLU(inplace=True),
             )
             self.shortcut = nn.Sequential()
 
     def forward(self, x):
-
-        if self.stride == 1 and self.out_channels == self.in_channels:
+        if self.stride == 1 and self.in_channels == self.out_channels:
             shortcut, residual = channel_split(x, int(self.in_channels / 2))
         else:
             shortcut = x
@@ -110,10 +117,10 @@ class ShuffleUnit(nn.Module):
 
         shortcut = self.shortcut(shortcut)
         residual = self.residual(residual)
-        x = torch.cat([shortcut, residual], dim=1)
-        x = channel_shuffle(x, 2)
+        out = torch.cat([shortcut, residual], dim=1)
+        out = channel_shuffle(out, 2)
 
-        return x
+        return out
 
 
 class ShuffleNetV2(nn.Module):
@@ -130,12 +137,12 @@ class ShuffleNetV2(nn.Module):
         else:
             ValueError('unsupported ratio number')
 
-        self.pre = nn.Sequential(
-            nn.Conv2d(3, 24, 3, stride=2, padding=1),
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(3, 24, kernel_size=3, stride=2, padding=1, bias=False),
             nn.BatchNorm2d(24),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
         )
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.stage2 = self._make_stage(24, out_channels[0], 3)
         self.stage3 = self._make_stage(out_channels[0], out_channels[1], 7)
         self.stage4 = self._make_stage(out_channels[1], out_channels[2], 3)
@@ -144,16 +151,18 @@ class ShuffleNetV2(nn.Module):
             self._initialize_weights()
 
     def forward(self, x):
-        c1 = self.pre(x)
-        c2 = self.stage2(c1)
-        c3 = self.stage3(c2)
-        c4 = self.stage4(c3)
+        c1 = self.conv1(x)
+        c2 = self.maxpool(c1)
+        c3 = self.stage2(c2)
+        c4 = self.stage3(c3)
+        c5 = self.stage4(c4)
 
-        return c1, c2, c3, c4
+        return c2, c3, c4, c5
 
     def _make_stage(self, in_channels, out_channels, repeat):
         layers = []
         layers.append(ShuffleUnit(in_channels, out_channels, 2))
+
         while repeat:
             layers.append(ShuffleUnit(out_channels, out_channels, 1))
             repeat -= 1
@@ -173,30 +182,44 @@ class ShuffleNetV2(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
 
-def shufflenetv2_x0_5(pretrained=False, **kwargs):
-    model = ShuffleNetV2(ratio=0.5, **kwargs)
+def shufflenetv2_x0_5(pretrained=False):
     if pretrained:
+        model = ShuffleNetV2(ratio=0.5, init_weights=False)
         model_weights = model_zoo.load_url(model_urls['shufflenetv2_x0_5'])
-        model_weights = {
+        state_dict = {
             k:
             model_weights[k] if k in model_weights else model.state_dict()[k]
             for k in model.state_dict()
         }
-        model.load_state_dict(model_weights)
+        model.load_state_dict(state_dict)
+    else:
+        model = ShuffleNetV2(ratio=0.5)
+
     return model
 
 
-def shufflenetv2_x1_0(pretrained=False, **kwargs):
-    model = ShuffleNetV2(ratio=1.0, **kwargs)
+def shufflenetv2_x1_0(pretrained=False):
     if pretrained:
+        model = ShuffleNetV2(ratio=1.0, init_weights=False)
         model_weights = model_zoo.load_url(model_urls['shufflenetv2_x1_0'])
-        model_weights = {
+        state_dict = {
             k:
             model_weights[k] if k in model_weights else model.state_dict()[k]
             for k in model.state_dict()
         }
-        model.load_state_dict(model_weights)
+        model.load_state_dict(state_dict)
+    else:
+        model = ShuffleNetV2(ratio=1.0)
+
     return model
+
+
+def shufflenetv2_x1_5():
+    return ShuffleNetV2(ratio=1.5)
+
+
+def shufflenetv2_x2_0():
+    return ShuffleNetV2(ratio=2.0)
 
 
 if __name__ == "__main__":

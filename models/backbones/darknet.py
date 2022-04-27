@@ -89,15 +89,18 @@ cfg = [[32, 'M', 64], ['M', 128, 64, 128], ['M', 256, 128, 256],
        ['M', 512, 256, 512, 256, 512], ['M', 1024, 512, 1024, 512, 1024]]
 
 
-def darknet19(pretrained=False, **kwargs):
-    model = DarkNet(make_layers(cfg, batch_norm=True), **kwargs)
+def darknet19(pretrained=False):
     if pretrained:
+        model = DarkNet(make_layers(cfg, batch_norm=True), init_weights=False)
         model_weights = model_zoo.load_url(model_urls['darknet19'])
-        model_weights = {
+        state_dict = {
             k: v
             for k, v in zip(model.state_dict(), model_weights.values())
         }
-        model.load_state_dict(model_weights)
+        model.load_state_dict(state_dict)
+    else:
+        model = DarkNet(make_layers(cfg, batch_norm=True))
+
     return model
 
 

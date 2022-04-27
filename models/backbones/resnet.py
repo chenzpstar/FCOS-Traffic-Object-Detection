@@ -143,12 +143,8 @@ class ResNet(nn.Module):
                     nn.init.constant_(m.bn2.weight, 0)
 
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu(x)
-        c1 = self.maxpool(x)
-
-        c2 = self.layer1(c1)
+        c1 = self.relu(self.bn1(self.conv1(x)))
+        c2 = self.layer1(self.maxpool(c1))
         c3 = self.layer2(c2)
         c4 = self.layer3(c3)
         c5 = self.layer4(c4)
@@ -184,57 +180,51 @@ class ResNet(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
 
-def resnet18(pretrained=False, **kwargs):
-    """Constructs a ResNet-18 model.
-
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-    """
-    model = ResNet(BasicBlock, [2, 2, 2, 2], **kwargs)
+def resnet18(pretrained=False):
     if pretrained:
+        model = ResNet(BasicBlock, [2, 2, 2, 2], init_weights=False)
         model_weights = model_zoo.load_url(model_urls['resnet18'])
-        model_weights = {
+        state_dict = {
             k:
             model_weights[k] if k in model_weights else model.state_dict()[k]
             for k in model.state_dict()
         }
-        model.load_state_dict(model_weights)
+        model.load_state_dict(state_dict)
+    else:
+        model = ResNet(BasicBlock, [2, 2, 2, 2])
+
     return model
 
 
-def resnet50(pretrained=False, **kwargs):
-    """Constructs a ResNet-50 model.
-
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-    """
-    model = ResNet(Bottleneck, [3, 4, 6, 3], **kwargs)
+def resnet50(pretrained=False):
     if pretrained:
+        model = ResNet(BasicBlock, [3, 4, 6, 3], init_weights=False)
         model_weights = model_zoo.load_url(model_urls['resnet50'])
-        model_weights = {
+        state_dict = {
             k:
             model_weights[k] if k in model_weights else model.state_dict()[k]
             for k in model.state_dict()
         }
-        model.load_state_dict(model_weights)
+        model.load_state_dict(state_dict)
+    else:
+        model = ResNet(BasicBlock, [3, 4, 6, 3])
+
     return model
 
 
-def resnet101(pretrained=False, **kwargs):
-    """Constructs a ResNet-101 model.
-
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-    """
-    model = ResNet(Bottleneck, [3, 4, 23, 3], **kwargs)
+def resnet101(pretrained=False):
     if pretrained:
+        model = ResNet(BasicBlock, [3, 4, 23, 3], init_weights=False)
         model_weights = model_zoo.load_url(model_urls['resnet101'])
-        model_weights = {
+        state_dict = {
             k:
             model_weights[k] if k in model_weights else model.state_dict()[k]
             for k in model.state_dict()
         }
-        model.load_state_dict(model_weights)
+        model.load_state_dict(state_dict)
+    else:
+        model = ResNet(BasicBlock, [3, 4, 23, 3])
+
     return model
 
 

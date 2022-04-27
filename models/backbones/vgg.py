@@ -91,83 +91,67 @@ cfg = {
 }
 
 
-def vgg16(pretrained=False, **kwargs):
-    """VGG 16-layer model (configuration "D")
-
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-    """
+def vgg16(pretrained=False):
     if pretrained:
-        kwargs['init_weights'] = False
-    model = VGG(make_layers(cfg['D']), **kwargs)
-    if pretrained:
+        model = VGG(make_layers(cfg['D']), init_weights=False)
         model_weights = model_zoo.load_url(model_urls['vgg16'])
-        model_weights = {
+        state_dict = {
             k:
             model_weights[k] if k in model_weights else model.state_dict()[k]
             for k in model.state_dict()
         }
-        model.load_state_dict(model_weights)
+        model.load_state_dict(state_dict)
+    else:
+        model = VGG(make_layers(cfg['D']))
+    
     return model
 
 
-def vgg16_bn(pretrained=False, **kwargs):
-    """VGG 16-layer model (configuration "D") with batch normalization
-
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-    """
+def vgg16_bn(pretrained=False):
     if pretrained:
-        kwargs['init_weights'] = False
-    model = VGG(make_layers(cfg['D'], batch_norm=True), **kwargs)
-    if pretrained:
+        model = VGG(make_layers(cfg['D'], batch_norm=True), init_weights=False)
         model_weights = model_zoo.load_url(model_urls['vgg16_bn'])
-        model_weights = {
+        state_dict = {
             k:
             model_weights[k] if k in model_weights else model.state_dict()[k]
             for k in model.state_dict()
         }
-        model.load_state_dict(model_weights)
+        model.load_state_dict(state_dict)
+    else:
+        model = VGG(make_layers(cfg['D'], batch_norm=True))
+    
     return model
 
 
-def vgg19(pretrained=False, **kwargs):
-    """VGG 19-layer model (configuration "E")
-
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-    """
+def vgg19(pretrained=False):
     if pretrained:
-        kwargs['init_weights'] = False
-    model = VGG(make_layers(cfg['E']), **kwargs)
-    if pretrained:
+        model = VGG(make_layers(cfg['E']), init_weights=False)
         model_weights = model_zoo.load_url(model_urls['vgg19'])
-        model_weights = {
+        state_dict = {
             k:
             model_weights[k] if k in model_weights else model.state_dict()[k]
             for k in model.state_dict()
         }
-        model.load_state_dict(model_weights)
+        model.load_state_dict(state_dict)
+    else:
+        model = VGG(make_layers(cfg['E']))
+    
     return model
 
 
-def vgg19_bn(pretrained=False, **kwargs):
-    """VGG 19-layer model (configuration 'E') with batch normalization
-
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-    """
+def vgg19_bn(pretrained=False):
     if pretrained:
-        kwargs['init_weights'] = False
-    model = VGG(make_layers(cfg['E'], batch_norm=True), **kwargs)
-    if pretrained:
+        model = VGG(make_layers(cfg['E'], batch_norm=True), init_weights=False)
         model_weights = model_zoo.load_url(model_urls['vgg19_bn'])
-        model_weights = {
+        state_dict = {
             k:
             model_weights[k] if k in model_weights else model.state_dict()[k]
             for k in model.state_dict()
         }
-        model.load_state_dict(model_weights)
+        model.load_state_dict(state_dict)
+    else:
+        model = VGG(make_layers(cfg['E'], batch_norm=True))
+    
     return model
 
 
