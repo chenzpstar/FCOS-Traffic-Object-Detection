@@ -8,7 +8,7 @@
 
 import torch.nn as nn
 
-from .backbones import darknet19, resnet50, vgg16_bn
+from .backbones import *
 from .config import FCOSConfig
 from .detect import FCOSDetect
 from .head import FCOSHead
@@ -25,22 +25,31 @@ class FCOS(nn.Module):
         else:
             self.cfg = cfg
 
-        if self.cfg.backbone == "resnet50":
+        if self.cfg.backbone == "vgg16":
+            self.backbone = vgg16_bn(pretrained=self.cfg.pretrained)
+        elif self.cfg.backbone == "resnet50":
             self.backbone = resnet50(pretrained=self.cfg.pretrained)
         elif self.cfg.backbone == "darknet19":
             self.backbone = darknet19(pretrained=self.cfg.pretrained)
-        elif self.cfg.backbone == "vgg16":
-            self.backbone = vgg16_bn(pretrained=self.cfg.pretrained)
+        elif self.cfg.backbone == "mobilenet":
+            self.backbone = mobilenetv2(pretrained=self.cfg.pretrained)
+        elif self.cfg.backbone == "shufflenet":
+            self.backbone = shufflenetv2_x1_0(pretrained=self.cfg.pretrained)
+        elif self.cfg.backbone == "efficientnet":
+            self.backbone = efficientnetv2_s(pretrained=self.cfg.pretrained)
 
         if self.cfg.neck == "fpn":
             self.neck = FPN(backbone=self.cfg.backbone,
-                            num_feat=self.cfg.num_feat,
+                            num_channel=self.cfg.num_feat,
                             use_p5=self.cfg.use_p5)
         elif self.cfg.neck == "pan":
             self.neck = PAN(backbone=self.cfg.backbone,
-                            num_feat=self.cfg.num_feat)
+                            num_channel=self.cfg.num_feat)
+        elif self.cfg.neck == "bifpn":
+            self.neck = PAN(backbone=self.cfg.backbone,
+                            num_channel=self.cfg.num_feat)
 
-        self.head = FCOSHead(num_feat=self.cfg.num_feat,
+        self.head = FCOSHead(num_channel=self.cfg.num_feat,
                              num_cls=self.cfg.num_cls,
                              use_gn=self.cfg.use_gn,
                              ctr_on_reg=self.cfg.ctr_on_reg,

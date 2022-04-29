@@ -11,52 +11,44 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+def conv(in_channels,
+         out_channels,
+         kernel_size=1,
+         stride=1,
+         padding=0,
+         dilation=1):
+    return nn.Conv2d(in_channels,
+                     out_channels,
+                     kernel_size=kernel_size,
+                     stride=stride,
+                     padding=padding,
+                     dilation=dilation)
+
+
 # without bn version
 class ASPP(nn.Module):
-    def __init__(self, in_channel=512, depth=256):
+    def __init__(self, in_channel=512, num_channel=256, r=(6, 12, 18)):
         super(ASPP, self).__init__()
-        self.mean = nn.AdaptiveAvgPool2d((1, 1))  # (1, 1) means ouput_dim
-        self.conv = nn.Conv2d(in_channel, depth, kernel_size=1)
-        self.atrous_block1 = nn.Conv2d(in_channel, depth, kernel_size=1)
-        self.atrous_block6 = nn.Conv2d(in_channel,
-                                       depth,
-                                       kernel_size=3,
-                                       stride=1,
-                                       padding=6,
-                                       dilation=6)
-        self.atrous_block12 = nn.Conv2d(in_channel,
-                                        depth,
-                                        kernel_size=3,
-                                        stride=1,
-                                        padding=12,
-                                        dilation=12)
-        self.atrous_block18 = nn.Conv2d(in_channel,
-                                        depth,
-                                        kernel_size=3,
-                                        stride=1,
-                                        padding=18,
-                                        dilation=18)
-        self.conv_1x1_output = nn.Conv2d(depth * 5, depth, kernel_size=1)
+        self.avgpool = nn.AdaptiveAvgPool2d(1)
+        self.conv_1x1 = conv(in_channel, num_channel)
+        self.atrous_1x1 = conv(in_channel, num_channel)
+        self.atrous_3x3 = nn.ModuleList([
+            conv(in_channel,
+                 num_channel,
+                 kernel_size=3,
+                 stride=1,
+                 padding=x,
+                 dilation=x) for x in r
+        ])
+        self.conv_out = conv(num_channel * 5, num_channel)
 
     def forward(self, x):
-        size = x.shape[2:]
+        conv_feat = self.conv_1x1(self.avgpool(x))
+        conv_feat = F.interpolate(conv_feat, size=x.shape[2:], mode="bilinear")
 
-        image_features = self.mean(x)
-        image_features = self.conv(image_features)
-        image_features = F.upsample(image_features, size=size, mode="bilinear")
+        atrous_feat = self.atrous_1x1(x)
 
-        atrous_block1 = self.atrous_block1(x)
-        atrous_block6 = self.atrous_block6(x)
-        atrous_block12 = self.atrous_block12(x)
-        atrous_block18 = self.atrous_block18(x)
-
-        net = self.conv_1x1_output(
-            torch.cat([
-                image_features,
-                atrous_block1,
-                atrous_block6,
-                atrous_block12,
-                atrous_block18,
-            ],
+        return self.conv_out(
+            torch.cat([conv_feat, atrous_feat] +
+                      [a(x) for a in self.atrous_3x3],
                       dim=1))
-        return net

@@ -17,6 +17,19 @@ model_urls = {
 }
 
 
+def conv(in_planes, out_planes, stride=1, flag=True):
+    return [
+        nn.Conv2d(in_planes,
+                  out_planes,
+                  kernel_size=(1, 3)[flag],
+                  stride=stride,
+                  padding=(0, 1)[flag],
+                  bias=False),
+        nn.BatchNorm2d(out_planes),
+        nn.ReLU(inplace=True),
+    ]
+
+
 class DarkNet(nn.Module):
     def __init__(self, features, init_weights=True):
         super(DarkNet, self).__init__()
@@ -51,33 +64,16 @@ class DarkNet(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
 
-def make_layers(cfg, batch_norm=False, flag=True):
+def make_layers(cfg, flag=True):
     stages = []
     in_channels = 3
     for u in cfg:
         layers = []
         for v in u:
             if v == 'M':
-                layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
+                layers.append(nn.MaxPool2d(kernel_size=2, stride=2))
             else:
-                if batch_norm:
-                    layers += [
-                        nn.Conv2d(in_channels,
-                                  v,
-                                  kernel_size=(1, 3)[flag],
-                                  padding=(0, 1)[flag],
-                                  bias=False),
-                        nn.BatchNorm2d(v),
-                        nn.ReLU(inplace=True),
-                    ]
-                else:
-                    layers += [
-                        nn.Conv2d(in_channels,
-                                  v,
-                                  kernel_size=(1, 3)[flag],
-                                  padding=(0, 1)[flag]),
-                        nn.ReLU(inplace=True),
-                    ]
+                layers.extend(conv(in_channels, v, flag=flag))
                 in_channels = v
             flag = not flag
         stages.append(nn.Sequential(*layers))
@@ -91,7 +87,7 @@ cfg = [[32, 'M', 64], ['M', 128, 64, 128], ['M', 256, 128, 256],
 
 def darknet19(pretrained=False):
     if pretrained:
-        model = DarkNet(make_layers(cfg, batch_norm=True), init_weights=False)
+        model = DarkNet(make_layers(cfg), init_weights=False)
         model_weights = model_zoo.load_url(model_urls['darknet19'])
         state_dict = {
             k: v
@@ -99,7 +95,7 @@ def darknet19(pretrained=False):
         }
         model.load_state_dict(state_dict)
     else:
-        model = DarkNet(make_layers(cfg, batch_norm=True))
+        model = DarkNet(make_layers(cfg))
 
     return model
 

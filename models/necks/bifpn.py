@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-# @file name  : pan.py
+# @file name  : bifpn.py
 # @author     : chenzhanpeng https://github.com/chenzpstar
-# @date       : 2022-01-04
-# @brief      : PAN模型类
+# @date       : 2022-04-23
+# @brief      : BiFPN模型类
 """
 
 import torch.nn as nn
@@ -22,13 +22,13 @@ def conv1x1(in_channels, out_channels, stride=1):
     return nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride)
 
 
-class PAN(nn.Module):
+class BiFPN(nn.Module):
     def __init__(self,
                  backbone,
                  num_channel=256,
                  use_p5=True,
                  init_weights=True):
-        super(PAN, self).__init__()
+        super(BiFPN, self).__init__()
         if backbone == "vgg16":
             in_channels = [512, 512, 256, 128]
         elif backbone == "resnet50":
@@ -42,10 +42,14 @@ class PAN(nn.Module):
         elif backbone == "efficientnet":
             in_channels = [272, 160, 64, 48]
 
-        self.proj5 = conv1x1(in_channels[0], num_channel)
-        self.proj4 = conv1x1(in_channels[1], num_channel)
-        self.proj3 = conv1x1(in_channels[2], num_channel)
-        self.proj2 = conv1x1(in_channels[3], num_channel)
+        self.proj5_1 = conv1x1(in_channels[0], num_channel)
+        self.proj4_1 = conv1x1(in_channels[1], num_channel)
+        self.proj3_1 = conv1x1(in_channels[2], num_channel)
+        self.proj2_1 = conv1x1(in_channels[3], num_channel)
+
+        self.proj5_2 = conv1x1(in_channels[0], num_channel)
+        self.proj4_2 = conv1x1(in_channels[1], num_channel)
+        self.proj3_2 = conv1x1(in_channels[2], num_channel)
 
         # self.conv_p5 = conv3x3(num_channel, num_channel)
         # self.conv_p4 = conv3x3(num_channel, num_channel)
@@ -80,19 +84,23 @@ class PAN(nn.Module):
     def forward(self, feats):
         c2, c3, c4, c5 = feats
 
-        p5 = self.relu(self.proj5(c5))
-        p4 = self.relu(self.proj4(c4)) + self.upsample(p5, c4)
-        p3 = self.relu(self.proj3(c3)) + self.upsample(p4, c3)
-        p2 = self.relu(self.proj2(c2)) + self.upsample(p3, c2)
+        p5_1 = self.relu(self.proj5_1(c5))
+        p4_1 = self.relu(self.proj4_1(c4)) + self.upsample(p5_1, c4)
+        p3_1 = self.relu(self.proj3_1(c3)) + self.upsample(p4_1, c3)
+        p2 = self.relu(self.proj2_1(c2)) + self.upsample(p3_1, c2)
 
-        # p5 = self.relu(self.conv_p5(p5))
-        # p4 = self.relu(self.conv_p4(p4))
-        # p3 = self.relu(self.conv_p3(p3))
+        # p5_1 = self.relu(self.conv_p5(p5_1))
+        # p4_1 = self.relu(self.conv_p4(p4_1))
+        # p3_1 = self.relu(self.conv_p3(p3_1))
+
+        p5_2 = self.relu(self.proj5_2(c5))
+        p4_2 = self.relu(self.proj4_2(c4))
+        p3_2 = self.relu(self.proj3_2(c3))
 
         n2 = p2
-        n3 = p3 + self.relu(self.new3(n2))
-        n4 = p4 + self.relu(self.new4(n3))
-        n5 = p5 + self.relu(self.new5(n4))
+        n3 = p3_1 + p3_2 + self.relu(self.new3(n2))
+        n4 = p4_1 + p4_2 + self.relu(self.new4(n3))
+        n5 = p5_2 + self.relu(self.new5(n4))
 
         n2 = self.relu(self.conv_n2(n2))
         n3 = self.relu(self.conv_n3(n3))
@@ -106,7 +114,7 @@ if __name__ == "__main__":
 
     import torch
 
-    model = PAN(backbone="darknet19")
+    model = BiFPN(backbone="darknet19")
 
     c5 = torch.rand(2, 1024, 7, 7)
     c4 = torch.rand(2, 512, 14, 14)

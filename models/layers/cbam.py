@@ -11,35 +11,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class BasicConv(nn.Module):
-    def __init__(self,
-                 in_planes,
-                 out_planes,
-                 kernel_size,
-                 stride=1,
-                 padding=0,
-                 relu=True):
-        super(BasicConv, self).__init__()
-        self.conv = nn.Conv2d(in_planes,
-                              out_planes,
-                              kernel_size=kernel_size,
-                              stride=stride,
-                              padding=padding,
-                              bias=False)
-        self.bn = nn.BatchNorm2d(out_planes,
-                                 eps=1e-5,
-                                 momentum=0.01,
-                                 affine=True)
-        self.relu = nn.ReLU(inplace=True) if relu else None
-
-    def forward(self, x):
-        x = self.conv(x)
-        x = self.bn(x)
-        if self.relu is not None:
-            x = self.relu(x)
-        return x
-
-
 class Flatten(nn.Module):
     def forward(self, x):
         return x.view(x.size(0), -1)
@@ -66,11 +37,11 @@ class ChannelGate(nn.Module):
 
         for pool_type in self.pool_types:
             if pool_type == 'avg':
-                avg_pool = F.avg_pool2d(x, (h, w), stride=(h, w))
-                channel_att_raw = self.fc(avg_pool)
+                avgpool = F.avg_pool2d(x, (h, w), stride=(h, w))
+                channel_att_raw = self.fc(avgpool)
             elif pool_type == 'max':
-                max_pool = F.max_pool2d(x, (h, w), stride=(h, w))
-                channel_att_raw = self.fc(max_pool)
+                maxpool = F.max_pool2d(x, (h, w), stride=(h, w))
+                channel_att_raw = self.fc(maxpool)
 
             if channel_att_sum is None:
                 channel_att_sum = channel_att_raw
@@ -95,12 +66,10 @@ class SpatialGate(nn.Module):
     def __init__(self):
         super(SpatialGate, self).__init__()
         self.compress = ChannelPool()
-        self.spatial = BasicConv(2,
-                                 1,
-                                 kernel_size=7,
-                                 stride=1,
-                                 padding=3,
-                                 relu=False)
+        self.spatial = nn.Sequential(
+            nn.Conv2d(2, 1, kernel_size=7, stride=1, padding=3, bias=False),
+            nn.BatchNorm2d(1, momentum=0.01),
+        )
 
     def forward(self, x):
         x_out = self.compress(x)

@@ -12,9 +12,17 @@ import torch
 import torch.nn as nn
 
 
+def conv3x3(in_channels, out_channels, stride=1):
+    return nn.Conv2d(in_channels,
+                     out_channels,
+                     kernel_size=3,
+                     stride=stride,
+                     padding=1)
+
+
 class FCOSHead(nn.Module):
     def __init__(self,
-                 num_feat=256,
+                 num_channel=256,
                  num_cls=3,
                  use_gn=True,
                  ctr_on_reg=True,
@@ -30,33 +38,28 @@ class FCOSHead(nn.Module):
         reg_branch = []
 
         for _ in range(4):
-            cls_branch.append(
-                nn.Conv2d(num_feat, num_feat, kernel_size=3, padding=1))
+            cls_branch.append(conv3x3(num_channel, num_channel))
             if use_gn:
-                cls_branch.append(nn.GroupNorm(32, num_feat))
+                cls_branch.append(nn.GroupNorm(32, num_channel))
             cls_branch.append(nn.ReLU(inplace=True))
 
-            reg_branch.append(
-                nn.Conv2d(num_feat, num_feat, kernel_size=3, padding=1))
+            reg_branch.append(conv3x3(num_channel, num_channel))
             if use_gn:
-                reg_branch.append(nn.GroupNorm(32, num_feat))
+                reg_branch.append(nn.GroupNorm(32, num_channel))
             reg_branch.append(nn.ReLU(inplace=True))
 
         self.cls_conv = nn.Sequential(*cls_branch)
         self.reg_conv = nn.Sequential(*reg_branch)
 
-        self.cls_logits = nn.Conv2d(num_feat,
-                                    num_cls,
-                                    kernel_size=3,
-                                    padding=1)
-        self.reg_preds = nn.Conv2d(num_feat, 4, kernel_size=3, padding=1)
-        self.ctr_logits = nn.Conv2d(num_feat, 1, kernel_size=3, padding=1)
+        self.cls_logits = conv3x3(num_channel, num_cls)
+        self.reg_preds = conv3x3(num_channel, 4)
+        self.ctr_logits = conv3x3(num_channel, 1)
 
         if init_weights:
             self._initialize_weights()
 
-        nn.init.constant_(self.cls_logits.bias, -math.log(
-            (1 - prior) / prior))  # cls bias init
+        # cls bias init
+        nn.init.constant_(self.cls_logits.bias, -math.log((1 - prior) / prior))
         self.scale_exp = nn.ModuleList([ScaleExp(1.0) for _ in range(5)])
 
     def _initialize_weights(self):

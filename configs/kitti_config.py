@@ -25,16 +25,18 @@ cfg.clip_grad = False
 cfg.log_interval = 100
 
 # backbone
-# cfg.backbone = "vgg16"  # ["vgg16", "resnet50", "darknet19", "mobilenet", "shufflenet"]
+# cfg.backbone = "vgg16"  # ["vgg16", "resnet50", "darknet19", "mobilenet", "shufflenet", "efficientnet"]
 cfg.backbone = "resnet50"
 # cfg.backbone = "darknet19"
 # cfg.backbone = "mobilenet"
 # cfg.backbone = "shufflenet"
+# cfg.backbone = "efficientnet"
 cfg.pretrained = True
 
 # neck
-cfg.neck = "fpn"  # ["fpn, pan"]
+cfg.neck = "fpn"  # ["fpn, pan, bifpn"]
 # cfg.neck = "pan"
+# cfg.neck = "bifpn"
 cfg.num_feat = 256  # 256
 cfg.use_p5 = True
 

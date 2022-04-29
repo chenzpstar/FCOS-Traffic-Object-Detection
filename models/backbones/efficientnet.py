@@ -4,6 +4,7 @@
 # @author     : chenzhanpeng https://github.com/chenzpstar
 # @date       : 2022-04-22
 # @brief      : EfficientNet模型类
+# @reference  : https://github.com/pytorch/vision/blob/main/torchvision/models/efficientnet.py
 """
 
 import torch.nn as nn
@@ -31,33 +32,46 @@ else:
 
 
 class SELayer(nn.Module):
-    def __init__(self, in_channels, out_channels, reduction=4):
+    def __init__(self, in_channels, squeeze_channels, reduction=4):
         super(SELayer, self).__init__()
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.avgpool = nn.AdaptiveAvgPool2d(1)
         self.fc = nn.Sequential(
-            nn.Linear(out_channels, in_channels // reduction, bias=False),
-            SiLU(),
-            nn.Linear(in_channels // reduction, out_channels, bias=False),
+            nn.Linear(in_channels, squeeze_channels // reduction, bias=False),
+            nn.SiLU(inplace=True),
+            nn.Linear(squeeze_channels // reduction, in_channels, bias=False),
             nn.Sigmoid(),
         )
 
     def forward(self, x):
         b, c, _, _ = x.size()
-        y = self.avg_pool(x).view(b, c)
+        y = self.avgpool(x).view(b, c)
         y = self.fc(y).view(b, c, 1, 1)
         return x * y.expand_as(x)
 
 
-def conv3x3(in_channels, out_channels, stride):
+def conv3x3(in_channels, out_channels, stride=1, groups=1, act=True):
     return nn.Sequential(
         nn.Conv2d(in_channels,
                   out_channels,
                   kernel_size=3,
                   stride=stride,
                   padding=1,
+                  groups=groups,
                   bias=False),
         nn.BatchNorm2d(out_channels),
-        SiLU(),
+        nn.SiLU(inplace=True) if act else nn.Identity(),
+    )
+
+
+def conv1x1(in_channels, out_channels, stride=1, act=True):
+    return nn.Sequential(
+        nn.Conv2d(in_channels,
+                  out_channels,
+                  kernel_size=1,
+                  stride=stride,
+                  bias=False),
+        nn.BatchNorm2d(out_channels),
+        nn.SiLU(inplace=True) if act else nn.Identity(),
     )
 
 
@@ -68,51 +82,36 @@ class MBConv(nn.Module):
         self.out_channels = out_channels
         self.stride = stride
 
+        layers = []
         exp_channels = int(in_channels * t)
         if fused:
-            self.residual = nn.Sequential(
+            if t != 1:
+                layers.extend([
+                    # fused
+                    conv3x3(in_channels, exp_channels, stride=stride),
+                    # pw-linear
+                    conv1x1(exp_channels, out_channels, act=False),
+                ])
+            else:
                 # fused
-                nn.Conv2d(in_channels,
-                          exp_channels,
-                          kernel_size=3,
-                          stride=stride,
-                          padding=1,
-                          bias=False),
-                nn.BatchNorm2d(exp_channels),
-                SiLU(),
-                SELayer(in_channels, exp_channels),
-                # pw-linear
-                nn.Conv2d(exp_channels,
-                          out_channels,
-                          kernel_size=1,
-                          bias=False),
-                nn.BatchNorm2d(out_channels),
-            )
+                layers.append(conv3x3(in_channels, out_channels,
+                                      stride=stride))
         else:
-            self.residual = nn.Sequential(
+            if t != 1:
                 # pw
-                nn.Conv2d(in_channels, exp_channels, kernel_size=1,
-                          bias=False),
-                nn.BatchNorm2d(exp_channels),
-                SiLU(),
+                layers.append(conv1x1(in_channels, exp_channels))
+            layers.extend([
                 # dw
-                nn.Conv2d(exp_channels,
-                          exp_channels,
-                          kernel_size=3,
-                          stride=stride,
-                          padding=1,
-                          groups=exp_channels,
-                          bias=False),
-                nn.BatchNorm2d(exp_channels),
-                SiLU(),
-                SELayer(in_channels, exp_channels),
+                conv3x3(exp_channels,
+                        exp_channels,
+                        stride=stride,
+                        groups=exp_channels),
+                # attention
+                SELayer(exp_channels, in_channels),
                 # pw-linear
-                nn.Conv2d(exp_channels,
-                          out_channels,
-                          kernel_size=1,
-                          bias=False),
-                nn.BatchNorm2d(out_channels),
-            )
+                conv1x1(exp_channels, out_channels, act=False),
+            ])
+        self.residual = nn.Sequential(*layers)
 
     def forward(self, x):
         residual = self.residual(x)
@@ -123,37 +122,24 @@ class MBConv(nn.Module):
 
 
 class EfficientNetv2(nn.Module):
-    def __init__(self, scale='s', init_weights=True):
+    def __init__(self, out_channels, repeat, init_weights=True):
         super(EfficientNetv2, self).__init__()
-        if scale == 's':
-            self.stage0 = conv3x3(3, 24, 2)
-            self.stage1 = self._make_stage(24, 24, 2, 1, 1, fused=True)
-            self.stage2 = self._make_stage(24, 48, 4, 2, 4, fused=True)
-            self.stage3 = self._make_stage(48, 64, 4, 2, 4, fused=True)
-            self.stage4 = self._make_stage(64, 128, 6, 2, 4)
-            self.stage5 = self._make_stage(128, 160, 9, 1, 6)
-            self.stage6 = self._make_stage(160, 272, 15, 2, 6)
-            self.stage7 = nn.Sequential()
-
-        elif scale == 'm':
-            self.stage0 = conv3x3(3, 24, 2)
-            self.stage1 = self._make_stage(24, 24, 3, 1, 1, fused=True)
-            self.stage2 = self._make_stage(24, 48, 5, 2, 4, fused=True)
-            self.stage3 = self._make_stage(48, 80, 5, 2, 4, fused=True)
-            self.stage4 = self._make_stage(80, 160, 7, 2, 4)
-            self.stage5 = self._make_stage(160, 176, 14, 1, 6)
-            self.stage6 = self._make_stage(176, 304, 18, 2, 6)
-            self.stage7 = self._make_stage(304, 512, 5, 1, 6)
-
-        elif scale == 'l':
-            self.stage0 = conv3x3(3, 32, 2)
-            self.stage1 = self._make_stage(24, 32, 4, 1, 1, fused=True)
-            self.stage2 = self._make_stage(32, 64, 7, 2, 4, fused=True)
-            self.stage3 = self._make_stage(64, 96, 7, 2, 4, fused=True)
-            self.stage4 = self._make_stage(96, 192, 10, 2, 4)
-            self.stage5 = self._make_stage(192, 224, 19, 1, 6)
-            self.stage6 = self._make_stage(224, 384, 25, 2, 6)
-            self.stage7 = self._make_stage(384, 640, 7, 1, 6)
+        self.stage0 = conv3x3(3, out_channels[0], 2)
+        self.stage1 = self._make_stage(out_channels[0], out_channels[0],
+                                       repeat[0], 1, 1, True)
+        self.stage2 = self._make_stage(out_channels[0], out_channels[1],
+                                       repeat[1], 2, 4, True)
+        self.stage3 = self._make_stage(out_channels[1], out_channels[2],
+                                       repeat[2], 2, 4, True)
+        self.stage4 = self._make_stage(out_channels[2], out_channels[3],
+                                       repeat[3], 2, 4)
+        self.stage5 = self._make_stage(out_channels[3], out_channels[4],
+                                       repeat[4], 1, 6)
+        self.stage6 = self._make_stage(out_channels[4], out_channels[5],
+                                       repeat[5], 2, 6)
+        self.stage7 = self._make_stage(
+            out_channels[5], out_channels[6], repeat[6], 1,
+            6) if len(out_channels) == 7 else nn.Identity()
 
         if init_weights:
             self._initialize_weights()
@@ -174,12 +160,10 @@ class EfficientNetv2(nn.Module):
                     stride,
                     t,
                     fused=False):
-        layers = []
-        layers.append(MBConv(in_channels, out_channels, stride, t, fused))
+        layers = [MBConv(in_channels, out_channels, stride, t, fused)]
 
-        while repeat - 1:
+        for _ in range(1, repeat):
             layers.append(MBConv(out_channels, out_channels, 1, t, fused))
-            repeat -= 1
 
         return nn.Sequential(*layers)
 
@@ -196,10 +180,10 @@ class EfficientNetv2(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
 
-def efficientnetv2_s(pretrained=False):
+def _efficientnetv2(out_channels, repeat, name, pretrained=False):
     if pretrained:
-        model = EfficientNetv2(scale='s', init_weights=False)
-        model_weights = model_zoo.load_url(model_urls['efficientnetv2_s'])
+        model = EfficientNetv2(out_channels, repeat, init_weights=False)
+        model_weights = model_zoo.load_url(model_urls[name])
         state_dict = {
             k:
             model_weights[k] if k in model_weights else model.state_dict()[k]
@@ -207,41 +191,26 @@ def efficientnetv2_s(pretrained=False):
         }
         model.load_state_dict(state_dict)
     else:
-        model = EfficientNetv2(scale='s')
+        model = EfficientNetv2(out_channels, repeat)
 
     return model
+
+
+def efficientnetv2_s(pretrained=False):
+    return _efficientnetv2([24, 48, 64, 128, 160, 256], [2, 4, 4, 6, 9, 15],
+                           'efficientnetv2_s', pretrained)
 
 
 def efficientnetv2_m(pretrained=False):
-    if pretrained:
-        model = EfficientNetv2(scale='m', init_weights=False)
-        model_weights = model_zoo.load_url(model_urls['efficientnetv2_m'])
-        state_dict = {
-            k:
-            model_weights[k] if k in model_weights else model.state_dict()[k]
-            for k in model.state_dict()
-        }
-        model.load_state_dict(state_dict)
-    else:
-        model = EfficientNetv2(scale='m')
-
-    return model
+    return _efficientnetv2([24, 48, 80, 160, 176, 304, 512],
+                           [3, 5, 5, 7, 14, 18, 5], 'efficientnetv2_m',
+                           pretrained)
 
 
 def efficientnetv2_l(pretrained=False):
-    if pretrained:
-        model = EfficientNetv2(scale='l', init_weights=False)
-        model_weights = model_zoo.load_url(model_urls['efficientnetv2_l'])
-        state_dict = {
-            k:
-            model_weights[k] if k in model_weights else model.state_dict()[k]
-            for k in model.state_dict()
-        }
-        model.load_state_dict(state_dict)
-    else:
-        model = EfficientNetv2(scale='l')
-
-    return model
+    return _efficientnetv2([32, 64, 96, 192, 224, 384, 640],
+                           [4, 7, 7, 10, 19, 25, 7], 'efficientnetv2_l',
+                           pretrained)
 
 
 if __name__ == '__main__':

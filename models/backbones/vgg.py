@@ -4,6 +4,7 @@
 # @author     : chenzhanpeng https://github.com/chenzpstar
 # @date       : 2022-01-04
 # @brief      : VGG模型类
+# @reference  : https://github.com/pytorch/vision/blob/main/torchvision/models/vgg.py
 """
 
 import torch.nn as nn
@@ -13,10 +14,33 @@ __all__ = ['VGG', 'vgg16', 'vgg16_bn', 'vgg19_bn', 'vgg19']
 
 model_urls = {
     'vgg16': 'https://download.pytorch.org/models/vgg16-397923af.pth',
-    'vgg19': 'https://download.pytorch.org/models/vgg19-dcbb9e9d.pth',
     'vgg16_bn': 'https://download.pytorch.org/models/vgg16_bn-6c64b313.pth',
+    'vgg19': 'https://download.pytorch.org/models/vgg19-dcbb9e9d.pth',
     'vgg19_bn': 'https://download.pytorch.org/models/vgg19_bn-c79401a0.pth',
 }
+
+
+def conv3x3(in_planes, out_planes, stride=1, norm=False):
+    if norm:
+        return [
+            nn.Conv2d(in_planes,
+                      out_planes,
+                      kernel_size=3,
+                      stride=stride,
+                      padding=1,
+                      bias=False),
+            nn.BatchNorm2d(out_planes),
+            nn.ReLU(inplace=True),
+        ]
+    else:
+        return [
+            nn.Conv2d(in_planes,
+                      out_planes,
+                      kernel_size=3,
+                      stride=stride,
+                      padding=1),
+            nn.ReLU(inplace=True),
+        ]
 
 
 class VGG(nn.Module):
@@ -53,37 +77,23 @@ class VGG(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
 
-def make_layers(cfg, batch_norm=False):
+def make_layers(cfg, norm=False):
     stages = []
     in_channels = 3
     for u in cfg:
         layers = []
         for v in u:
             if v == 'M':
-                layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
+                layers.append(nn.MaxPool2d(kernel_size=2, stride=2))
             else:
-                if batch_norm:
-                    layers += [
-                        nn.Conv2d(in_channels,
-                                  v,
-                                  kernel_size=3,
-                                  padding=1,
-                                  bias=False),
-                        nn.BatchNorm2d(v),
-                        nn.ReLU(inplace=True),
-                    ]
-                else:
-                    layers += [
-                        nn.Conv2d(in_channels, v, kernel_size=3, padding=1),
-                        nn.ReLU(inplace=True),
-                    ]
+                layers.extend(conv3x3(in_channels, v, norm=norm))
                 in_channels = v
         stages.append(nn.Sequential(*layers))
 
     return nn.Sequential(*stages)
 
 
-cfg = {
+cfgs = {
     'D': [[64, 64], ['M', 128, 128], ['M', 256, 256, 256],
           ['M', 512, 512, 512], ['M', 512, 512, 512]],
     'E': [[64, 64], ['M', 128, 128], ['M', 256, 256, 256, 256],
@@ -91,10 +101,10 @@ cfg = {
 }
 
 
-def vgg16(pretrained=False):
+def _vgg(cfg, norm, name, pretrained=False):
     if pretrained:
-        model = VGG(make_layers(cfg['D']), init_weights=False)
-        model_weights = model_zoo.load_url(model_urls['vgg16'])
+        model = VGG(make_layers(cfgs[cfg], norm), init_weights=False)
+        model_weights = model_zoo.load_url(model_urls[name])
         state_dict = {
             k:
             model_weights[k] if k in model_weights else model.state_dict()[k]
@@ -102,57 +112,25 @@ def vgg16(pretrained=False):
         }
         model.load_state_dict(state_dict)
     else:
-        model = VGG(make_layers(cfg['D']))
-    
+        model = VGG(make_layers(cfgs[cfg], norm))
+
     return model
+
+
+def vgg16(pretrained=False):
+    return _vgg('D', False, 'vgg16', pretrained)
 
 
 def vgg16_bn(pretrained=False):
-    if pretrained:
-        model = VGG(make_layers(cfg['D'], batch_norm=True), init_weights=False)
-        model_weights = model_zoo.load_url(model_urls['vgg16_bn'])
-        state_dict = {
-            k:
-            model_weights[k] if k in model_weights else model.state_dict()[k]
-            for k in model.state_dict()
-        }
-        model.load_state_dict(state_dict)
-    else:
-        model = VGG(make_layers(cfg['D'], batch_norm=True))
-    
-    return model
+    return _vgg('D', True, 'vgg16_bn', pretrained)
 
 
 def vgg19(pretrained=False):
-    if pretrained:
-        model = VGG(make_layers(cfg['E']), init_weights=False)
-        model_weights = model_zoo.load_url(model_urls['vgg19'])
-        state_dict = {
-            k:
-            model_weights[k] if k in model_weights else model.state_dict()[k]
-            for k in model.state_dict()
-        }
-        model.load_state_dict(state_dict)
-    else:
-        model = VGG(make_layers(cfg['E']))
-    
-    return model
+    return _vgg('E', False, 'vgg19', pretrained)
 
 
 def vgg19_bn(pretrained=False):
-    if pretrained:
-        model = VGG(make_layers(cfg['E'], batch_norm=True), init_weights=False)
-        model_weights = model_zoo.load_url(model_urls['vgg19_bn'])
-        state_dict = {
-            k:
-            model_weights[k] if k in model_weights else model.state_dict()[k]
-            for k in model.state_dict()
-        }
-        model.load_state_dict(state_dict)
-    else:
-        model = VGG(make_layers(cfg['E'], batch_norm=True))
-    
-    return model
+    return _vgg('E', True, 'vgg19_bn', pretrained)
 
 
 if __name__ == "__main__":
@@ -160,7 +138,7 @@ if __name__ == "__main__":
     import torch
     from torchsummary import summary
 
-    model = vgg16()
+    model = vgg16_bn()
     summary(model, (3, 224, 224), 2, device="cpu")
 
     x = torch.rand(2, 3, 224, 224)
