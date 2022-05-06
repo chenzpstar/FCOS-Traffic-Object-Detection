@@ -13,7 +13,7 @@ from .config import FCOSConfig
 from .detect import FCOSDetect
 from .head import FCOSHead
 from .loss import FCOSLoss
-from .necks import FPN, PAN
+from .necks import FPN, PAN, BiFPN
 from .target import FCOSTarget
 
 
@@ -40,16 +40,16 @@ class FCOS(nn.Module):
 
         if self.cfg.neck == "fpn":
             self.neck = FPN(backbone=self.cfg.backbone,
-                            num_channel=self.cfg.num_feat,
+                            num_channel=self.cfg.num_channel,
                             use_p5=self.cfg.use_p5)
         elif self.cfg.neck == "pan":
             self.neck = PAN(backbone=self.cfg.backbone,
-                            num_channel=self.cfg.num_feat)
+                            num_channel=self.cfg.num_channel)
         elif self.cfg.neck == "bifpn":
-            self.neck = PAN(backbone=self.cfg.backbone,
-                            num_channel=self.cfg.num_feat)
+            self.neck = BiFPN(backbone=self.cfg.backbone,
+                              num_channel=self.cfg.num_channel)
 
-        self.head = FCOSHead(num_channel=self.cfg.num_feat,
+        self.head = FCOSHead(num_channel=self.cfg.num_channel,
                              num_cls=self.cfg.num_cls,
                              use_gn=self.cfg.use_gn,
                              ctr_on_reg=self.cfg.ctr_on_reg,

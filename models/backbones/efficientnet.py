@@ -10,7 +10,10 @@
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 
-__all__ = ['efficientnetv2_s', 'efficientnetv2_m', 'efficientnetv2_l']
+__all__ = [
+    'EfficientNetV2', 'efficientnetv2_s', 'efficientnetv2_m',
+    'efficientnetv2_l'
+]
 
 model_urls = {
     'efficientnetv2_s':
@@ -121,9 +124,9 @@ class MBConv(nn.Module):
         return residual
 
 
-class EfficientNetv2(nn.Module):
+class EfficientNetV2(nn.Module):
     def __init__(self, out_channels, repeat, init_weights=True):
-        super(EfficientNetv2, self).__init__()
+        super(EfficientNetV2, self).__init__()
         self.stage0 = conv3x3(3, out_channels[0], 2)
         self.stage1 = self._make_stage(out_channels[0], out_channels[0],
                                        repeat[0], 1, 1, True)
@@ -182,7 +185,7 @@ class EfficientNetv2(nn.Module):
 
 def _efficientnetv2(out_channels, repeat, name, pretrained=False):
     if pretrained:
-        model = EfficientNetv2(out_channels, repeat, init_weights=False)
+        model = EfficientNetV2(out_channels, repeat, init_weights=False)
         model_weights = model_zoo.load_url(model_urls[name])
         state_dict = {
             k:
@@ -191,7 +194,7 @@ def _efficientnetv2(out_channels, repeat, name, pretrained=False):
         }
         model.load_state_dict(state_dict)
     else:
-        model = EfficientNetv2(out_channels, repeat)
+        model = EfficientNetV2(out_channels, repeat)
 
     return model
 

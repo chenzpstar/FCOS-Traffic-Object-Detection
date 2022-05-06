@@ -95,8 +95,10 @@ class ShuffleUnit(nn.Module):
                 # pw
                 conv1x1(in_channels, split_channels),
             ])
+            # pw
             residual.append(conv1x1(in_channels, split_channels))
         else:
+            # pw
             residual.append(conv1x1(split_channels, split_channels))
         residual.extend([
             # dw-linear

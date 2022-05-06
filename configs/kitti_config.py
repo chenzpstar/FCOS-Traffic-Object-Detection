@@ -37,7 +37,7 @@ cfg.pretrained = True
 cfg.neck = "fpn"  # ["fpn, pan, bifpn"]
 # cfg.neck = "pan"
 # cfg.neck = "bifpn"
-cfg.num_feat = 256  # 256
+cfg.num_channel = 256  # 256
 cfg.use_p5 = True
 
 # head

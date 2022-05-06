@@ -24,9 +24,10 @@ def calc_mean_std(data_loader):
 
     for data in tqdm(data_loader):
         img = data[0]
-        chn_num = img.shape[1]
+        num_channels = img.shape[1]
         img = img / 255.0
-        img = img.permute(0, 2, 3, 1).reshape((-1, chn_num))  # bchw -> (bhw)c
+        img = img.permute(0, 2, 3, 1).reshape(
+            (-1, num_channels))  # bchw -> (bhw)c
         img_mean_sigma += img.mean(dim=0)
         img_std_sigma += img.pow(2).mean(dim=0)
 
@@ -44,7 +45,6 @@ if __name__ == '__main__':
 
     train_set = BDD100KDataset(data_dir, set_name="train")
     valid_set = BDD100KDataset(data_dir, set_name="val")
-    # test_set = BDD100KDataset(data_dir, set_name="test")
 
     train_loader = DataLoader(
         train_set,
@@ -60,18 +60,9 @@ if __name__ == '__main__':
         num_workers=16,
         collate_fn=Collate(),
     )
-    # test_loader = DataLoader(
-    #     test_set,
-    #     batch_size=16,
-    #     shuffle=False,
-    #     num_workers=16,
-    #     collate_fn=Collate(),
-    # )
 
     train_mean, train_std = calc_mean_std(train_loader)
     valid_mean, valid_std = calc_mean_std(valid_loader)
-    # test_mean, test_std = calc_mean_std(test_loader)
 
     print("train: mean: {}, std: {}".format(train_mean, train_std))
     print("valid: mean: {}, std: {}".format(valid_mean, valid_std))
-    # print("test: mean: {}, std: {}".format(test_mean, test_std))
