@@ -14,14 +14,12 @@ class SELayer(nn.Module):
         super(SELayer, self).__init__()
         self.avgpool = nn.AdaptiveAvgPool2d(1)
         self.fc = nn.Sequential(
-            nn.Linear(channel, channel // reduction, bias=False),
+            nn.Conv2d(channel, channel // reduction, kernel_size=1),
             nn.ReLU(inplace=True),
-            nn.Linear(channel // reduction, channel, bias=False),
+            nn.Conv2d(channel // reduction, channel, kernel_size=1),
             nn.Sigmoid(),
         )
 
     def forward(self, x):
-        b, c, _, _ = x.size()
-        y = self.avgpool(x).view(b, c)
-        y = self.fc(y).view(b, c, 1, 1)
-        return x * y.expand_as(x)
+        scale = self.fc(self.avgpool(x))
+        return x * scale

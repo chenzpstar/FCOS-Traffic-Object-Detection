@@ -11,11 +11,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class Flatten(nn.Module):
-    def forward(self, x):
-        return x.view(x.size(0), -1)
-
-
 class ChannelGate(nn.Module):
     def __init__(self,
                  gate_channels,
@@ -24,56 +19,60 @@ class ChannelGate(nn.Module):
         super(ChannelGate, self).__init__()
         self.gate_channels = gate_channels
         self.fc = nn.Sequential(
-            Flatten(),
-            nn.Linear(gate_channels, gate_channels // reduction_ratio),
+            nn.Conv2d(gate_channels,
+                      gate_channels // reduction_ratio,
+                      kernel_size=1),
             nn.ReLU(inplace=True),
-            nn.Linear(gate_channels // reduction_ratio, gate_channels),
+            nn.Conv2d(gate_channels // reduction_ratio,
+                      gate_channels,
+                      kernel_size=1),
         )
         self.pool_types = pool_types
 
     def forward(self, x):
-        _, _, h, w = x.size()
-        channel_att_sum = None
+        h, w = x.shape[2:]
+        channel_att = 0
 
         for pool_type in self.pool_types:
             if pool_type == 'avg':
                 avgpool = F.avg_pool2d(x, (h, w), stride=(h, w))
-                channel_att_raw = self.fc(avgpool)
+                channel_att += self.fc(avgpool)
             elif pool_type == 'max':
                 maxpool = F.max_pool2d(x, (h, w), stride=(h, w))
-                channel_att_raw = self.fc(maxpool)
+                channel_att += self.fc(maxpool)
 
-            if channel_att_sum is None:
-                channel_att_sum = channel_att_raw
-            else:
-                channel_att_sum += channel_att_raw
-
-        scale = F.sigmoid(channel_att_sum).unsqueeze(2).unsqueeze(3).expand_as(
-            x)
+        scale = F.sigmoid(channel_att)
         return x * scale
 
 
-class ChannelPool(nn.Module):
-    def forward(self, x):
-        return torch.cat([
-            torch.max(x, 1)[0].unsqueeze(1),
-            torch.mean(x, 1).unsqueeze(1),
-        ],
-                         dim=1)
-
-
 class SpatialGate(nn.Module):
-    def __init__(self):
+    def __init__(self, pool_types=['avg', 'max']):
         super(SpatialGate, self).__init__()
-        self.compress = ChannelPool()
-        self.spatial = nn.Sequential(
-            nn.Conv2d(2, 1, kernel_size=7, stride=1, padding=3, bias=False),
+        self.in_channels = len(pool_types)
+        self.conv = nn.Sequential(
+            nn.Conv2d(self.in_channels,
+                      1,
+                      kernel_size=7,
+                      stride=1,
+                      padding=3,
+                      bias=False),
             nn.BatchNorm2d(1, momentum=0.01),
         )
+        self.pool_types = pool_types
 
     def forward(self, x):
-        x_out = self.compress(x)
-        x_out = self.spatial(x_out)
+        spatial_att = []
+
+        for pool_type in self.pool_types:
+            if pool_type == 'avg':
+                avgpool = torch.mean(x, 1, keepdim=True)
+                spatial_att.append(avgpool)
+            elif pool_type == 'max':
+                maxpool = torch.max(x, 1, keepdim=True)[0]
+                spatial_att.append(maxpool)
+
+        x_out = torch.cat(spatial_att, dim=1)
+        x_out = self.conv(x_out)
         scale = F.sigmoid(x_out)
         return x * scale
 
@@ -89,7 +88,7 @@ class CBAM(nn.Module):
                                        pool_types)
         self.no_spatial = no_spatial
         if not no_spatial:
-            self.SpatialGate = SpatialGate()
+            self.SpatialGate = SpatialGate(pool_types)
 
     def forward(self, x):
         x_out = self.ChannelGate(x)

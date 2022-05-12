@@ -89,9 +89,9 @@ Time: 2022.1.1 - 2022.5.31
 
     ![](http://latex.codecogs.com/svg.latex?L_{cls}(p_{x,y},p_{x,y}^*)=-\frac{1}{N_{pos}}\sum_{x,y}[\alpha(1-p_{x,y})^\gamma%20p_{x,y}^*\log(p_{x,y})+(1-\alpha)p_{x,y}^\gamma(1-p_{x,y}^*)\log(1-p_{x,y})])
 
-- 回归损失：GIoU Loss
+- 回归损失：IoU Loss
 
-    ![](http://latex.codecogs.com/svg.latex?L_{reg}(t_{x,y},t_{x,y}^*)=\frac{1}{N_{pos}}\sum_{x,y}p_{x,y}^*L_{GIoU}(t_{x,y},t_{x,y}^*))
+    ![](http://latex.codecogs.com/svg.latex?L_{reg}(t_{x,y},t_{x,y}^*)=\frac{1}{N_{pos}}\sum_{x,y}p_{x,y}^*L_{IoU}(t_{x,y},t_{x,y}^*))
 
 - 中心度损失：BCE Loss
 
@@ -197,10 +197,10 @@ Time: 2022.1.1 - 2022.5.31
 
 - 混淆矩阵
 
-    |pred \ label|P|N|
-    |:--:|:--:|:--:|
-    |<b>P|TP|FP|
-    |<b>N|FN|TN|
+    | pred \ label |   P   |   N   |
+    | :----------: | :---: | :---: |
+    |     <b>P     |  TP   |  FP   |
+    |     <b>N     |  FN   |  TN   |
 
 - 精度
 

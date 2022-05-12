@@ -27,8 +27,7 @@ def conv3x3(in_planes, out_planes, stride=1, norm=False):
                       out_planes,
                       kernel_size=3,
                       stride=stride,
-                      padding=1,
-                      bias=False),
+                      padding=1),
             nn.BatchNorm2d(out_planes),
             nn.ReLU(inplace=True),
         ]
@@ -106,10 +105,11 @@ def _vgg(cfg, norm, name, pretrained=False):
         model = VGG(make_layers(cfgs[cfg], norm), init_weights=False)
         model_weights = model_zoo.load_url(model_urls[name])
         state_dict = {
-            k:
-            model_weights[k] if k in model_weights else model.state_dict()[k]
-            for k in model.state_dict()
+            k: v
+            for k, v in model.state_dict().items()
+            if 'num_batches_tracked' not in k
         }
+        state_dict = {k: v for k, v in zip(state_dict, model_weights.values())}
         model.load_state_dict(state_dict)
     else:
         model = VGG(make_layers(cfgs[cfg], norm))

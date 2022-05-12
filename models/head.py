@@ -12,12 +12,13 @@ import torch
 import torch.nn as nn
 
 
-def conv3x3(in_channels, out_channels, stride=1):
+def conv3x3(in_channels, out_channels, stride=1, bias=True):
     return nn.Conv2d(in_channels,
                      out_channels,
                      kernel_size=3,
                      stride=stride,
-                     padding=1)
+                     padding=1,
+                     bias=bias)
 
 
 class FCOSHead(nn.Module):
@@ -59,7 +60,8 @@ class FCOSHead(nn.Module):
             self._initialize_weights()
 
         # cls bias init
-        nn.init.constant_(self.cls_logits.bias, -math.log((1 - prior) / prior))
+        nn.init.constant_(self.cls_logits.bias, -math.log(
+            (1.0 - prior) / prior))
         self.scale_exp = nn.ModuleList([ScaleExp(1.0) for _ in range(5)])
 
     def _initialize_weights(self):

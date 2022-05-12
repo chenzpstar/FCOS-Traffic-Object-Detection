@@ -9,7 +9,7 @@
 
 class FCOSConfig():
     # backbone
-    backbone = "darknet19"  # ["resnet50", "darknet19", "vgg16"]
+    backbone = "resnet50"  # ["vgg16", "resnet50", "darknet19"]
     pretrained = True
 
     # neck
@@ -25,7 +25,7 @@ class FCOSConfig():
 
     # loss
     cls_loss = "focal"  # ["bce", "focal"]
-    reg_loss = "giou"  # ["smooth_l1", "iou", "giou", "diou"]
+    reg_loss = "iou"  # ["smooth_l1", "iou", "giou", "diou"]
     use_ctr = True
 
     # target

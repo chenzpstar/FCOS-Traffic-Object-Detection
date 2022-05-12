@@ -25,13 +25,13 @@ model_urls = {
 }
 
 # SiLU (Swish) activation function
-if hasattr(nn, 'SiLU'):
-    SiLU = nn.SiLU
-else:
-    # For compatibility with old PyTorch versions
-    class SiLU(nn.Module):
-        def forward(self, x):
-            return x * torch.sigmoid(x)
+# if hasattr(nn, 'SiLU'):
+#     SiLU = nn.SiLU
+# else:
+#     # For compatibility with old PyTorch versions
+#     class SiLU(nn.Module):
+#         def forward(self, x):
+#             return x * torch.sigmoid(x)
 
 
 class SELayer(nn.Module):
@@ -39,17 +39,19 @@ class SELayer(nn.Module):
         super(SELayer, self).__init__()
         self.avgpool = nn.AdaptiveAvgPool2d(1)
         self.fc = nn.Sequential(
-            nn.Linear(in_channels, squeeze_channels // reduction, bias=False),
+            nn.Conv2d(in_channels,
+                      squeeze_channels // reduction,
+                      kernel_size=1),
             nn.SiLU(inplace=True),
-            nn.Linear(squeeze_channels // reduction, in_channels, bias=False),
+            nn.Conv2d(squeeze_channels // reduction,
+                      in_channels,
+                      kernel_size=1),
             nn.Sigmoid(),
         )
 
     def forward(self, x):
-        b, c, _, _ = x.size()
-        y = self.avgpool(x).view(b, c)
-        y = self.fc(y).view(b, c, 1, 1)
-        return x * y.expand_as(x)
+        scale = self.fc(self.avgpool(x))
+        return x * scale
 
 
 def conv3x3(in_channels, out_channels, stride=1, groups=1, act=True):
@@ -188,9 +190,8 @@ def _efficientnetv2(out_channels, repeat, name, pretrained=False):
         model = EfficientNetV2(out_channels, repeat, init_weights=False)
         model_weights = model_zoo.load_url(model_urls[name])
         state_dict = {
-            k:
-            model_weights[k] if k in model_weights else model.state_dict()[k]
-            for k in model.state_dict()
+            k: v
+            for k, v in zip(model.state_dict(), model_weights.values())
         }
         model.load_state_dict(state_dict)
     else:

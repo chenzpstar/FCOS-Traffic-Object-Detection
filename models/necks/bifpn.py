@@ -10,16 +10,21 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-def conv3x3(in_channels, out_channels, stride=1):
+def conv3x3(in_channels, out_channels, stride=1, bias=True):
     return nn.Conv2d(in_channels,
                      out_channels,
                      kernel_size=3,
                      stride=stride,
-                     padding=1)
+                     padding=1,
+                     bias=bias)
 
 
-def conv1x1(in_channels, out_channels, stride=1):
-    return nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride)
+def conv1x1(in_channels, out_channels, stride=1, bias=True):
+    return nn.Conv2d(in_channels,
+                     out_channels,
+                     kernel_size=1,
+                     stride=stride,
+                     bias=bias)
 
 
 class BiFPN(nn.Module):
@@ -40,7 +45,7 @@ class BiFPN(nn.Module):
         elif backbone == "shufflenet":
             in_channels = [464, 232, 116, 24]
         elif backbone == "efficientnet":
-            in_channels = [272, 160, 64, 48]
+            in_channels = [256, 160, 64, 48]
 
         self.proj5_1 = conv1x1(in_channels[0], num_channel)
         self.proj4_1 = conv1x1(in_channels[1], num_channel)

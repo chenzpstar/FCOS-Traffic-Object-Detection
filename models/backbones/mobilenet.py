@@ -125,9 +125,8 @@ def mobilenetv2(pretrained=False):
         model = MobileNetV2(init_weights=False)
         model_weights = model_zoo.load_url(model_urls['mobilenetv2'])
         state_dict = {
-            k:
-            model_weights[k] if k in model_weights else model.state_dict()[k]
-            for k in model.state_dict()
+            k: v
+            for k, v in zip(model.state_dict(), model_weights.values())
         }
         model.load_state_dict(state_dict)
     else:

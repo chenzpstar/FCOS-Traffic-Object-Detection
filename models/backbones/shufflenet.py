@@ -7,6 +7,7 @@
 # @reference  : https://github.com/pytorch/vision/blob/main/torchvision/models/shufflenetv2.py
 """
 
+import torch
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 
@@ -16,10 +17,14 @@ __all__ = [
 ]
 
 model_urls = {
-    'shufflenetv2_x0.5':
+    'shufflenetv2_x0_5':
     'https://download.pytorch.org/models/shufflenetv2_x0.5-f707e7126e.pth',
-    'shufflenetv2_x1.0':
+    'shufflenetv2_x1_0':
     'https://download.pytorch.org/models/shufflenetv2_x1-5666bf0f80.pth',
+    'shufflenetv2_x1_5':
+    'https://download.pytorch.org/models/shufflenetv2_x1_5-3c479a10.pth',
+    'shufflenetv2_x2_0':
+    'https://download.pytorch.org/models/shufflenetv2_x2_0-8be3c8ee.pth',
 }
 
 
@@ -55,7 +60,7 @@ def channel_split(x, split):
         x: input tensor
         split:(int) channel size for each pieces
     """
-    assert x.size(1) == split * 2
+    assert x.shape[1] == split * 2
     return torch.split(x, split, dim=1)
 
 
@@ -65,7 +70,7 @@ def channel_shuffle(x, groups):
         x: input tensor
         groups: input branch number
     """
-    b, c, h, w = x.size()
+    b, c, h, w = x.shape
     group_channels = int(c / groups)
 
     x = x.view(b, groups, group_channels, h, w)
@@ -115,14 +120,10 @@ class ShuffleUnit(nn.Module):
 
     def forward(self, x):
         if self.stride == 1 and self.in_channels == self.out_channels:
-            shortcut, residual = channel_split(x, int(self.in_channels / 2))
+            x1, x2 = channel_split(x, int(self.in_channels / 2))
+            out = torch.cat([self.shortcut(x1), self.residual(x2)], dim=1)
         else:
-            shortcut = x
-            residual = x
-
-        shortcut = self.shortcut(shortcut)
-        residual = self.residual(residual)
-        out = torch.cat([shortcut, residual], dim=1)
+            out = torch.cat([self.shortcut(x), self.residual(x)], dim=1)
 
         return channel_shuffle(out, 2)
 
@@ -174,10 +175,11 @@ def _shufflenetv2(out_channels, name, pretrained=False):
         model = ShuffleNetV2(out_channels, init_weights=False)
         model_weights = model_zoo.load_url(model_urls[name])
         state_dict = {
-            k:
-            model_weights[k] if k in model_weights else model.state_dict()[k]
-            for k in model.state_dict()
+            k: v
+            for k, v in model.state_dict().items()
+            if 'num_batches_tracked' not in k
         }
+        state_dict = {k: v for k, v in zip(state_dict, model_weights.values())}
         model.load_state_dict(state_dict)
     else:
         model = ShuffleNetV2(out_channels)
@@ -194,12 +196,14 @@ def shufflenetv2_x1_0(pretrained=False):
                          pretrained)
 
 
-def shufflenetv2_x1_5():
-    return ShuffleNetV2([176, 352, 704, 1024])
+def shufflenetv2_x1_5(pretrained=False):
+    return _shufflenetv2([176, 352, 704, 1024], 'shufflenetv2_x1_5',
+                         pretrained)
 
 
-def shufflenetv2_x2_0():
-    return ShuffleNetV2([244, 488, 976, 2048])
+def shufflenetv2_x2_0(pretrained=False):
+    return _shufflenetv2([244, 488, 976, 2048], 'shufflenetv2_x2_0',
+                         pretrained)
 
 
 if __name__ == "__main__":
