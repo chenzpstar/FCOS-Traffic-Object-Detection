@@ -16,7 +16,6 @@ sys.path.append(os.path.join(BASE_DIR, ".."))
 
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.optim as optim
 from apex import amp
 # from configs.bdd100k_config import cfg

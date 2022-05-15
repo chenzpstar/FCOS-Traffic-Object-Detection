@@ -17,15 +17,15 @@ model_urls = {
 }
 
 
-def conv(in_planes, out_planes, stride=1, flag=True):
+def conv(in_channels, out_channels, stride=1, flag=True):
     return [
-        nn.Conv2d(in_planes,
-                  out_planes,
+        nn.Conv2d(in_channels,
+                  out_channels,
                   kernel_size=(1, 3)[flag],
                   stride=stride,
                   padding=(0, 1)[flag],
                   bias=False),
-        nn.BatchNorm2d(out_planes),
+        nn.BatchNorm2d(out_channels),
         nn.ReLU(inplace=True),
     ]
 

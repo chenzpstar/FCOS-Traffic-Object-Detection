@@ -30,10 +30,14 @@ parser.add_argument("--data_folder",
                     type=str,
                     help="dataset folder name")
 parser.add_argument("--ckpt_folder",
-                    default=None,
+                    default="kitti_12e_2022-05-12_22-24",
                     type=str,
                     help="checkpoint folder name")
 args = parser.parse_args()
+
+# 修改配置参数
+cfg.data_folder = args.data_folder if args.data_folder else cfg.data_folder
+cfg.ckpt_folder = args.ckpt_folder if args.ckpt_folder else cfg.ckpt_folder
 
 if __name__ == "__main__":
     # 0. config
@@ -45,16 +49,18 @@ if __name__ == "__main__":
     mean = [0.3665, 0.3857, 0.3744]  # [0.485, 0.456, 0.406]
     std = [0.3160, 0.3205, 0.3262]  # [0.229, 0.224, 0.225]
 
-    data_dir = os.path.join(BASE_DIR, "..", "..", "datasets", "kitti")
+    data_dir = os.path.join(BASE_DIR, "..", "..", "datasets", cfg.data_folder)
     assert os.path.exists(data_dir)
 
     ckpt_dir = os.path.join(BASE_DIR, "..", "..", "results")
-    ckpt_folder = "kitti_12e_2022-04-22_15-10"
-    ckpt_path = os.path.join(ckpt_dir, ckpt_folder, "checkpoint_12.pth")
+    ckpt_path = os.path.join(ckpt_dir, cfg.ckpt_folder, "checkpoint_12.pth")
     assert os.path.exists(ckpt_path)
 
     # 1. dataset
-    img_dir = os.path.join(data_dir, "testing", "image_2")
+    if cfg.data_folder == "kitti":
+        img_dir = os.path.join(data_dir, "testing", "image_2")
+    elif cfg.data_folder == "bdd100k":
+        img_dir = os.path.join(data_dir, "images", "100k", "test")
 
     # 2. model
     model = FCOSDetector(mode="inference", cfg=cfg)

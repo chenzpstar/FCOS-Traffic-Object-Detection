@@ -20,26 +20,19 @@ model_urls = {
 }
 
 
-def conv3x3(in_planes, out_planes, stride=1, norm=False):
+def conv3x3(in_channels, out_channels, stride=1, norm=False):
+    layers = [
+        nn.Conv2d(in_channels,
+                  out_channels,
+                  kernel_size=3,
+                  stride=stride,
+                  padding=1)
+    ]
     if norm:
-        return [
-            nn.Conv2d(in_planes,
-                      out_planes,
-                      kernel_size=3,
-                      stride=stride,
-                      padding=1),
-            nn.BatchNorm2d(out_planes),
-            nn.ReLU(inplace=True),
-        ]
-    else:
-        return [
-            nn.Conv2d(in_planes,
-                      out_planes,
-                      kernel_size=3,
-                      stride=stride,
-                      padding=1),
-            nn.ReLU(inplace=True),
-        ]
+        layers.append(nn.BatchNorm2d(out_channels))
+    layers.append(nn.ReLU(inplace=True))
+
+    return layers
 
 
 class VGG(nn.Module):
