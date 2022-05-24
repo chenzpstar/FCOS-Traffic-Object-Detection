@@ -29,41 +29,28 @@ def conv1x1(in_channels, out_channels, stride=1, bias=True):
 
 class PAN(nn.Module):
     def __init__(self,
-                 backbone,
-                 num_channel=256,
+                 in_channels,
+                 num_channels=256,
                  use_p5=True,
                  init_weights=True):
         super(PAN, self).__init__()
-        if backbone == "vgg16":
-            in_channels = [512, 512, 256, 128]
-        elif backbone == "resnet50":
-            in_channels = [2048, 1024, 512, 256]
-        elif backbone == "darknet19":
-            in_channels = [1024, 512, 256, 128]
-        elif backbone == "mobilenet":
-            in_channels = [320, 96, 32, 24]
-        elif backbone == "shufflenet":
-            in_channels = [464, 232, 116, 24]
-        elif backbone == "efficientnet":
-            in_channels = [256, 160, 64, 48]
+        self.proj5 = conv1x1(in_channels[0], num_channels)
+        self.proj4 = conv1x1(in_channels[1], num_channels)
+        self.proj3 = conv1x1(in_channels[2], num_channels)
+        self.proj2 = conv1x1(in_channels[3], num_channels)
 
-        self.proj5 = conv1x1(in_channels[0], num_channel)
-        self.proj4 = conv1x1(in_channels[1], num_channel)
-        self.proj3 = conv1x1(in_channels[2], num_channel)
-        self.proj2 = conv1x1(in_channels[3], num_channel)
+        # self.conv_p5 = conv3x3(num_channels, num_channels)
+        # self.conv_p4 = conv3x3(num_channels, num_channels)
+        # self.conv_p3 = conv3x3(num_channels, num_channels)
 
-        # self.conv_p5 = conv3x3(num_channel, num_channel)
-        # self.conv_p4 = conv3x3(num_channel, num_channel)
-        # self.conv_p3 = conv3x3(num_channel, num_channel)
+        self.new3 = conv3x3(num_channels, num_channels, stride=2)
+        self.new4 = conv3x3(num_channels, num_channels, stride=2)
+        self.new5 = conv3x3(num_channels, num_channels, stride=2)
 
-        self.new3 = conv3x3(num_channel, num_channel, stride=2)
-        self.new4 = conv3x3(num_channel, num_channel, stride=2)
-        self.new5 = conv3x3(num_channel, num_channel, stride=2)
-
-        self.conv_n2 = conv3x3(num_channel, num_channel)
-        self.conv_n3 = conv3x3(num_channel, num_channel)
-        self.conv_n4 = conv3x3(num_channel, num_channel)
-        self.conv_n5 = conv3x3(num_channel, num_channel)
+        self.conv_n2 = conv3x3(num_channels, num_channels)
+        self.conv_n3 = conv3x3(num_channels, num_channels)
+        self.conv_n4 = conv3x3(num_channels, num_channels)
+        self.conv_n5 = conv3x3(num_channels, num_channels)
 
         self.relu = nn.ReLU(inplace=True)
 
@@ -77,7 +64,7 @@ class PAN(nn.Module):
                                          mode='fan_out',
                                          nonlinearity='relu')
                 if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
+                    nn.init.zeros_(m.bias)
 
     def upsample(self, src_feat, tar_feat):
         return F.interpolate(src_feat, size=tar_feat.shape[2:], mode="nearest")

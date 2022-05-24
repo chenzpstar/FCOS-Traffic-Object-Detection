@@ -74,14 +74,14 @@ if __name__ == "__main__":
     # 2. model
     model = FCOSDetector(mode="inference", cfg=cfg)
     model_weights = torch.load(ckpt_path, map_location=torch.device("cpu"))
-    model_weights = {
+    state_dict = {
         k: model_weights[k] if k in model_weights else model.state_dict()[k]
         for k in model.state_dict()
     }
-    model.load_state_dict(model_weights)
+    model.load_state_dict(state_dict)
     model.to(device)
     model.eval()
-    print("INFO ==> finish loading model")
+    print("loading model successfully")
 
     # 3. test
     # 评估指标
@@ -93,12 +93,12 @@ if __name__ == "__main__":
     )
 
     # 计算mAP
-    mAP = sum(aps) / (test_set.cls_num - 1)
+    mAP = sum(aps) / (test_set.num_classes - 1)
 
     # 输出结果
     out_path = os.path.join(ckpt_dir, cfg.ckpt_folder, "eval.txt")
     with open(out_path, "w") as f:
-        for label in range(test_set.cls_num - 1):
+        for label in range(test_set.num_classes - 1):
             print(
                 "class: {}, recall: {:.4f}, precision: {:.4f}, f1: {:.4f}, ap: {:.4f}"
                 .format(test_set.labels_dict[label + 1], recalls[label],

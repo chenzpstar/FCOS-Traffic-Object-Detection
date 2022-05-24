@@ -31,22 +31,22 @@ def conv(in_channels,
 
 
 class ASPP(nn.Module):
-    def __init__(self, in_channel, num_channel, rate=(6, 12, 18)):
+    def __init__(self, in_channels, num_channels, rate=(6, 12, 18)):
         super(ASPP, self).__init__()
         self.avgpool = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
-            conv(in_channel, num_channel, kernel_size=1),
+            conv(in_channels, num_channels, kernel_size=1),
         )
-        self.conv = conv(in_channel, num_channel, kernel_size=1)
+        self.conv = conv(in_channels, num_channels, kernel_size=1)
         self.atrous = nn.ModuleList([
-            conv(in_channel,
-                 num_channel,
+            conv(in_channels,
+                 num_channels,
                  kernel_size=3,
                  stride=1,
                  padding=r,
                  dilation=r) for r in rate
         ])
-        self.proj = conv(num_channel * 5, num_channel, kernel_size=1)
+        self.proj = conv(num_channels * 5, num_channels, kernel_size=1)
 
     def forward(self, x):
         pool_feat = self.avgpool(x)

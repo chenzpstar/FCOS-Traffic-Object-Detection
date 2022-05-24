@@ -173,13 +173,12 @@ class Rotate:
                     x1, y1 = xmin, ymax
                     x2, y2 = xmax, ymin
                     x3, y3 = xmax, ymax
-                    pt = torch.tensor([
+                    pt = torch.FloatTensor([
                         [y0, x0],
                         [y1, x1],
                         [y2, x2],
                         [y3, x3],
-                    ],
-                                      dtype=torch.float)
+                    ])
 
                     rot_pt = torch.zeros_like(pt)
                     rot_pt[:, 1] = (pt[:, 1] - cx) * math.cos(theta) - (

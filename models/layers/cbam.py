@@ -65,13 +65,13 @@ class SpatialGate(nn.Module):
 
         for pool_type in self.pool_types:
             if pool_type == 'avg':
-                avgpool = torch.mean(x, 1, keepdim=True)
+                avgpool = x.mean(dim=1)
                 spatial_att.append(avgpool)
             elif pool_type == 'max':
-                maxpool = torch.max(x, 1, keepdim=True)[0]
+                maxpool = x.max(dim=1)[0]
                 spatial_att.append(maxpool)
 
-        x_out = torch.cat(spatial_att, dim=1)
+        x_out = torch.stack(spatial_att, dim=1)
         x_out = self.conv(x_out)
         scale = F.sigmoid(x_out)
         return x * scale

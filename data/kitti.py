@@ -28,16 +28,16 @@ class KITTIDataset(Dataset):
         - testing
             - image_2
     """
-    cls_names = [
+    classes_list = [
         "background", "car", "van", "truck", "pedestrian", "person_sitting",
         "cyclist", "tram", "misc"
     ]
-    cls_num = len(cls_names)
+    num_classes_list = len(classes_list)
 
-    cls_names_dict = {name: idx
-                      for idx, name in enumerate(cls_names)}  # {name: idx}
+    classes_dict = {name: idx
+                    for idx, name in enumerate(classes_list)}  # {name: idx}
     labels_dict = {idx: name
-                   for idx, name in enumerate(cls_names)}  # {idx: name}
+                   for idx, name in enumerate(classes_list)}  # {idx: name}
 
     def __init__(self,
                  root_dir,
@@ -62,10 +62,10 @@ class KITTIDataset(Dataset):
             elif mode == "valid":
                 self.data_info = self.valid_data_info
 
-        print("INFO ==> finish loading kitti dataset")
+        print("loading kitti dataset successfully")
 
     def __getitem__(self, index):
-        # step 1: 数据读取
+        # 1. 数据读取
         img_path, anno_path = self.data_info[index]
         img_bgr = cv2.imread(img_path, cv2.IMREAD_COLOR)
         img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)  # bgr -> rgb
@@ -73,11 +73,11 @@ class KITTIDataset(Dataset):
         # [idx,], [[x1, y1, x2, y2],]
         labels, boxes = self._get_txt_anno(anno_path)
 
-        # step 2: 数据预处理
+        # 2. 数据预处理
         if self.transform is not None:
             img_rgb, boxes = self.transform(img_rgb, boxes)
 
-        # step 3: 数据格式转换
+        # 3. 数据格式转换
         img_chw = img_rgb.transpose((2, 0, 1))  # hwc -> chw
         img_tensor = torch.from_numpy(img_chw).float()
 
@@ -120,8 +120,8 @@ class KITTIDataset(Dataset):
             for line in f.readlines():
                 obj = line.rstrip().split(' ')
                 name = obj[0].lower()
-                if name in self.cls_names:
-                    labels.append(self.cls_names_dict[name])
+                if name in self.classes_list:
+                    labels.append(self.classes_dict[name])
                     boxes.append(list(map(float, obj[4:8])))
 
         return np.array(labels), np.array(boxes)

@@ -111,7 +111,7 @@ def _compute_ap(recall, precision):
 
 
 def eval_metrics(gt_labels, gt_boxes, pred_scores, pred_labels, pred_boxes,
-                 iou_thr, cls_num):
+                 iou_thr, num_classes):
     """
     :param gt_boxes: list of 2d array,shape[(a,(x1,y1,x2,y2)),(b,(x1,y1,x2,y2))...]
     :param gt_labels: list of 1d array,shape[(a),(b)...],value is sparse label index
@@ -119,11 +119,11 @@ def eval_metrics(gt_labels, gt_boxes, pred_scores, pred_labels, pred_boxes,
     :param pred_labels: list of 1d array,shape[(m),(n)...],value is sparse label index
     :param pred_scores: list of 1d array,shape[(m),(n)...]
     :param iou_thr: eg. 0.5
-    :param cls_num: eg. 4, total number of class including background which is equal to 0
+    :param num_classes: eg. 4, total number of class including background which is equal to 0
     :return: a dict containing average precision for each cls
     """
     recalls, precisions, f1s, aps = [], [], [], []
-    for label in range(cls_num)[1:]:
+    for label in range(1, num_classes):
         # get samples with specific label
         gt_label_loc = [sample_labels == label for sample_labels in gt_labels]
         gt_single_cls = [
@@ -215,6 +215,6 @@ def eval_model(data_set, data_loader, model, device="cpu"):
     recalls, precisions, f1s, aps = eval_metrics(gt_labels, gt_boxes,
                                                  pred_scores, pred_labels,
                                                  pred_boxes, 0.5,
-                                                 data_set.cls_num)
+                                                 data_set.num_classes)
 
     return recalls, precisions, f1s, aps

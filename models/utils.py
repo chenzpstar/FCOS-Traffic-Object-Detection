@@ -16,9 +16,8 @@ def reshape_feats(feats):
 
 
 def reshape_feat(feat):
-    batch_size, chn_num = feat.shape[:2]  # bchw
-    feat = feat.permute(0, 2, 3, 1)  # bchw -> bhwc
-    feat = feat.reshape((batch_size, -1, chn_num))  # bhwc -> b(hw)c
+    b, c = feat.shape[:2]  # bchw
+    feat = feat.permute(0, 2, 3, 1).reshape((b, -1, c))  # bchw -> b(hw)c
 
     return feat
 
@@ -28,12 +27,12 @@ def decode_preds(preds, strides=None):
 
     if strides is not None:
         for pred, stride in zip(preds, strides):
-            coord = decode_coords(pred, stride).to(device=pred.device)
+            coord = decode_coords(pred, stride).to(pred.device)
             box = coords2boxes(coord, pred, stride)
             boxes.append(box)
     else:
         for pred in preds:
-            coord = decode_coords(pred).to(device=pred.device)
+            coord = decode_coords(pred).to(pred.device)
             box = coords2boxes(coord, pred)
             boxes.append(box)
 
@@ -42,8 +41,9 @@ def decode_preds(preds, strides=None):
 
 def decode_targets(preds, targets):
     boxes = []
+
     for pred, target in zip(preds, targets):
-        coord = decode_coords(pred).to(device=target.device)
+        coord = decode_coords(pred).to(target.device)
         box = coords2boxes(coord, target)
         boxes.append(box)
 
@@ -95,7 +95,7 @@ def coords2centers(coords, boxes):
     return torch.cat([lt_ctr_offsets, rb_ctr_offsets], dim=-1)
 
 
-def box_nms(cls_scores, boxes, thr=0.6, mode="iou"):
+def box_nms(cls_scores, boxes, thr=0.5, mode="iou"):
     if boxes.numel() == 0:
         return torch.zeros(0, dtype=torch.long, device=boxes.device)
     assert boxes.shape[-1] == 4
@@ -141,4 +141,4 @@ def box_nms(cls_scores, boxes, thr=0.6, mode="iou"):
             break
         order = order[idx]
 
-    return torch.tensor(keep, dtype=torch.long, device=boxes.device)
+    return torch.LongTensor(keep, device=boxes.device)

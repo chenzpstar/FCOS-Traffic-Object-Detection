@@ -8,13 +8,22 @@
 
 import torch.nn as nn
 
-from .backbones import *
-from .config import FCOSConfig
-from .detect import FCOSDetect
-from .head import FCOSHead
-from .loss import FCOSLoss
-from .necks import FPN, PAN, BiFPN
-from .target import FCOSTarget
+try:
+    from .backbones import *
+    from .config import FCOSConfig
+    from .detect import FCOSDetect
+    from .head import FCOSHead
+    from .loss import FCOSLoss
+    from .necks import FPN, PAN, BiFPN
+    from .target import FCOSTarget
+except:
+    from backbones import *
+    from config import FCOSConfig
+    from detect import FCOSDetect
+    from head import FCOSHead
+    from loss import FCOSLoss
+    from necks import FPN, PAN, BiFPN
+    from target import FCOSTarget
 
 
 class FCOS(nn.Module):
@@ -27,30 +36,36 @@ class FCOS(nn.Module):
 
         if self.cfg.backbone == "vgg16":
             self.backbone = vgg16_bn(pretrained=self.cfg.pretrained)
+            self.in_channels = [512, 512, 256, 128]
         elif self.cfg.backbone == "resnet50":
             self.backbone = resnet50(pretrained=self.cfg.pretrained)
+            self.in_channels = [2048, 1024, 512, 256]
         elif self.cfg.backbone == "darknet19":
             self.backbone = darknet19(pretrained=self.cfg.pretrained)
+            self.in_channels = [1024, 512, 256, 128]
         elif self.cfg.backbone == "mobilenet":
             self.backbone = mobilenetv2(pretrained=self.cfg.pretrained)
+            self.in_channels = [320, 96, 32, 24]
         elif self.cfg.backbone == "shufflenet":
             self.backbone = shufflenetv2_x1_0(pretrained=self.cfg.pretrained)
+            self.in_channels = [464, 232, 116, 24]
         elif self.cfg.backbone == "efficientnet":
             self.backbone = efficientnetv2_s(pretrained=self.cfg.pretrained)
+            self.in_channels = [256, 160, 64, 48]
 
         if self.cfg.neck == "fpn":
-            self.neck = FPN(backbone=self.cfg.backbone,
-                            num_channel=self.cfg.num_channel,
+            self.neck = FPN(in_channels=self.in_channels,
+                            num_channels=self.cfg.num_channels,
                             use_p5=self.cfg.use_p5)
         elif self.cfg.neck == "pan":
-            self.neck = PAN(backbone=self.cfg.backbone,
-                            num_channel=self.cfg.num_channel)
+            self.neck = PAN(in_channels=self.in_channels,
+                            num_channels=self.cfg.num_channels)
         elif self.cfg.neck == "bifpn":
-            self.neck = BiFPN(backbone=self.cfg.backbone,
-                              num_channel=self.cfg.num_channel)
+            self.neck = BiFPN(in_channels=self.in_channels,
+                              num_channels=self.cfg.num_channels)
 
-        self.head = FCOSHead(num_channel=self.cfg.num_channel,
-                             num_cls=self.cfg.num_cls,
+        self.head = FCOSHead(in_channels=self.cfg.num_channels,
+                             num_classes=self.cfg.num_classes,
                              use_gn=self.cfg.use_gn,
                              ctr_on_reg=self.cfg.ctr_on_reg,
                              prior=self.cfg.prior)
@@ -119,6 +134,7 @@ if __name__ == "__main__":
     import torch
     torch.manual_seed(0)
 
+    # flag = 1
     flag = 2
 
     if flag == 1:

@@ -9,8 +9,12 @@
 import torch
 import torch.nn as nn
 
-from .config import FCOSConfig
-from .utils import box_nms, decode_preds, reshape_feats
+try:
+    from .config import FCOSConfig
+    from .utils import box_nms, decode_preds, reshape_feats
+except:
+    from config import FCOSConfig
+    from utils import box_nms, decode_preds, reshape_feats
 
 
 class FCOSDetect(nn.Module):
@@ -33,8 +37,8 @@ class FCOSDetect(nn.Module):
 
         cls_logits = reshape_feats(cls_logits)  # bchw -> b(hw)c
         ctr_logits = reshape_feats(ctr_logits)  # bchw -> b(hw)c
-        cls_preds = cls_logits.sigmoid()
-        ctr_preds = ctr_logits.sigmoid()
+        cls_preds = torch.sigmoid(cls_logits)
+        ctr_preds = torch.sigmoid(ctr_logits)
 
         cls_scores, pred_labels = cls_preds.max(dim=-1)  # b(hw)c -> b(hw)
         if self.use_ctr:
@@ -49,27 +53,27 @@ class FCOSDetect(nn.Module):
         cls_scores, pred_labels, pred_boxes = preds
         batch_size = cls_scores.shape[0]  # b(hw)
 
-        max_num = min(self.max_boxes_num, cls_scores.shape[-1])
-        topk_idx = torch.topk(cls_scores, max_num, dim=-1)[1]
-        assert topk_idx.shape == (batch_size, max_num)
+        max_boxes_num = min(self.max_boxes_num, cls_scores.shape[-1])
+        topk_idx = torch.topk(cls_scores, max_boxes_num, dim=-1)[1]
+        assert topk_idx.shape == (batch_size, max_boxes_num)
 
         nms_cls_scores = []
         nms_pred_labels = []
         nms_pred_boxes = []
 
         for i in range(batch_size):
-            # 1.挑选topk
+            # 1. 挑选topk
             topk_cls_scores = cls_scores[i][topk_idx[i]]
             topk_pred_labels = pred_labels[i][topk_idx[i]]
             topk_pred_boxes = pred_boxes[i][topk_idx[i]]
 
-            # 2.过滤低分
+            # 2. 过滤低分
             score_mask = topk_cls_scores > self.score_thr
             filter_cls_scores = topk_cls_scores[score_mask]
             filter_pred_labels = topk_pred_labels[score_mask]
             filter_pred_boxes = topk_pred_boxes[score_mask]
 
-            # 3.计算nms
+            # 3. 计算nms
             nms_idx = self._batch_nms(
                 filter_cls_scores,
                 filter_pred_labels,
@@ -84,12 +88,16 @@ class FCOSDetect(nn.Module):
         return nms_cls_scores, nms_pred_labels, nms_pred_boxes
 
     def _batch_nms(self, cls_scores, labels, boxes, thr, mode="iou"):
+        # strategy: in order to perform NMS independently per class.
+        # we add an offset to all the boxes. The offset is dependent
+        # only on the class idx, and is large enough so that boxes
+        # from different classes do not overlap.
         if boxes.numel() == 0:
             return torch.zeros(0, dtype=torch.long, device=boxes.device)
         assert boxes.shape[-1] == 4
 
-        coord_max = boxes.max()
-        offsets = labels.to(boxes) * (coord_max + 1)
+        max_coord = boxes.max()
+        offsets = labels.to(boxes) * (max_coord + 1)
         nms_boxes = boxes + offsets.unsqueeze(dim=-1)
 
         return box_nms(cls_scores, nms_boxes, thr, mode)

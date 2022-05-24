@@ -55,7 +55,7 @@ class SELayer(nn.Module):
 
 
 def conv3x3(in_channels, out_channels, stride=1, groups=1, act=True):
-    return nn.Sequential(
+    layers = [
         nn.Conv2d(in_channels,
                   out_channels,
                   kernel_size=3,
@@ -63,21 +63,27 @@ def conv3x3(in_channels, out_channels, stride=1, groups=1, act=True):
                   padding=1,
                   groups=groups,
                   bias=False),
-        nn.BatchNorm2d(out_channels),
-        nn.SiLU(inplace=True) if act else nn.Identity(),
-    )
+        nn.BatchNorm2d(out_channels)
+    ]
+    if act:
+        layers.append(nn.SiLU(inplace=True))
+
+    return nn.Sequential(*layers)
 
 
 def conv1x1(in_channels, out_channels, stride=1, act=True):
-    return nn.Sequential(
+    layers = [
         nn.Conv2d(in_channels,
                   out_channels,
                   kernel_size=1,
                   stride=stride,
                   bias=False),
-        nn.BatchNorm2d(out_channels),
-        nn.SiLU(inplace=True) if act else nn.Identity(),
-    )
+        nn.BatchNorm2d(out_channels)
+    ]
+    if act:
+        layers.append(nn.SiLU(inplace=True))
+
+    return nn.Sequential(*layers)
 
 
 class MBConv(nn.Module):
@@ -179,10 +185,10 @@ class EfficientNetV2(nn.Module):
                                         mode='fan_out',
                                         nonlinearity='relu')
                 if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
+                    nn.init.zeros_(m.bias)
             elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
+                nn.init.ones_(m.weight)
+                nn.init.zeros_(m.bias)
 
 
 def _efficientnetv2(out_channels, repeat, name, pretrained=False):

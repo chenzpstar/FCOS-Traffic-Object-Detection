@@ -33,16 +33,16 @@ class BDD100KDataset(Dataset):
                     - 0000f77c-6257be58.json
                 - val
     """
-    cls_names = [
+    classes_list = [
         "background", "car", "bus", "truck", "motor", "bike", "pedestrian",
         "rider", "train"
     ]
-    cls_num = len(cls_names)
+    num_classes = len(classes_list)
 
-    cls_names_dict = {name: idx
-                      for idx, name in enumerate(cls_names)}  # {name: idx}
+    classes_dict = {name: idx
+                    for idx, name in enumerate(classes_list)}  # {name: idx}
     labels_dict = {idx: name
-                   for idx, name in enumerate(cls_names)}  # {idx: name}
+                   for idx, name in enumerate(classes_list)}  # {idx: name}
 
     def __init__(self, root_dir, set_name, transform=None):
         super(BDD100KDataset, self).__init__()
@@ -51,10 +51,10 @@ class BDD100KDataset(Dataset):
         self.transform = transform
         self.data_info = []
         self._get_data_info()
-        print("INFO ==> finish loading bdd100k dataset")
+        print("loading bdd100k dataset successfully")
 
     def __getitem__(self, index):
-        # step 1: 数据读取
+        # 1. 数据读取
         img_path, anno_path = self.data_info[index]
         img_bgr = cv2.imread(img_path, cv2.IMREAD_COLOR)
         img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)  # bgr -> rgb
@@ -62,11 +62,11 @@ class BDD100KDataset(Dataset):
         # [idx,], [[x1, y1, x2, y2],]
         labels, boxes = self._get_json_anno(anno_path)
 
-        # step 2: 数据预处理
+        # 2. 数据预处理
         if self.transform is not None:
             img_rgb, boxes = self.transform(img_rgb, boxes)
 
-        # step 3: 数据格式转换
+        # 3. 数据格式转换
         img_chw = img_rgb.transpose((2, 0, 1))  # hwc -> chw
         img_tensor = torch.from_numpy(img_chw).float()
 
@@ -101,8 +101,8 @@ class BDD100KDataset(Dataset):
                 pass
             else:
                 for obj in objs:
-                    if obj["category"] in self.cls_names:
-                        labels.append(self.cls_names_dict[obj["category"]])
+                    if obj["category"] in self.classes_list:
+                        labels.append(self.classes_dict[obj["category"]])
                         boxes.append([
                             obj["box2d"]["x1"],
                             obj["box2d"]["y1"],

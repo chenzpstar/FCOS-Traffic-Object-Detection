@@ -22,10 +22,10 @@ class Collate:
 
         h_list = [int(img.shape[1]) for img in imgs_list]
         w_list = [int(img.shape[2]) for img in imgs_list]
-        num_list = [int(boxes.shape[0]) for boxes in boxes_list]
+        boxes_num_list = [int(boxes.shape[0]) for boxes in boxes_list]
         max_h = np.array(h_list).max()
         max_w = np.array(w_list).max()
-        max_num = np.array(num_list).max()
+        max_boxes_num = np.array(boxes_num_list).max()
 
         for img, labels, boxes in zip(imgs_list, labels_list, boxes_list):
             pad_imgs_list.append(
@@ -33,15 +33,15 @@ class Collate:
                             int(max_h - img.shape[1])),
                       value=0.))
             pad_labels_list.append(
-                F.pad(labels, (0, max_num - labels.shape[0]), value=-1))
+                F.pad(labels, (0, max_boxes_num - labels.shape[0]), value=-1))
             if boxes.shape[0] == 0:
                 boxes = boxes.unsqueeze(0)
                 pad_boxes_list.append(
-                    F.pad(boxes, (0, 4, 0, max_num - boxes.shape[0]),
+                    F.pad(boxes, (0, 4, 0, max_boxes_num - boxes.shape[0]),
                           value=-1))
             else:
                 pad_boxes_list.append(
-                    F.pad(boxes, (0, 0, 0, max_num - boxes.shape[0]),
+                    F.pad(boxes, (0, 0, 0, max_boxes_num - boxes.shape[0]),
                           value=-1))
 
         batch_imgs = torch.stack(pad_imgs_list)

@@ -8,6 +8,10 @@
 
 import json
 import os
+import sys
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(BASE_DIR, ".."))
 
 from tqdm import tqdm
 
@@ -20,7 +24,7 @@ def split_json_file(file_dir):
             with open(json_path, "r") as json_file:
                 annos = json.load(json_file)
 
-            print("img num: {}".format(len(annos)))
+            print("imgs num: {}".format(len(annos)))
 
             out_dir = json_path.replace(".json", "")
             if not os.path.isdir(out_dir):
@@ -36,6 +40,7 @@ def split_json_file(file_dir):
 
 if __name__ == "__main__":
 
-    json_dir = "/home/vipuser/Documents/data/bdd100k/labels/100k"
+    root_dir = os.path.join(BASE_DIR, "..", "..", "datasets")
+    json_dir = os.path.join(root_dir, "bdd100k", "labels", "100k")
     split_json_file(json_dir)
-    print("finish splitting json file")
+    print("splitting json files done")

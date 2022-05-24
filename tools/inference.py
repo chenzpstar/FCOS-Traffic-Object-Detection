@@ -65,14 +65,14 @@ if __name__ == "__main__":
     # 2. model
     model = FCOSDetector(mode="inference", cfg=cfg)
     model_weights = torch.load(ckpt_path, map_location=torch.device("cpu"))
-    model_weights = {
+    state_dict = {
         k: model_weights[k] if k in model_weights else model.state_dict()[k]
         for k in model.state_dict()
     }
-    model.load_state_dict(model_weights)
+    model.load_state_dict(state_dict)
     model.to(device)
     model.eval()
-    print("INFO ==> finish loading model")
+    print("loading model successfully")
 
     # 3. inference
     for img in os.listdir(img_dir):
@@ -93,10 +93,9 @@ if __name__ == "__main__":
 
         torch.cuda.synchronize()
         cost_time = int((time.time() - start_time) * 1000)
-        print("INFO ==> finish processing img, cost time: {} ms".format(
-            cost_time))
+        print("processing img done, cost time: {} ms".format(cost_time))
 
-        scores = scores[0].cpu().numpy().astype(np.float64)
+        scores = scores[0].cpu().numpy().astype(np.float32)
         labels = labels[0].cpu().numpy().astype(np.int64)
         boxes = boxes[0].cpu().numpy().astype(np.int64)
 

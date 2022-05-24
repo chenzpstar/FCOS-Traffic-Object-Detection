@@ -17,11 +17,11 @@ sys.path.append(os.path.join(BASE_DIR, ".."))
 import numpy as np
 import torch
 import torch.optim as optim
-from apex import amp
 # from configs.bdd100k_config import cfg
 from configs.kitti_config import cfg
 from data import BDD100KDataset, Collate, KITTIDataset
 from models.fcos import FCOSDetector
+from torch.cuda.amp import autocast, GradScaler
 from torch.optim.lr_scheduler import (CosineAnnealingLR, ExponentialLR,
                                       MultiStepLR)
 from torch.utils.data import DataLoader
@@ -59,6 +59,7 @@ def train_model(cfg,
                 logger,
                 optimizer=None,
                 scheduler=None,
+                scaler=None,
                 mode="train"):
     total_loss_sigma = []
     cls_loss_sigma = []
@@ -74,33 +75,32 @@ def train_model(cfg,
         start_time = time.time()
 
         if mode == "train":
-            # 1. forward
-            total_loss, cls_loss, reg_loss, ctr_loss = model(
-                (imgs, labels, boxes))
-
-            # 2. backward
             optimizer.zero_grad()
 
             if cfg.use_fp16:
-                with amp.scale_loss(total_loss, optimizer) as scaled_loss:
-                    scaled_loss.backward()
+                with autocast():
+                    total_loss, cls_loss, reg_loss, ctr_loss = model(
+                        (imgs, labels, boxes))
+                scaler.scale(total_loss).backward()
                 if cfg.clip_grad:
-                    torch.nn.utils.clip_grad_norm_(
-                        amp.master_params(optimizer), 5)
+                    scaler.unscale_(optimizer)
+                    torch.nn.utils.clip_grad_norm_(model.parameters(),
+                                                   max_norm=5)
+                scaler.step(optimizer)
+                scaler.update()
             else:
+                total_loss, cls_loss, reg_loss, ctr_loss = model(
+                    (imgs, labels, boxes))
                 total_loss.backward()
                 if cfg.clip_grad:
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), 5)
+                    torch.nn.utils.clip_grad_norm_(model.parameters(),
+                                                   max_norm=5)
+                optimizer.step()
 
-            # 3. update weights
-            optimizer.step()
-
-            # 4. update lr
             if cfg.warmup:
                 scheduler.step()
 
         elif mode == "valid":
-            # 1. forward
             with torch.no_grad():
                 total_loss, cls_loss, reg_loss, ctr_loss = model(
                     (imgs, labels, boxes))
@@ -205,12 +205,12 @@ if __name__ == "__main__":
                 for k in model.state_dict()
             }
             model.load_state_dict(state_dict)
-            logger.info("finish loading checkpoint")
+            logger.info("loading checkpoint successfully")
         else:
             logger.info(
                 "please check your path to checkpoint: {}".format(ckpt_path))
     model.to(cfg.device)
-    logger.info("finish loading model")
+    logger.info("loading model successfully")
 
     # 3. optimize
     optimizer = optim.SGD(
@@ -219,9 +219,6 @@ if __name__ == "__main__":
         momentum=cfg.momentum,
         weight_decay=cfg.weight_decay,
     )
-
-    if cfg.use_fp16:
-        model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
 
     if cfg.exp_lr:
         scheduler = ExponentialLR(
@@ -241,14 +238,13 @@ if __name__ == "__main__":
             gamma=cfg.factor,
         )
 
-    if cfg.warmup:
-        warmup_scheduler = WarmupLR(
-            optimizer,
-            warmup_factor=cfg.warmup_factor,
-            warmup_iters=len(train_loader),
-        )
-    else:
-        warmup_scheduler = None
+    warmup_scheduler = WarmupLR(
+        optimizer,
+        warmup_factor=cfg.warmup_factor,
+        warmup_iters=len(train_loader),
+    ) if cfg.warmup else None
+
+    scaler = GradScaler() if cfg.use_fp16 else None
 
     # 4. loop
     # 记录配置信息
@@ -273,6 +269,7 @@ if __name__ == "__main__":
             logger,
             optimizer=optimizer,
             scheduler=warmup_scheduler,
+            scaler=scaler,
             mode="train")
 
         # 2. valid
@@ -348,5 +345,6 @@ if __name__ == "__main__":
             ckpt_path = os.path.join(log_dir,
                                      "checkpoint_{}.pth".format(epoch + 1))
             torch.save(model.state_dict(), ckpt_path)
+            logger.info("saving checkpoint successfully")
 
-    logger.info("finish training model")
+    logger.info("training model done")

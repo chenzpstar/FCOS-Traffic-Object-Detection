@@ -14,11 +14,11 @@ class FCOSConfig():
 
     # neck
     neck = "fpn"  # ["fpn, pan"]
-    num_channel = 256  # 256
+    num_channels = 256  # 256
     use_p5 = True
 
     # head
-    num_cls = 3
+    num_classes = 3
     use_gn = True
     ctr_on_reg = True
     prior = 0.01  # 0.01

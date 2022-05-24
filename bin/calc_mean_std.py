@@ -12,9 +12,7 @@ import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(BASE_DIR, ".."))
 
-from data.bdd100k import BDD100KDataset
-from data.collate import Collate
-from data.kitti import KITTIDataset
+from data import BDD100KDataset, Collate, KITTIDataset
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -24,8 +22,8 @@ def calc_mean_std(data_loader):
 
     for data in tqdm(data_loader):
         img = data[0]
-        num_channels = img.shape[1]
-        img = img / 255.0
+        num_channels = img.shape[1]  # bchw
+        img /= 255.0
         img = img.permute(0, 2, 3, 1).reshape(
             (-1, num_channels))  # bchw -> (bhw)c
         img_mean_sigma += img.mean(dim=0)

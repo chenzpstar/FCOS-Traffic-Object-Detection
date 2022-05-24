@@ -25,15 +25,15 @@ def conv(in_channels, out_channels, kernel_size=1, stride=1, padding=0):
 
 class SPP(nn.Module):
     # Spatial Pyramid Pooling layer used in YOLOv3-SPP
-    def __init__(self, in_channel, out_channel, kernel_size=(5, 9, 13)):
+    def __init__(self, in_channels, out_channels, kernel_size=(5, 9, 13)):
         super(SPP, self).__init__()
-        num_channel = in_channel // 2  # hidden channels
-        self.conv = conv(in_channel, num_channel, kernel_size=1)
+        num_channels = in_channels // 2  # hidden channels
+        self.conv = conv(in_channels, num_channels, kernel_size=1)
         self.maxpool = nn.ModuleList([
             nn.MaxPool2d(kernel_size=k, stride=1, padding=k // 2)
             for k in kernel_size
         ])
-        self.proj = conv(num_channel * 4, out_channel, kernel_size=1)
+        self.proj = conv(num_channels * 4, out_channels, kernel_size=1)
 
     def forward(self, x):
         x = self.conv(x)
@@ -43,15 +43,15 @@ class SPP(nn.Module):
 
 class SPPF(nn.Module):
     # Spatial Pyramid Pooling - Fast (SPPF) layer for YOLOv5 by Glenn Jocher
-    def __init__(self, in_channel, out_channel, kernel_size=5):
+    def __init__(self, in_channels, out_channels, kernel_size=5):
         # equivalent to SPP(kernel_size=(5, 9, 13))
         super(SPPF, self).__init__()
-        num_channel = in_channel // 2  # hidden channels
-        self.conv = conv(in_channel, num_channel, kernel_size=1)
+        num_channels = in_channels // 2  # hidden channels
+        self.conv = conv(in_channels, num_channels, kernel_size=1)
         self.maxpool = nn.MaxPool2d(kernel_size=kernel_size,
                                     stride=1,
                                     padding=kernel_size // 2)
-        self.proj = conv(num_channel * 4, out_channel, kernel_size=1)
+        self.proj = conv(num_channels * 4, out_channels, kernel_size=1)
 
     def forward(self, x):
         x = self.conv(x)

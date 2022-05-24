@@ -9,28 +9,33 @@
 import torch
 import torch.nn as nn
 
-from .config import FCOSConfig
-from .utils import decode_preds, decode_targets, reshape_feats
+try:
+    from .config import FCOSConfig
+    from .utils import decode_preds, decode_targets, reshape_feats
+except:
+    from config import FCOSConfig
+    from utils import decode_preds, decode_targets, reshape_feats
 
 
 def bce_loss(logits, targets, eps=1e-8):
-    probs = logits.sigmoid().clamp(min=eps, max=1.0 - eps)
-    loss = -(targets * probs.log() + (1.0 - targets) * (1.0 - probs).log())
+    probs = torch.sigmoid(logits).clamp(min=eps, max=1.0 - eps)
+    loss = -(targets * torch.log(probs) +
+             (1.0 - targets) * torch.log(1.0 - probs))
 
     return loss.sum()
 
 
 def focal_loss(logits, targets, alpha=0.25, gamma=2.0, eps=1e-8):
-    probs = logits.sigmoid().clamp(min=eps, max=1.0 - eps)
-    loss = -(alpha * (1.0 - probs).pow(gamma) * targets * probs.log() +
-             (1.0 - alpha) * probs.pow(gamma) * (1.0 - targets) *
-             (1.0 - probs).log())
+    probs = torch.sigmoid(logits).clamp(min=eps, max=1.0 - eps)
+    loss = -(alpha * (1.0 - probs).pow(gamma) * targets * torch.log(probs) +
+             (1.0 - alpha) * probs.pow(gamma) *
+             (1.0 - targets) * torch.log(1.0 - probs))
 
     return loss.sum()
 
 
 def smooth_l1_loss(preds, targets):
-    res = (preds - targets).abs()
+    res = torch.abs(preds - targets)
     loss = torch.where(res < 1, 0.5 * res.pow(2), res - 0.5)
 
     return loss.sum()
@@ -152,7 +157,7 @@ def calc_cls_loss(logits, targets, mode="focal"):
     # targets: [b,h*w,1]
     # pos_mask: [b,h*w]
     batch_size = logits.shape[0]
-    cls_num = logits.shape[-1]
+    num_classes = logits.shape[-1]
     assert logits.shape[:2] == targets.shape[:2]
 
     loss = []
@@ -160,7 +165,7 @@ def calc_cls_loss(logits, targets, mode="focal"):
         pos_logit = logits[i]
         pos_target = targets[i]
 
-        pos_label = torch.arange(1, cls_num + 1,
+        pos_label = torch.arange(1, num_classes + 1,
                                  device=pos_target.device).unsqueeze(dim=0)
         pos_target = (pos_target == pos_label).float()  # one-hot
         assert pos_logit.shape == pos_target.shape
@@ -245,7 +250,7 @@ class FCOSLoss(nn.Module):
         ctr_targets = torch.cat(ctr_targets, dim=1)
 
         pos_mask = (ctr_targets > -1).squeeze(dim=-1)  # b(hw)c -> b(hw)
-        pos_num = pos_mask.sum(dim=-1).clamp(min=1).float()
+        pos_num = pos_mask.float().sum(dim=-1).clamp(min=1)
 
         cls_loss = calc_cls_loss(cls_logits, cls_targets,
                                  self.cls_loss) / pos_num
@@ -257,17 +262,15 @@ class FCOSLoss(nn.Module):
             reg_loss = calc_reg_loss(pred_boxes, target_boxes, pos_mask,
                                      self.reg_loss) / pos_num
         else:
-            reg_preds = reshape_feats(reg_preds)  # bchw -> b(hw)c
-            reg_targets = torch.cat(reg_targets, dim=1)
-            reg_loss = calc_reg_loss(reg_preds, reg_targets, pos_mask,
+            pred_offsets = reshape_feats(reg_preds)  # bchw -> b(hw)c
+            target_offsets = torch.cat(reg_targets, dim=1)
+            reg_loss = calc_reg_loss(pred_offsets, target_offsets, pos_mask,
                                      self.reg_loss) / pos_num
 
         cls_loss = cls_loss.mean()
         reg_loss = reg_loss.mean()
-        ctr_loss = ctr_loss.mean()
-
-        flag = 1.0 if self.use_ctr else 0.0
-        total_loss = cls_loss + reg_loss + ctr_loss * flag
+        ctr_loss = ctr_loss.mean() if self.use_ctr else 0.0
+        total_loss = cls_loss + reg_loss + ctr_loss
 
         return total_loss, cls_loss, reg_loss, ctr_loss
 
@@ -278,6 +281,8 @@ if __name__ == "__main__":
     torch.manual_seed(0)
 
     flag = 0
+    # flag = 1
+    # flag = 2
 
     if flag == 0:
         model = FCOSLoss()

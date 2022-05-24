@@ -23,14 +23,15 @@ def conv3x3(in_channels, out_channels, stride=1, bias=True):
 
 class FCOSHead(nn.Module):
     def __init__(self,
-                 num_channel=256,
-                 num_cls=3,
+                 in_channels=256,
+                 num_classes=3,
                  use_gn=True,
                  ctr_on_reg=True,
                  prior=0.01,
                  init_weights=True):
         super(FCOSHead, self).__init__()
-        self.num_cls = num_cls
+        self.in_channels = in_channels
+        self.num_classes = num_classes
         self.use_gn = use_gn
         self.ctr_on_reg = ctr_on_reg
         self.prior = prior
@@ -39,22 +40,24 @@ class FCOSHead(nn.Module):
         reg_branch = []
 
         for _ in range(4):
-            cls_branch.append(conv3x3(num_channel, num_channel))
+            cls_branch.append(conv3x3(in_channels, in_channels))
             if use_gn:
-                cls_branch.append(nn.GroupNorm(32, num_channel))
+                cls_branch.append(nn.GroupNorm(32, in_channels))
             cls_branch.append(nn.ReLU(inplace=True))
 
-            reg_branch.append(conv3x3(num_channel, num_channel))
+            reg_branch.append(conv3x3(in_channels, in_channels))
             if use_gn:
-                reg_branch.append(nn.GroupNorm(32, num_channel))
+                reg_branch.append(nn.GroupNorm(32, in_channels))
             reg_branch.append(nn.ReLU(inplace=True))
 
         self.cls_conv = nn.Sequential(*cls_branch)
         self.reg_conv = nn.Sequential(*reg_branch)
 
-        self.cls_logits = conv3x3(num_channel, num_cls)
-        self.reg_preds = conv3x3(num_channel, 4)
-        self.ctr_logits = conv3x3(num_channel, 1)
+        self.cls_logits = conv3x3(in_channels, num_classes)
+        self.reg_preds = conv3x3(in_channels, 4)
+        self.ctr_logits = conv3x3(in_channels, 1)
+
+        self.scale_exp = nn.ModuleList([ScaleExp(1.0) for _ in range(5)])
 
         if init_weights:
             self._initialize_weights()
@@ -62,17 +65,16 @@ class FCOSHead(nn.Module):
         # cls bias init
         nn.init.constant_(self.cls_logits.bias, -math.log(
             (1.0 - prior) / prior))
-        self.scale_exp = nn.ModuleList([ScaleExp(1.0) for _ in range(5)])
 
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.normal_(m.weight, 0, 0.01)
                 if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.GroupNorm):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
+                    nn.init.zeros_(m.bias)
+            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+                nn.init.ones_(m.weight)
+                nn.init.zeros_(m.bias)
 
     def forward(self, feats):
         cls_logits = []
@@ -97,8 +99,7 @@ class FCOSHead(nn.Module):
 class ScaleExp(nn.Module):
     def __init__(self, init_value=1.0):
         super(ScaleExp, self).__init__()
-        self.scale = nn.Parameter(torch.tensor([init_value],
-                                               dtype=torch.float))
+        self.scale = nn.Parameter(torch.FloatTensor([init_value]))
 
     def forward(self, x):
         return torch.exp(x * self.scale)
@@ -108,7 +109,7 @@ if __name__ == "__main__":
 
     import torch
 
-    model = FCOSHead(num_cls=3)
+    model = FCOSHead(num_classes=3)
 
     p7 = torch.rand(2, 256, 2, 2)
     p6 = torch.rand(2, 256, 4, 4)
