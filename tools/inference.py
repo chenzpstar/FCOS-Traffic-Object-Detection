@@ -21,7 +21,7 @@ import torch
 # from configs.bdd100k_config import cfg
 from configs.kitti_config import cfg
 from data import BDD100KDataset, KITTIDataset, Normalize, Resize
-from models.fcos import FCOSDetector
+from models import FCOSDetector
 
 # 添加解析参数
 parser = argparse.ArgumentParser(description="Inference")
@@ -30,7 +30,7 @@ parser.add_argument("--data_folder",
                     type=str,
                     help="dataset folder name")
 parser.add_argument("--ckpt_folder",
-                    default="kitti_12e_2022-05-12_22-24",
+                    default="kitti_12e_2022-05-26_19-14",
                     type=str,
                     help="checkpoint folder name")
 args = parser.parse_args()
@@ -45,15 +45,11 @@ if __name__ == "__main__":
     colors = [cmap(i) for i in np.linspace(0, 1, 10)]
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    size = [800, 1333]
-    mean = [0.3665, 0.3857, 0.3744]  # [0.485, 0.456, 0.406]
-    std = [0.3160, 0.3205, 0.3262]  # [0.229, 0.224, 0.225]
-
     data_dir = os.path.join(BASE_DIR, "..", "..", "datasets", cfg.data_folder)
     assert os.path.exists(data_dir)
 
     ckpt_dir = os.path.join(BASE_DIR, "..", "..", "results")
-    ckpt_path = os.path.join(ckpt_dir, cfg.ckpt_folder, "checkpoint_12.pth")
+    ckpt_path = os.path.join(ckpt_dir, cfg.ckpt_folder, "checkpoint_best.pth")
     assert os.path.exists(ckpt_path)
 
     # 1. dataset
@@ -66,8 +62,8 @@ if __name__ == "__main__":
     model = FCOSDetector(mode="inference", cfg=cfg)
     model_weights = torch.load(ckpt_path, map_location=torch.device("cpu"))
     state_dict = {
-        k: model_weights[k] if k in model_weights else model.state_dict()[k]
-        for k in model.state_dict()
+        k: v
+        for k, v in zip(model.state_dict(), model_weights.values())
     }
     model.load_state_dict(state_dict)
     model.to(device)
@@ -78,9 +74,9 @@ if __name__ == "__main__":
     for img in os.listdir(img_dir):
         img_path = os.path.join(img_dir, img)
         img_bgr = cv2.imread(img_path, cv2.IMREAD_COLOR)
-        img_pad = Resize(size)(img_bgr)
+        img_pad = Resize(cfg.size)(img_bgr)
         img_rgb = cv2.cvtColor(img_pad, cv2.COLOR_BGR2RGB)  # bgr -> rgb
-        img_norm = Normalize(mean, std)(img_rgb)
+        img_norm = Normalize(cfg.mean, cfg.std)(img_rgb)
         img_chw = img_norm.transpose((2, 0, 1))  # hwc -> chw
         img_tensor = torch.from_numpy(img_chw).float()
         img_tensor = img_tensor.unsqueeze(dim=0).to(device)  # chw -> bchw
@@ -106,10 +102,10 @@ if __name__ == "__main__":
             cv2.rectangle(img_pad, box[:2],
                           (box[0] + len(cls_name) * 10 + 72, box[1] - 20),
                           color, -1)
-            cv2.putText(img_pad, "{}: {:.4f}".format(cls_name, score),
+            cv2.putText(img_pad, "{}: {:.3%}".format(cls_name, score),
                         (box[0] + 2, box[1] - 5), cv2.FONT_HERSHEY_SIMPLEX,
                         0.5, (255, 255, 255), 1)
-            print("{}: {:.4f}".format(cls_name, score))
+            print("{}: {:.3%}".format(cls_name, score))
 
         cv2.imshow("out", img_pad)
         cv2.waitKey()

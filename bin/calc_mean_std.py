@@ -39,21 +39,40 @@ def calc_mean_std(data_loader):
 if __name__ == '__main__':
 
     root_dir = os.path.join(BASE_DIR, "..", "..", "datasets")
-    data_dir = os.path.join(root_dir, "bdd100k")
+    data_dir = os.path.join(root_dir, "kitti")
+    # data_dir = os.path.join(root_dir, "bdd100k")
 
-    train_set = BDD100KDataset(data_dir, set_name="train")
-    valid_set = BDD100KDataset(data_dir, set_name="val")
+    train_set = KITTIDataset(
+        data_dir,
+        set_name="training",
+        mode="train",
+        split=True,
+    )
+    valid_set = KITTIDataset(
+        data_dir,
+        set_name="training",
+        mode="valid",
+        split=True,
+    )
+    # train_set = BDD100KDataset(
+    #     data_dir,
+    #     set_name="train",
+    # )
+    # valid_set = BDD100KDataset(
+    #     data_dir,
+    #     set_name="val",
+    # )
 
     train_loader = DataLoader(
         train_set,
-        batch_size=16,
+        batch_size=8,
         shuffle=False,
         num_workers=16,
         collate_fn=Collate(),
     )
     valid_loader = DataLoader(
         valid_set,
-        batch_size=16,
+        batch_size=8,
         shuffle=False,
         num_workers=16,
         collate_fn=Collate(),

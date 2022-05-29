@@ -92,8 +92,8 @@ cfg.max_epoch = 12
 
 # transform
 cfg.size = [800, 1333]
-cfg.mean = [0.3665, 0.3857, 0.3744]  # [0.485, 0.456, 0.406]
-cfg.std = [0.3160, 0.3205, 0.3262]  # [0.229, 0.224, 0.225]
+cfg.mean = [0.367, 0.386, 0.374]  # [0.485, 0.456, 0.406]
+cfg.std = [0.316, 0.321, 0.326]  # [0.229, 0.224, 0.225]
 
 cfg.aug_trans = AugTransform(cfg.size, cfg.mean, cfg.std)
 cfg.base_trans = BaseTransform(cfg.size, cfg.mean, cfg.std)

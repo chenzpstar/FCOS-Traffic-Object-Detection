@@ -16,8 +16,8 @@ sys.path.append(os.path.join(BASE_DIR, ".."))
 import torch
 # from configs.bdd100k_config import cfg
 from configs.kitti_config import cfg
-from data import BaseTransform, BDD100KDataset, Collate, KITTIDataset
-from models.fcos import FCOSDetector
+from data import BDD100KDataset, Collate, KITTIDataset
+from models import FCOSDetector
 from torch.utils.data import DataLoader
 
 from eval import eval_model
@@ -29,7 +29,7 @@ parser.add_argument("--data_folder",
                     type=str,
                     help="dataset folder name")
 parser.add_argument("--ckpt_folder",
-                    default="kitti_12e_2022-05-12_22-24",
+                    default="kitti_12e_2022-05-26_19-14",
                     type=str,
                     help="checkpoint folder name")
 args = parser.parse_args()
@@ -42,15 +42,11 @@ if __name__ == "__main__":
     # 0. config
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    size = [800, 1333]
-    mean = [0.3665, 0.3857, 0.3744]  # [0.485, 0.456, 0.406]
-    std = [0.3160, 0.3205, 0.3262]  # [0.229, 0.224, 0.225]
-
     data_dir = os.path.join(BASE_DIR, "..", "..", "datasets", cfg.data_folder)
     assert os.path.exists(data_dir)
 
     ckpt_dir = os.path.join(BASE_DIR, "..", "..", "results")
-    ckpt_path = os.path.join(ckpt_dir, cfg.ckpt_folder, "checkpoint_12.pth")
+    ckpt_path = os.path.join(ckpt_dir, cfg.ckpt_folder, "checkpoint_best.pth")
     assert os.path.exists(ckpt_path)
 
     # 1. dataset
@@ -59,9 +55,9 @@ if __name__ == "__main__":
         set_name="training",
         mode="valid",
         split=True,
-        transform=BaseTransform(size, mean, std),
+        transform=cfg.base_trans,
     )
-    print("INFO ==> test set has {} imgs".format(len(test_set)))
+    print("test set has {} imgs".format(len(test_set)))
 
     test_loader = DataLoader(
         test_set,
@@ -70,13 +66,14 @@ if __name__ == "__main__":
         num_workers=1,
         collate_fn=Collate(),
     )
+    print("test loader has {} iters".format(len(test_loader)))
 
     # 2. model
     model = FCOSDetector(mode="inference", cfg=cfg)
     model_weights = torch.load(ckpt_path, map_location=torch.device("cpu"))
     state_dict = {
-        k: model_weights[k] if k in model_weights else model.state_dict()[k]
-        for k in model.state_dict()
+        k: v
+        for k, v in zip(model.state_dict(), model_weights.values())
     }
     model.load_state_dict(state_dict)
     model.to(device)
@@ -84,24 +81,25 @@ if __name__ == "__main__":
     print("loading model successfully")
 
     # 3. test
+    num_classes = test_set.num_classes
     # 评估指标
     recalls, precisions, f1s, aps = eval_model(
-        test_set,
         test_loader,
         model,
+        num_classes,
         device=device,
     )
 
     # 计算mAP
-    mAP = sum(aps) / (test_set.num_classes - 1)
+    mAP = sum(aps) / (num_classes - 1)
 
     # 输出结果
     out_path = os.path.join(ckpt_dir, cfg.ckpt_folder, "eval.txt")
     with open(out_path, "w") as f:
-        for label in range(test_set.num_classes - 1):
+        for label in range(num_classes - 1):
             print(
-                "class: {}, recall: {:.4f}, precision: {:.4f}, f1: {:.4f}, ap: {:.4f}"
+                "class: {}, recall: {:.3%}, precision: {:.3%}, f1: {:.3%}, ap: {:.3%}"
                 .format(test_set.labels_dict[label + 1], recalls[label],
                         precisions[label], f1s[label], aps[label]),
                 file=f)
-        print("mAP: {:.4f}".format(mAP), file=f)
+        print("mAP: {:.3%}".format(mAP), file=f)

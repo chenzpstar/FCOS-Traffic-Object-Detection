@@ -67,15 +67,14 @@ class Logger(object):
 
 def make_logger(cfg):
     """
-    在out_dir文件夹下以当前时间命名，创建日志文件夹，并创建logger用于记录信息
+    在out_dir文件夹下以当前时间命名, 创建日志文件夹, 并创建logger用于记录信息
     :param out_dir: str
     :return:
     """
     now_time = datetime.now()
     time_str = datetime.strftime(now_time, "%Y-%m-%d_%H-%M")
     folder_name = "{}_{}e_{}".format(cfg.data_folder, cfg.max_epoch, time_str)
-    log_dir = os.path.join(cfg.ckpt_root_dir,
-                           folder_name)  # 根据config中的创建时间作为文件夹名
+    log_dir = os.path.join(cfg.ckpt_root_dir, folder_name)
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
 

@@ -11,10 +11,10 @@ import torch.nn as nn
 
 try:
     from .config import FCOSConfig
-    from .utils import box_nms, decode_preds, reshape_feats
+    from .utils import clip_boxes, decode_preds, nms_boxes, reshape_feats
 except:
     from config import FCOSConfig
-    from utils import box_nms, decode_preds, reshape_feats
+    from utils import clip_boxes, decode_preds, nms_boxes, reshape_feats
 
 
 class FCOSDetect(nn.Module):
@@ -32,7 +32,7 @@ class FCOSDetect(nn.Module):
         self.max_boxes_num = self.cfg.max_boxes_num
         self.nms_mode = self.cfg.nms_mode
 
-    def forward(self, preds):
+    def forward(self, imgs, preds):
         cls_logits, reg_preds, ctr_logits = preds
 
         cls_logits = reshape_feats(cls_logits)  # bchw -> b(hw)c
@@ -47,9 +47,9 @@ class FCOSDetect(nn.Module):
 
         pred_boxes = decode_preds(reg_preds, self.strides)  # bchw -> b(hw)c
 
-        return self._post_process((cls_scores, pred_labels, pred_boxes))
+        return self._post_process(imgs, (cls_scores, pred_labels, pred_boxes))
 
-    def _post_process(self, preds):
+    def _post_process(self, imgs, preds):
         cls_scores, pred_labels, pred_boxes = preds
         batch_size = cls_scores.shape[0]  # b(hw)
 
@@ -85,6 +85,8 @@ class FCOSDetect(nn.Module):
             nms_pred_labels.append(filter_pred_labels[nms_idx])
             nms_pred_boxes.append(filter_pred_boxes[nms_idx])
 
+        nms_pred_boxes = list(map(clip_boxes, imgs, nms_pred_boxes))
+
         return nms_cls_scores, nms_pred_labels, nms_pred_boxes
 
     def _batch_nms(self, cls_scores, labels, boxes, thr, mode="iou"):
@@ -98,9 +100,9 @@ class FCOSDetect(nn.Module):
 
         max_coord = boxes.max()
         offsets = labels.to(boxes) * (max_coord + 1)
-        nms_boxes = boxes + offsets.unsqueeze(dim=-1)
+        new_boxes = boxes + offsets.unsqueeze(dim=-1)
 
-        return box_nms(cls_scores, nms_boxes, thr, mode)
+        return nms_boxes(cls_scores, new_boxes, thr, mode)
 
 
 if __name__ == "__main__":
@@ -110,10 +112,12 @@ if __name__ == "__main__":
 
     model = FCOSDetect()
 
+    imgs = torch.rand(2, 3, 224, 224)
     preds = (
         [torch.rand(2, 3, 2, 2)] * 5,
         [torch.rand(2, 4, 2, 2)] * 5,
         [torch.rand(2, 1, 2, 2)] * 5,
     )
-    out = model(preds)
+
+    out = model(imgs, preds)
     [print(batch_out.shape) for result_out in out for batch_out in result_out]

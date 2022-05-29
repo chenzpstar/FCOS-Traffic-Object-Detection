@@ -50,7 +50,9 @@ class ASPP(nn.Module):
 
     def forward(self, x):
         pool_feat = self.avgpool(x)
-        pool_feat = F.interpolate(pool_feat, size=x.shape[2:], mode="bilinear")
+        pool_feat = F.interpolate(pool_feat,
+                                  size=x.shape[-2:],
+                                  mode="bilinear")
         conv_feat = self.conv(x)
 
         return self.proj(

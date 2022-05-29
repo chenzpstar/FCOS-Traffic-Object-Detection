@@ -11,7 +11,7 @@ import torch
 from tqdm import tqdm
 
 
-def get_eval_data(data_loader, model, device="cpu"):
+def eval_model(data_loader, model, num_classes, device="cpu"):
     # 标签数据的容器
     gt_labels = []
     gt_boxes = []
@@ -24,14 +24,29 @@ def get_eval_data(data_loader, model, device="cpu"):
     for imgs, labels, boxes in tqdm(data_loader):
         with torch.no_grad():
             out = model(imgs.to(device))
-            pred_scores.append(out[0][0].cpu().numpy())
-            pred_labels.append(out[1][0].cpu().numpy())
-            pred_boxes.append(out[2][0].cpu().numpy())
 
-            gt_labels.append(labels[0].numpy())
-            gt_boxes.append(boxes[0].numpy())
+        pred_scores.append(out[0][0].cpu().numpy())
+        pred_labels.append(out[1][0].cpu().numpy())
+        pred_boxes.append(out[2][0].cpu().numpy())
+        gt_labels.append(labels[0].numpy())
+        gt_boxes.append(boxes[0].numpy())
 
-    return gt_labels, gt_boxes, pred_scores, pred_labels, pred_boxes
+    # 排序数据
+    pred_scores, pred_labels, pred_boxes = sort_by_score(
+        pred_scores, pred_labels, pred_boxes)
+
+    # 评估指标
+    recalls, precisions, f1s, aps = eval_metrics(
+        pred_scores,
+        pred_labels,
+        pred_boxes,
+        gt_labels,
+        gt_boxes,
+        num_classes,
+        0.5,
+    )
+
+    return recalls, precisions, f1s, aps
 
 
 def sort_by_score(pred_scores, pred_labels, pred_boxes):
@@ -77,7 +92,7 @@ def _compute_iou(boxes_a, boxes_b):
 
     # compute iou
     union = area_a + area_b - overlap
-    iou = overlap / np.maximum(union, np.finfo(np.float64).eps)
+    iou = overlap / np.maximum(union, np.finfo(np.float32).eps)
 
     return iou
 
@@ -110,8 +125,13 @@ def _compute_ap(recall, precision):
     return ap
 
 
-def eval_metrics(gt_labels, gt_boxes, pred_scores, pred_labels, pred_boxes,
-                 iou_thr, num_classes):
+def eval_metrics(pred_scores,
+                 pred_labels,
+                 pred_boxes,
+                 gt_labels,
+                 gt_boxes,
+                 num_classes,
+                 iou_thr=0.5):
     """
     :param gt_boxes: list of 2d array,shape[(a,(x1,y1,x2,y2)),(b,(x1,y1,x2,y2))...]
     :param gt_labels: list of 1d array,shape[(a),(b)...],value is sparse label index
@@ -125,22 +145,22 @@ def eval_metrics(gt_labels, gt_boxes, pred_scores, pred_labels, pred_boxes,
     recalls, precisions, f1s, aps = [], [], [], []
     for label in range(1, num_classes):
         # get samples with specific label
-        gt_label_loc = [sample_labels == label for sample_labels in gt_labels]
-        gt_single_cls = [
-            sample_boxes[mask]
-            for sample_boxes, mask in zip(gt_boxes, gt_label_loc)
-        ]
-
         pred_label_loc = [
             sample_labels == label for sample_labels in pred_labels
         ]
-        bbox_single_cls = [
+        pred_boxes_cls = [
             sample_boxes[mask]
             for sample_boxes, mask in zip(pred_boxes, pred_label_loc)
         ]
-        scores_single_cls = [
-            sample_scores[mask]
-            for sample_scores, mask in zip(pred_scores, pred_label_loc)
+        pred_scores_cls = [
+            sample_pred_scores[mask]
+            for sample_pred_scores, mask in zip(pred_scores, pred_label_loc)
+        ]
+
+        gt_label_loc = [sample_labels == label for sample_labels in gt_labels]
+        gt_boxes_cls = [
+            sample_boxes[mask]
+            for sample_boxes, mask in zip(gt_boxes, gt_label_loc)
         ]
 
         fp = np.zeros((0, ))
@@ -149,28 +169,28 @@ def eval_metrics(gt_labels, gt_boxes, pred_scores, pred_labels, pred_boxes,
         total_gts = 0
 
         # loop for each sample
-        for sample_gts, sample_pred_box, sample_scores in zip(
-                gt_single_cls, bbox_single_cls, scores_single_cls):
-            total_gts = total_gts + len(sample_gts)
-            assigned_gt = [
-            ]  # one gt can only be assigned to one predicted bbox
+        for sample_pred_scores, sample_pred_boxes, sample_gt_boxes in zip(
+                pred_scores_cls, pred_boxes_cls, gt_boxes_cls):
+            total_gts = total_gts + len(sample_gt_boxes)
+            assigned_gt = []
 
             # loop for each predicted bbox
-            for index in range(len(sample_pred_box)):
-                scores = np.append(scores, sample_scores[index])
+            for sample_pred_score, sample_pred_box in zip(
+                    sample_pred_scores, sample_pred_boxes):
+                scores = np.append(scores, sample_pred_score)
 
-                if len(
-                        sample_gts
-                ) == 0:  # if no gts found for the predicted bbox, assign the bbox to fp
+                # if no gts found for the predicted bbox, assign the bbox to fp
+                if len(sample_gt_boxes) == 0:
                     fp = np.append(fp, 1)
                     tp = np.append(tp, 0)
                     continue
 
-                pred_box = np.expand_dims(sample_pred_box[index], axis=0)
-                iou = _compute_iou(sample_gts, pred_box)
+                pred_box = np.expand_dims(sample_pred_box, axis=0)
+                iou = _compute_iou(sample_gt_boxes, pred_box)
                 gt_for_box = np.argmax(iou, axis=0)
                 max_overlap = iou[gt_for_box, 0]
 
+                # one gt can only be assigned to one predicted bbox
                 if max_overlap >= iou_thr and gt_for_box not in assigned_gt:
                     fp = np.append(fp, 0)
                     tp = np.append(tp, 1)
@@ -187,34 +207,16 @@ def eval_metrics(gt_labels, gt_boxes, pred_scores, pred_labels, pred_boxes,
         fp = np.cumsum(fp)
         tp = np.cumsum(tp)
         # compute recall and precision
-        recall = tp / np.maximum(total_gts, np.finfo(np.float64).eps)
-        precision = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
+        recall = tp / np.maximum(total_gts, np.finfo(np.float32).eps)
+        precision = tp / np.maximum(tp + fp, np.finfo(np.float32).eps)
         f1 = 2 * recall[-1] * precision[-1] / np.maximum(
             recall[-1] + precision[-1],
-            np.finfo(np.float64).eps)
+            np.finfo(np.float32).eps)
         ap = _compute_ap(recall, precision)
 
         recalls.append(recall[-1])
         precisions.append(precision[-1])
         f1s.append(f1)
         aps.append(ap)
-
-    return recalls, precisions, f1s, aps
-
-
-def eval_model(data_set, data_loader, model, device="cpu"):
-    # 获取数据
-    gt_labels, gt_boxes, pred_scores, pred_labels, pred_boxes = get_eval_data(
-        data_loader, model, device=device)
-
-    # 排序数据
-    pred_scores, pred_labels, pred_boxes = sort_by_score(
-        pred_scores, pred_labels, pred_boxes)
-
-    # 评估指标
-    recalls, precisions, f1s, aps = eval_metrics(gt_labels, gt_boxes,
-                                                 pred_scores, pred_labels,
-                                                 pred_boxes, 0.5,
-                                                 data_set.num_classes)
 
     return recalls, precisions, f1s, aps

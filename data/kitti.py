@@ -32,7 +32,7 @@ class KITTIDataset(Dataset):
         "background", "car", "van", "truck", "pedestrian", "person_sitting",
         "cyclist", "tram", "misc"
     ]
-    num_classes_list = len(classes_list)
+    num_classes = len(classes_list)
 
     classes_dict = {name: idx
                     for idx, name in enumerate(classes_list)}  # {name: idx}
@@ -87,8 +87,7 @@ class KITTIDataset(Dataset):
         return img_tensor, labels_tensor, boxes_tensor
 
     def __len__(self):
-        assert len(
-            self.data_info) > 0, "INFO ==> please check your path to dataset"
+        assert len(self.data_info) > 0, "please check your path to dataset"
         return len(self.data_info)
 
     def _get_data_info(self):
@@ -106,13 +105,10 @@ class KITTIDataset(Dataset):
         if self.split:
             train_img_path, valid_img_path, train_anno_path, valid_anno_path = train_test_split(
                 img_info, anno_info, test_size=0.2, random_state=0)
-            for img_path, anno_path in zip(train_img_path, train_anno_path):
-                self.train_data_info.append((img_path, anno_path))
-            for img_path, anno_path in zip(valid_img_path, valid_anno_path):
-                self.valid_data_info.append((img_path, anno_path))
+            self.train_data_info = [*zip(train_img_path, train_anno_path)]
+            self.valid_data_info = [*zip(valid_img_path, valid_anno_path)]
         else:
-            for img_path, anno_path in zip(img_info, anno_info):
-                self.data_info.append((img_path, anno_path))
+            self.data_info = [*zip(img_info, anno_info)]
 
     def _get_txt_anno(self, txt_path):
         labels, boxes = [], []

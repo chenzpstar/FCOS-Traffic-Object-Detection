@@ -30,7 +30,7 @@ class ChannelGate(nn.Module):
         self.pool_types = pool_types
 
     def forward(self, x):
-        h, w = x.shape[2:]
+        h, w = x.shape[-2:]  # bchw
         channel_att = 0
 
         for pool_type in self.pool_types:

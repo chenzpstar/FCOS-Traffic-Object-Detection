@@ -71,9 +71,9 @@ class FCOS(nn.Module):
                              prior=self.cfg.prior)
 
     def forward(self, imgs):
-        backbone_out = self.backbone(imgs)
-        neck_out = self.neck(backbone_out)
-        preds = self.head(neck_out)
+        backbone_outs = self.backbone(imgs)
+        neck_outs = self.neck(backbone_outs)
+        preds = self.head(neck_outs)
 
         return preds
 
@@ -86,14 +86,13 @@ class FCOSDetector(nn.Module):
         else:
             self.cfg = cfg
 
-        self.fcos = FCOS(cfg=cfg)
+        self.fcos = FCOS(self.cfg)
         self.mode = mode
         if mode == "train":
             self.target_layer = FCOSTarget(self.cfg)
             self.loss_layer = FCOSLoss(self.cfg)
         elif mode == "inference":
             self.detect_layer = FCOSDetect(self.cfg)
-            self.clip_boxes = ClipBoxes()
 
     def forward(self, inputs):
         if self.mode == "train":
@@ -107,26 +106,9 @@ class FCOSDetector(nn.Module):
         elif self.mode == "inference":
             imgs = inputs
             preds = self.fcos(imgs)
-            cls_scores, pred_labels, pred_boxes = self.detect_layer(preds)
-            pred_boxes = [
-                self.clip_boxes(img, boxes)
-                for img, boxes in zip(imgs, pred_boxes)
-            ]
+            outs = self.detect_layer(imgs, preds)
 
-            return cls_scores, pred_labels, pred_boxes
-
-
-class ClipBoxes(nn.Module):
-    def __init__(self):
-        super(ClipBoxes, self).__init__()
-
-    def forward(self, img, boxes):
-        h, w = img.shape[-2:]  # chw
-        boxes = boxes.clamp(min=0)
-        boxes[..., [0, 2]] = boxes[..., [0, 2]].clamp(max=w - 1)
-        boxes[..., [1, 3]] = boxes[..., [1, 3]].clamp(max=h - 1)
-
-        return boxes
+            return outs
 
 
 if __name__ == "__main__":

@@ -20,13 +20,14 @@ import torch.optim as optim
 # from configs.bdd100k_config import cfg
 from configs.kitti_config import cfg
 from data import BDD100KDataset, Collate, KITTIDataset
-from models.fcos import FCOSDetector
-from torch.cuda.amp import autocast, GradScaler
+from models import FCOS, FCOSDetect, FCOSLoss, FCOSTarget
+from torch.cuda.amp import GradScaler, autocast
 from torch.optim.lr_scheduler import (CosineAnnealingLR, ExponentialLR,
                                       MultiStepLR)
 from torch.utils.data import DataLoader
 
 from common import WarmupLR, make_logger, plot_curve, setup_seed
+from eval import eval_metrics, sort_by_score
 
 # 添加解析参数
 parser = argparse.ArgumentParser(description="Train")
@@ -79,8 +80,10 @@ def train_model(cfg,
 
             if cfg.use_fp16:
                 with autocast():
-                    total_loss, cls_loss, reg_loss, ctr_loss = model(
-                        (imgs, labels, boxes))
+                    preds = model(imgs)
+                    targets = target_layer(preds[0], labels, boxes)
+                    total_loss, cls_loss, reg_loss, ctr_loss = loss_layer(
+                        preds, targets)
                 scaler.scale(total_loss).backward()
                 if cfg.clip_grad:
                     scaler.unscale_(optimizer)
@@ -89,8 +92,10 @@ def train_model(cfg,
                 scaler.step(optimizer)
                 scaler.update()
             else:
-                total_loss, cls_loss, reg_loss, ctr_loss = model(
-                    (imgs, labels, boxes))
+                preds = model(imgs)
+                targets = target_layer(preds[0], labels, boxes)
+                total_loss, cls_loss, reg_loss, ctr_loss = loss_layer(
+                    preds, targets)
                 total_loss.backward()
                 if cfg.clip_grad:
                     torch.nn.utils.clip_grad_norm_(model.parameters(),
@@ -102,8 +107,10 @@ def train_model(cfg,
 
         elif mode == "valid":
             with torch.no_grad():
-                total_loss, cls_loss, reg_loss, ctr_loss = model(
-                    (imgs, labels, boxes))
+                preds = model(imgs)
+                targets = target_layer(preds[0], labels, boxes)
+                total_loss, cls_loss, reg_loss, ctr_loss = loss_layer(
+                    preds, targets)
 
         torch.cuda.synchronize()
         cost_time = int((time.time() - start_time) * 1000)
@@ -129,18 +136,57 @@ def train_model(cfg,
     )
 
 
+def eval_model(data_loader, model, num_classes, device="cpu"):
+    # 预测数据的容器
+    pred_scores = []
+    pred_labels = []
+    pred_boxes = []
+    # 标签数据的容器
+    gt_labels = []
+    gt_boxes = []
+
+    # 往两类容器中填值
+    for imgs, labels, boxes in data_loader:
+        with torch.no_grad():
+            preds = model(imgs.to(device))
+            outs = detect_layer(imgs, preds)
+
+        pred_scores.append(outs[0][0].cpu().numpy())
+        pred_labels.append(outs[1][0].cpu().numpy())
+        pred_boxes.append(outs[2][0].cpu().numpy())
+        gt_labels.append(labels[0].numpy())
+        gt_boxes.append(boxes[0].numpy())
+
+    # 排序数据
+    pred_scores, pred_labels, pred_boxes = sort_by_score(
+        pred_scores, pred_labels, pred_boxes)
+
+    # 评估指标
+    recalls, precisions, f1s, aps = eval_metrics(
+        pred_scores,
+        pred_labels,
+        pred_boxes,
+        gt_labels,
+        gt_boxes,
+        num_classes,
+        0.5,
+    )
+
+    return recalls, precisions, f1s, aps
+
+
 if __name__ == "__main__":
     # 0. config
     setup_seed(0)
 
     # 设置路径
+    data_dir = os.path.join(cfg.data_root_dir, cfg.data_folder)
+    assert os.path.exists(data_dir)
+
     if cfg.ckpt_folder is not None:
         ckpt_dir = os.path.join(cfg.ckpt_root_dir, cfg.ckpt_folder)
         ckpt_path = os.path.join(ckpt_dir, "checkpoint_12.pth")
         assert os.path.exists(ckpt_path)
-
-    data_dir = os.path.join(cfg.data_root_dir, cfg.data_folder)
-    assert os.path.exists(data_dir)
 
     # 创建logger
     logger, log_dir = make_logger(cfg)
@@ -191,18 +237,25 @@ if __name__ == "__main__":
         num_workers=cfg.workers,
         collate_fn=Collate(),
     )
+    test_loader = DataLoader(
+        valid_set,
+        batch_size=1,
+        shuffle=False,
+        num_workers=1,
+        collate_fn=Collate(),
+    )
     logger.info("train loader has {} iters".format(len(train_loader)))
     logger.info("valid loader has {} iters".format(len(valid_loader)))
+    logger.info("test loader has {} iters".format(len(test_loader)))
 
     # 2. model
-    model = FCOSDetector(mode="train", cfg=cfg)
+    model = FCOS(cfg=cfg)
     if cfg.ckpt_folder is not None:
         if os.path.exists(ckpt_path):
             model_weights = torch.load(ckpt_path, map_location="cpu")
             state_dict = {
-                k: model_weights[k]
-                if k in model_weights else model.state_dict()[k]
-                for k in model.state_dict()
+                k: v
+                for k, v in zip(model.state_dict(), model_weights.values())
             }
             model.load_state_dict(state_dict)
             logger.info("loading checkpoint successfully")
@@ -210,6 +263,9 @@ if __name__ == "__main__":
             logger.info(
                 "please check your path to checkpoint: {}".format(ckpt_path))
     model.to(cfg.device)
+    target_layer = FCOSTarget(cfg=cfg).to(cfg.device)
+    loss_layer = FCOSLoss(cfg=cfg).to(cfg.device)
+    detect_layer = FCOSDetect(cfg=cfg).to(cfg.device)
     logger.info("loading model successfully")
 
     # 3. optimize
@@ -256,6 +312,7 @@ if __name__ == "__main__":
     cls_loss_rec = {"train": [], "valid": []}
     reg_loss_rec = {"train": [], "valid": []}
     ctr_loss_rec = {"train": [], "valid": []}
+    best_epoch, best_mAP = 0, 0.0
 
     epochs = cfg.max_epoch
     for epoch in range(epochs):
@@ -340,11 +397,30 @@ if __name__ == "__main__":
             out_dir=log_dir,
         )
 
-        # 保存模型
         if epoch >= cfg.milestones[0]:
-            ckpt_path = os.path.join(log_dir,
-                                     "checkpoint_{}.pth".format(epoch + 1))
-            torch.save(model.state_dict(), ckpt_path)
-            logger.info("saving checkpoint successfully")
+            num_classes = valid_set.num_classes
+            # 评估指标
+            recalls, precisions, f1s, aps = eval_model(
+                test_loader,
+                model,
+                num_classes,
+                device=cfg.device,
+            )
 
-    logger.info("training model done")
+            # 计算mAP
+            mAP = sum(aps) / (num_classes - 1)
+            logger.info("mAP: {:.3%}".format(mAP))
+
+            # 保存模型
+            if best_mAP < mAP:
+                best_epoch, best_mAP = epoch + 1, mAP
+                ckpt_path = os.path.join(log_dir, "checkpoint_best.pth")
+                torch.save(model.state_dict(), ckpt_path)
+                logger.info("saving the best checkpoint successfully\n")
+
+    ckpt_path = os.path.join(log_dir, "checkpoint_last.pth")
+    torch.save(model.state_dict(), ckpt_path)
+    logger.info("saving the last checkpoint successfully\n")
+
+    logger.info("training model done, best mAP: {:.3%} in epoch: {}".format(
+        best_mAP, best_epoch))

@@ -62,7 +62,9 @@ class FPN(nn.Module):
                     nn.init.zeros_(m.bias)
 
     def upsample(self, src_feat, tar_feat):
-        return F.interpolate(src_feat, size=tar_feat.shape[2:], mode="nearest")
+        return F.interpolate(src_feat,
+                             size=tar_feat.shape[-2:],
+                             mode="nearest")
 
     def forward(self, feats):
         _, c3, c4, c5 = feats

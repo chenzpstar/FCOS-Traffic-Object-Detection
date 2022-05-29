@@ -76,8 +76,7 @@ class BDD100KDataset(Dataset):
         return img_tensor, labels_tensor, boxes_tensor
 
     def __len__(self):
-        assert len(
-            self.data_info) > 0, "INFO ==> please check your path to dataset"
+        assert len(self.data_info) > 0, "please check your path to dataset"
         return len(self.data_info)
 
     def _get_data_info(self):

@@ -8,9 +8,15 @@
 
 import torch
 
+__all__ = [
+    'reshape_feats', 'reshape_feat', 'decode_preds', 'decode_targets',
+    'decode_coords', 'coords2boxes', 'coords2offsets', 'coords2centers',
+    'nms_boxes', 'clip_boxes'
+]
+
 
 def reshape_feats(feats):
-    out = [reshape_feat(feat) for feat in feats]
+    out = list(map(reshape_feat, feats))
 
     return torch.cat(out, dim=1)
 
@@ -51,7 +57,7 @@ def decode_targets(preds, targets):
 
 
 def decode_coords(feat, stride=1):
-    h, w = feat.shape[2:]  # bchw
+    h, w = feat.shape[-2:]  # bchw
     x_shifts = torch.arange(0, w * stride, stride, dtype=torch.float)
     y_shifts = torch.arange(0, h * stride, stride, dtype=torch.float)
 
@@ -95,7 +101,7 @@ def coords2centers(coords, boxes):
     return torch.cat([lt_ctr_offsets, rb_ctr_offsets], dim=-1)
 
 
-def box_nms(cls_scores, boxes, thr=0.5, mode="iou"):
+def nms_boxes(cls_scores, boxes, thr=0.5, mode="iou"):
     if boxes.numel() == 0:
         return torch.zeros(0, dtype=torch.long, device=boxes.device)
     assert boxes.shape[-1] == 4
@@ -141,4 +147,13 @@ def box_nms(cls_scores, boxes, thr=0.5, mode="iou"):
             break
         order = order[idx]
 
-    return torch.LongTensor(keep, device=boxes.device)
+    return torch.LongTensor(keep)
+
+
+def clip_boxes(img, boxes):
+    h, w = img.shape[-2:]  # chw
+    boxes = boxes.clamp(min=0)
+    boxes[..., [0, 2]] = boxes[..., [0, 2]].clamp(max=w - 1)
+    boxes[..., [1, 3]] = boxes[..., [1, 3]].clamp(max=h - 1)
+
+    return boxes
