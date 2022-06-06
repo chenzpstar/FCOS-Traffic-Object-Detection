@@ -58,14 +58,14 @@ def decode_targets(preds, targets):
 
 def decode_coords(feat, stride=1):
     h, w = feat.shape[-2:]  # bchw
-    x_shifts = torch.arange(0, w * stride, stride, dtype=torch.float)
-    y_shifts = torch.arange(0, h * stride, stride, dtype=torch.float)
+    x_shifts = (torch.arange(0, w) + 0.5) * stride
+    y_shifts = (torch.arange(0, h) + 0.5) * stride
 
     y_shift, x_shift = torch.meshgrid(y_shifts, x_shifts)
     x_shift = x_shift.reshape(-1)
     y_shift = y_shift.reshape(-1)
 
-    return torch.stack([x_shift, y_shift], dim=-1) + stride // 2
+    return torch.stack([x_shift, y_shift], dim=-1)
 
 
 def coords2boxes(coords, offsets, stride=1):
@@ -101,9 +101,9 @@ def coords2centers(coords, boxes):
     return torch.cat([lt_ctr_offsets, rb_ctr_offsets], dim=-1)
 
 
-def nms_boxes(cls_scores, boxes, thr=0.5, mode="iou"):
-    if boxes.numel() == 0:
-        return torch.zeros(0, dtype=torch.long, device=boxes.device)
+def nms_boxes(scores, boxes, iou_thr=0.5, mode="iou"):
+    if boxes.shape[0] == 0:
+        return torch.zeros(0, dtype=torch.long)
     assert boxes.shape[-1] == 4
 
     xy1, xy2 = boxes[:, :2], boxes[:, 2:]
@@ -111,7 +111,7 @@ def nms_boxes(cls_scores, boxes, thr=0.5, mode="iou"):
         cxy = (xy1 + xy2) / 2.0
     wh = xy2 - xy1
     areas = wh[:, 0] * wh[:, 1]
-    order = cls_scores.sort(dim=0, descending=True)[1]
+    order = scores.sort(dim=0, descending=True)[1]
 
     keep = []
     while order.numel() > 0:
@@ -126,11 +126,11 @@ def nms_boxes(cls_scores, boxes, thr=0.5, mode="iou"):
         order = order[1:]
         xy1_max = torch.max(xy1[i], xy1[order])
         xy2_min = torch.min(xy2[i], xy2[order])
-        wh_min = (xy2_min - xy1_max).clamp(min=0)
+        wh_min = (xy2_min - xy1_max).clamp_(min=0)
 
         overlap = wh_min[:, 0] * wh_min[:, 1]
         union = areas[i] + areas[order] - overlap
-        iou = overlap / union.clamp(min=1e-8)
+        iou = overlap / union.clamp_(min=1e-8)
 
         if mode == "diou":
             xy1_min = torch.min(xy1[i], xy1[order])
@@ -140,9 +140,9 @@ def nms_boxes(cls_scores, boxes, thr=0.5, mode="iou"):
 
             c_dist = wh_max[:, 0].pow(2) + wh_max[:, 1].pow(2)
             p_dist = cwh[:, 0].pow(2) + cwh[:, 1].pow(2)
-            iou -= p_dist / c_dist.clamp(min=1e-8)
+            iou -= p_dist / c_dist.clamp_(min=1e-8)
 
-        idx = torch.where(iou <= thr)[0]
+        idx = torch.where(iou <= iou_thr)[0]
         if idx.numel() == 0:
             break
         order = order[idx]
@@ -152,8 +152,8 @@ def nms_boxes(cls_scores, boxes, thr=0.5, mode="iou"):
 
 def clip_boxes(img, boxes):
     h, w = img.shape[-2:]  # chw
-    boxes = boxes.clamp(min=0)
-    boxes[..., [0, 2]] = boxes[..., [0, 2]].clamp(max=w - 1)
-    boxes[..., [1, 3]] = boxes[..., [1, 3]].clamp(max=h - 1)
+    boxes.clamp_(min=0)
+    boxes[..., [0, 2]].clamp_(max=w - 1)
+    boxes[..., [1, 3]].clamp_(max=h - 1)
 
     return boxes

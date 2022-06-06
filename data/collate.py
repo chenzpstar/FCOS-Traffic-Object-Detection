@@ -16,9 +16,9 @@ class Collate:
         imgs_list, labels_list, boxes_list = zip(*data)
         assert len(imgs_list) == len(labels_list) == len(boxes_list)
 
-        pad_imgs_list = []
-        pad_labels_list = []
-        pad_boxes_list = []
+        pad_imgs = []
+        pad_labels = []
+        pad_boxes = []
 
         h_list = [int(img.shape[1]) for img in imgs_list]
         w_list = [int(img.shape[2]) for img in imgs_list]
@@ -28,25 +28,25 @@ class Collate:
         max_boxes_num = np.array(boxes_num_list).max()
 
         for img, labels, boxes in zip(imgs_list, labels_list, boxes_list):
-            pad_imgs_list.append(
+            pad_imgs.append(
                 F.pad(img, (0, int(max_w - img.shape[2]), 0,
                             int(max_h - img.shape[1])),
-                      value=0.))
-            pad_labels_list.append(
+                      value=0.0))
+            pad_labels.append(
                 F.pad(labels, (0, max_boxes_num - labels.shape[0]), value=-1))
-            if boxes.shape[0] == 0:
-                boxes = boxes.unsqueeze(0)
-                pad_boxes_list.append(
-                    F.pad(boxes, (0, 4, 0, max_boxes_num - boxes.shape[0]),
-                          value=-1))
-            else:
-                pad_boxes_list.append(
+            if boxes.shape[0] != 0:
+                pad_boxes.append(
                     F.pad(boxes, (0, 0, 0, max_boxes_num - boxes.shape[0]),
                           value=-1))
+            else:
+                boxes.unsqueeze_(0)
+                pad_boxes.append(
+                    F.pad(boxes, (0, 4, 0, max_boxes_num - boxes.shape[0]),
+                          value=-1))
 
-        batch_imgs = torch.stack(pad_imgs_list)
-        batch_labels = torch.stack(pad_labels_list)
-        batch_boxes = torch.stack(pad_boxes_list)
+        batch_imgs = torch.stack(pad_imgs)
+        batch_labels = torch.stack(pad_labels)
+        batch_boxes = torch.stack(pad_boxes)
 
         return batch_imgs, batch_labels, batch_boxes
 

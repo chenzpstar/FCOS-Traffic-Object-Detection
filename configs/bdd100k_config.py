@@ -41,7 +41,8 @@ cfg.num_channels = 256  # 256
 cfg.use_p5 = True
 
 # head
-cfg.num_classes = 8
+cfg.num_convs = 4  # 4
+cfg.num_classes = 3  # 8
 cfg.use_gn = True
 cfg.ctr_on_reg = True
 cfg.prior = 0.01  # 0.01
@@ -60,9 +61,9 @@ cfg.strides = [8, 16, 32, 64, 128]
 cfg.ranges = [[-1, 64], [64, 128], [128, 256], [256, 512], [512, 999999]]
 
 # detect
+cfg.max_boxes_num = 150  # 1000
 cfg.score_thr = 0.05  # 0.05
 cfg.nms_iou_thr = 0.5  # 0.6
-cfg.max_boxes_num = 150  # 1000
 cfg.nms_mode = "iou"  # ["iou", "diou"]
 # cfg.nms_mode = "diou"
 
@@ -81,7 +82,7 @@ cfg.warmup = False
 cfg.warmup_factor = 0.001
 
 cfg.exp_lr = False
-cfg.exp_factor = 0.66
+cfg.exp_factor = 0.66  # 0.66^11 = 0.01
 
 cfg.cos_lr = False
 cfg.lr_final = 5e-5
@@ -91,7 +92,7 @@ cfg.milestones = [8, 11]
 cfg.max_epoch = 12
 
 # transform
-cfg.size = [800, 1333]
+cfg.size = [800, 1333]  # [800, 1333]
 cfg.mean = [0.279, 0.293, 0.290]  # [0.485, 0.456, 0.406]
 cfg.std = [0.247, 0.265, 0.276]  # [0.229, 0.224, 0.225]
 

@@ -20,16 +20,12 @@ except:
 class FCOSDetect(nn.Module):
     def __init__(self, cfg=None):
         super(FCOSDetect, self).__init__()
-        if cfg is None:
-            self.cfg = FCOSConfig
-        else:
-            self.cfg = cfg
-
+        self.cfg = FCOSConfig if cfg is None else cfg
         self.use_ctr = self.cfg.use_ctr
         self.strides = self.cfg.strides
+        self.max_boxes_num = self.cfg.max_boxes_num
         self.score_thr = self.cfg.score_thr
         self.nms_iou_thr = self.cfg.nms_iou_thr
-        self.max_boxes_num = self.cfg.max_boxes_num
         self.nms_mode = self.cfg.nms_mode
 
     def forward(self, imgs, preds):
@@ -42,7 +38,7 @@ class FCOSDetect(nn.Module):
 
         cls_scores, pred_labels = cls_preds.max(dim=-1)  # b(hw)c -> b(hw)
         if self.use_ctr:
-            cls_scores = torch.sqrt(cls_scores * ctr_preds.squeeze(dim=-1))
+            cls_scores = torch.sqrt(cls_scores * ctr_preds.squeeze_(dim=-1))
         pred_labels += 1
 
         pred_boxes = decode_preds(reg_preds, self.strides)  # bchw -> b(hw)c
@@ -89,20 +85,20 @@ class FCOSDetect(nn.Module):
 
         return nms_cls_scores, nms_pred_labels, nms_pred_boxes
 
-    def _batch_nms(self, cls_scores, labels, boxes, thr, mode="iou"):
+    def _batch_nms(self, scores, labels, boxes, iou_thr, mode):
         # strategy: in order to perform NMS independently per class.
         # we add an offset to all the boxes. The offset is dependent
         # only on the class idx, and is large enough so that boxes
         # from different classes do not overlap.
-        if boxes.numel() == 0:
-            return torch.zeros(0, dtype=torch.long, device=boxes.device)
+        if boxes.shape[0] == 0:
+            return torch.zeros(0, dtype=torch.long)
         assert boxes.shape[-1] == 4
 
         max_coord = boxes.max()
         offsets = labels.to(boxes) * (max_coord + 1)
-        new_boxes = boxes + offsets.unsqueeze(dim=-1)
+        new_boxes = boxes + offsets.unsqueeze_(dim=-1)
 
-        return nms_boxes(cls_scores, new_boxes, thr, mode)
+        return nms_boxes(scores, new_boxes, iou_thr, mode)
 
 
 if __name__ == "__main__":

@@ -45,14 +45,15 @@ def iou_loss(preds, targets):
     # [l,t,r,b]
     lt_min = torch.min(preds[:, :2], targets[:, :2])
     rb_min = torch.min(preds[:, 2:], targets[:, 2:])
-    wh_min = (lt_min + rb_min).clamp(min=0)
+    wh_min = (lt_min + rb_min).clamp_(min=0)
     overlap = wh_min[:, 0] * wh_min[:, 1]
 
     pred_area = (preds[:, 0] + preds[:, 2]) * (preds[:, 1] + preds[:, 3])
     target_area = (targets[:, 0] + targets[:, 2]) * (targets[:, 1] +
                                                      targets[:, 3])
     union = pred_area + target_area - overlap
-    iou = overlap / union.clamp(min=1e-8)
+    iou = overlap / union.clamp_(min=1e-8)
+    # loss = -torch.log(iou.clamp_(min=1e-8))
     loss = 1.0 - iou
 
     return loss.sum()
@@ -62,14 +63,14 @@ def iou_loss(preds, targets):
 #     # [x1,y1,x2,y2]
 #     xy1_max = torch.max(preds[:, :2], targets[:, :2])
 #     xy2_min = torch.min(preds[:, 2:], targets[:, 2:])
-#     wh_min = (xy2_min - xy1_max).clamp(min=0)
+#     wh_min = (xy2_min - xy1_max).clamp_(min=0)
 #     overlap = wh_min[:, 0] * wh_min[:, 1]
 
 #     pred_area = (preds[:, 2] - preds[:, 0]) * (preds[:, 3] - preds[:, 1])
 #     target_area = (targets[:, 2] - targets[:, 0]) * (targets[:, 3] -
 #                                                      targets[:, 1])
 #     union = pred_area + target_area - overlap
-#     iou = overlap / union.clamp(min=1e-8)
+#     iou = overlap / union.clamp_(min=1e-8)
 #     loss = 1.0 - iou
 
 #     return loss.sum()
@@ -79,21 +80,21 @@ def giou_loss(preds, targets):
     # [l,t,r,b]
     lt_min = torch.min(preds[:, :2], targets[:, :2])
     rb_min = torch.min(preds[:, 2:], targets[:, 2:])
-    wh_min = (lt_min + rb_min).clamp(min=0)
+    wh_min = (lt_min + rb_min).clamp_(min=0)
     overlap = wh_min[:, 0] * wh_min[:, 1]
 
     pred_area = (preds[:, 0] + preds[:, 2]) * (preds[:, 1] + preds[:, 3])
     target_area = (targets[:, 0] + targets[:, 2]) * (targets[:, 1] +
                                                      targets[:, 3])
     union = pred_area + target_area - overlap
-    iou = overlap / union.clamp(min=1e-8)
+    iou = overlap / union.clamp_(min=1e-8)
 
     lt_max = torch.max(preds[:, :2], targets[:, :2])
     rb_max = torch.max(preds[:, 2:], targets[:, 2:])
-    wh_max = (lt_max + rb_max).clamp(min=0)
+    wh_max = lt_max + rb_max
     C_area = wh_max[:, 0] * wh_max[:, 1]
 
-    giou = iou - (C_area - union) / C_area.clamp(min=1e-8)
+    giou = iou - (C_area - union) / C_area.clamp_(min=1e-8)
     loss = 1.0 - giou
 
     return loss.sum()
@@ -103,21 +104,21 @@ def giou_loss(preds, targets):
 #     # [x1,y1,x2,y2]
 #     xy1_max = torch.max(preds[:, :2], targets[:, :2])
 #     xy2_min = torch.min(preds[:, 2:], targets[:, 2:])
-#     wh_min = (xy2_min - xy1_max).clamp(min=0)
+#     wh_min = (xy2_min - xy1_max).clamp_(min=0)
 #     overlap = wh_min[:, 0] * wh_min[:, 1]
 
 #     pred_area = (preds[:, 2] - preds[:, 0]) * (preds[:, 3] - preds[:, 1])
 #     target_area = (targets[:, 2] - targets[:, 0]) * (targets[:, 3] -
 #                                                      targets[:, 1])
 #     union = pred_area + target_area - overlap
-#     iou = overlap / union.clamp(min=1e-8)
+#     iou = overlap / union.clamp_(min=1e-8)
 
 #     xy1_min = torch.min(preds[:, :2], targets[:, :2])
 #     xy2_max = torch.max(preds[:, 2:], targets[:, 2:])
 #     wh_max = xy2_max - xy1_min
 #     C_area = wh_max[:, 0] * wh_max[:, 1]
 
-#     giou = iou - (C_area - union) / C_area.clamp(min=1e-8)
+#     giou = iou - (C_area - union) / C_area.clamp_(min=1e-8)
 #     loss = 1.0 - giou
 
 #     return loss.sum()
@@ -127,14 +128,14 @@ def diou_loss(preds, targets):
     # [x1,y1,x2,y2]
     xy1_max = torch.max(preds[:, :2], targets[:, :2])
     xy2_min = torch.min(preds[:, 2:], targets[:, 2:])
-    wh_min = (xy2_min - xy1_max).clamp(min=0)
+    wh_min = (xy2_min - xy1_max).clamp_(min=0)
     overlap = wh_min[:, 0] * wh_min[:, 1]
 
     pred_area = (preds[:, 2] - preds[:, 0]) * (preds[:, 3] - preds[:, 1])
     target_area = (targets[:, 2] - targets[:, 0]) * (targets[:, 3] -
                                                      targets[:, 1])
     union = pred_area + target_area - overlap
-    iou = overlap / union.clamp(min=1e-8)
+    iou = overlap / union.clamp_(min=1e-8)
 
     xy1_min = torch.min(preds[:, :2], targets[:, :2])
     xy2_max = torch.max(preds[:, 2:], targets[:, 2:])
@@ -146,7 +147,7 @@ def diou_loss(preds, targets):
     cwh = pred_cxy - target_cxy
     p_dist = cwh[:, 0].pow(2) + cwh[:, 1].pow(2)
 
-    diou = iou - p_dist / c_dist.clamp(min=1e-8)
+    diou = iou - p_dist / c_dist.clamp_(min=1e-8)
     loss = 1.0 - diou
 
     return loss.sum()
@@ -155,7 +156,6 @@ def diou_loss(preds, targets):
 def calc_cls_loss(logits, targets, mode="focal"):
     # logits: [b,h*w,c]
     # targets: [b,h*w,1]
-    # pos_mask: [b,h*w]
     batch_size = logits.shape[0]
     num_classes = logits.shape[-1]
     assert logits.shape[:2] == targets.shape[:2]
@@ -166,7 +166,7 @@ def calc_cls_loss(logits, targets, mode="focal"):
         pos_target = targets[i]
 
         pos_label = torch.arange(1, num_classes + 1,
-                                 device=pos_target.device).unsqueeze(dim=0)
+                                 device=pos_target.device).unsqueeze_(dim=0)
         pos_target = (pos_target == pos_label).float()  # one-hot
         assert pos_logit.shape == pos_target.shape
 
@@ -231,11 +231,7 @@ def calc_ctr_loss(logits, targets, pos_mask):
 class FCOSLoss(nn.Module):
     def __init__(self, cfg=None):
         super(FCOSLoss, self).__init__()
-        if cfg is None:
-            self.cfg = FCOSConfig
-        else:
-            self.cfg = cfg
-
+        self.cfg = FCOSConfig if cfg is None else cfg
         self.cls_loss = self.cfg.cls_loss
         self.reg_loss = self.cfg.reg_loss
         self.use_ctr = self.cfg.use_ctr
@@ -249,23 +245,23 @@ class FCOSLoss(nn.Module):
         cls_targets = torch.cat(cls_targets, dim=1)
         ctr_targets = torch.cat(ctr_targets, dim=1)
 
-        pos_mask = (ctr_targets > -1).squeeze(dim=-1)  # b(hw)c -> b(hw)
-        pos_num = pos_mask.float().sum(dim=-1).clamp(min=1)
+        pos_mask = (ctr_targets > -1).squeeze_(dim=-1)  # b(hw)c -> b(hw)
+        num_pos = pos_mask.float().sum(dim=-1).clamp_(min=1)
 
         cls_loss = calc_cls_loss(cls_logits, cls_targets,
-                                 self.cls_loss) / pos_num
-        ctr_loss = calc_ctr_loss(ctr_logits, ctr_targets, pos_mask) / pos_num
+                                 self.cls_loss) / num_pos
+        ctr_loss = calc_ctr_loss(ctr_logits, ctr_targets, pos_mask) / num_pos
 
         if self.reg_loss == "diou":
             pred_boxes = decode_preds(reg_preds)  # bchw -> b(hw)c
             target_boxes = decode_targets(reg_preds, reg_targets)  # b(hw)c
             reg_loss = calc_reg_loss(pred_boxes, target_boxes, pos_mask,
-                                     self.reg_loss) / pos_num
+                                     self.reg_loss) / num_pos
         else:
             pred_offsets = reshape_feats(reg_preds)  # bchw -> b(hw)c
             target_offsets = torch.cat(reg_targets, dim=1)
             reg_loss = calc_reg_loss(pred_offsets, target_offsets, pos_mask,
-                                     self.reg_loss) / pos_num
+                                     self.reg_loss) / num_pos
 
         cls_loss = cls_loss.mean()
         reg_loss = reg_loss.mean()

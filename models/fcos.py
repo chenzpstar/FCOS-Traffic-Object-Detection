@@ -65,6 +65,7 @@ class FCOS(nn.Module):
                               num_channels=self.cfg.num_channels)
 
         self.head = FCOSHead(in_channels=self.cfg.num_channels,
+                             num_convs=self.cfg.num_convs,
                              num_classes=self.cfg.num_classes,
                              use_gn=self.cfg.use_gn,
                              ctr_on_reg=self.cfg.ctr_on_reg,
@@ -81,11 +82,7 @@ class FCOS(nn.Module):
 class FCOSDetector(nn.Module):
     def __init__(self, mode="train", cfg=None):
         super(FCOSDetector, self).__init__()
-        if cfg is None:
-            self.cfg = FCOSConfig
-        else:
-            self.cfg = cfg
-
+        self.cfg = FCOSConfig if cfg is None else cfg
         self.fcos = FCOS(self.cfg)
         self.mode = mode
         if mode == "train":

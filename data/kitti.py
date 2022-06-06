@@ -28,10 +28,11 @@ class KITTIDataset(Dataset):
         - testing
             - image_2
     """
-    classes_list = [
-        "background", "car", "van", "truck", "pedestrian", "person_sitting",
-        "cyclist", "tram", "misc"
-    ]
+    # classes_list = [
+    #     "background", "car", "van", "truck", "pedestrian", "person_sitting",
+    #     "cyclist", "tram", "misc"
+    # ]
+    classes_list = ["background", "car", "pedestrian", "cyclist"]
     num_classes = len(classes_list)
 
     classes_dict = {name: idx
@@ -116,9 +117,15 @@ class KITTIDataset(Dataset):
             for line in f.readlines():
                 obj = line.rstrip().split(' ')
                 name = obj[0].lower()
-                if name in self.classes_list:
+                if name in ["car", "van", "truck", "tram"]:
+                    labels.append(self.classes_dict["car"])
+                elif name in ["pedestrian", "person_sitting"]:
+                    labels.append(self.classes_dict["pedestrian"])
+                elif name == "cyclist":
                     labels.append(self.classes_dict[name])
-                    boxes.append(list(map(float, obj[4:8])))
+                else:
+                    continue
+                boxes.append(list(map(float, obj[4:8])))
 
         return np.array(labels), np.array(boxes)
 

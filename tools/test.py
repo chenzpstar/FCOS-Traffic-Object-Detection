@@ -29,7 +29,7 @@ parser.add_argument("--data_folder",
                     type=str,
                     help="dataset folder name")
 parser.add_argument("--ckpt_folder",
-                    default="kitti_12e_2022-05-26_19-14",
+                    default="kitti_12e_2022-06-01_16-01",
                     type=str,
                     help="checkpoint folder name")
 args = parser.parse_args()
@@ -84,8 +84,8 @@ if __name__ == "__main__":
     num_classes = test_set.num_classes
     # 评估指标
     recalls, precisions, f1s, aps = eval_model(
-        test_loader,
         model,
+        test_loader,
         num_classes,
         device=device,
     )

@@ -24,6 +24,7 @@ def conv3x3(in_channels, out_channels, stride=1, bias=True):
 class FCOSHead(nn.Module):
     def __init__(self,
                  in_channels=256,
+                 num_convs=4,
                  num_classes=3,
                  use_gn=True,
                  ctr_on_reg=True,
@@ -31,6 +32,7 @@ class FCOSHead(nn.Module):
                  init_weights=True):
         super(FCOSHead, self).__init__()
         self.in_channels = in_channels
+        self.num_convs = num_convs
         self.num_classes = num_classes
         self.use_gn = use_gn
         self.ctr_on_reg = ctr_on_reg
@@ -39,15 +41,19 @@ class FCOSHead(nn.Module):
         cls_branch = []
         reg_branch = []
 
-        for _ in range(4):
+        for _ in range(num_convs):
             cls_branch.append(conv3x3(in_channels, in_channels))
             if use_gn:
                 cls_branch.append(nn.GroupNorm(32, in_channels))
+            else:
+                cls_branch.append(nn.BatchNorm2d(32, in_channels))
             cls_branch.append(nn.ReLU(inplace=True))
 
             reg_branch.append(conv3x3(in_channels, in_channels))
             if use_gn:
                 reg_branch.append(nn.GroupNorm(32, in_channels))
+            else:
+                reg_branch.append(nn.BatchNorm2d(32, in_channels))
             reg_branch.append(nn.ReLU(inplace=True))
 
         self.cls_conv = nn.Sequential(*cls_branch)
@@ -57,7 +63,7 @@ class FCOSHead(nn.Module):
         self.reg_preds = conv3x3(in_channels, 4)
         self.ctr_logits = conv3x3(in_channels, 1)
 
-        self.scale_exp = nn.ModuleList([ScaleExp(1.0) for _ in range(5)])
+        self.scales = nn.ModuleList([ScaleExp(1.0) for _ in range(5)])
 
         if init_weights:
             self._initialize_weights()
@@ -81,12 +87,12 @@ class FCOSHead(nn.Module):
         reg_preds = []
         ctr_logits = []
 
-        for i, feat in enumerate(feats):
+        for feat, scale in zip(feats, self.scales):
             cls_conv_out = self.cls_conv(feat)
             reg_conv_out = self.reg_conv(feat)
 
             cls_logits.append(self.cls_logits(cls_conv_out))
-            reg_preds.append(self.scale_exp[i](self.reg_preds(reg_conv_out)))
+            reg_preds.append(scale(self.reg_preds(reg_conv_out)))
 
             if not self.ctr_on_reg:
                 ctr_logits.append(self.ctr_logits(cls_conv_out))

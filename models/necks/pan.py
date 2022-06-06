@@ -100,12 +100,12 @@ if __name__ == "__main__":
 
     import torch
 
-    model = PAN(backbone="darknet19")
+    model = PAN([2048, 1024, 512, 256])
 
-    c5 = torch.rand(2, 1024, 7, 7)
-    c4 = torch.rand(2, 512, 14, 14)
-    c3 = torch.rand(2, 256, 28, 28)
-    c2 = torch.rand(2, 128, 56, 56)
+    c5 = torch.rand(2, 2048, 7, 7)
+    c4 = torch.rand(2, 1024, 14, 14)
+    c3 = torch.rand(2, 512, 28, 28)
+    c2 = torch.rand(2, 256, 56, 56)
 
     out = model([c2, c3, c4, c5])
     [print(stage_out.shape) for stage_out in out]

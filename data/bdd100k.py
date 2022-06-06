@@ -33,10 +33,11 @@ class BDD100KDataset(Dataset):
                     - 0000f77c-6257be58.json
                 - val
     """
-    classes_list = [
-        "background", "car", "bus", "truck", "motor", "bike", "pedestrian",
-        "rider", "train"
-    ]
+    # classes_list = [
+    #     "background", "car", "bus", "truck", "motor", "bike", "pedestrian",
+    #     "rider", "train"
+    # ]
+    classes_list = ["background", "car", "pedestrian", "rider"]
     num_classes = len(classes_list)
 
     classes_dict = {name: idx
@@ -100,14 +101,19 @@ class BDD100KDataset(Dataset):
                 pass
             else:
                 for obj in objs:
-                    if obj["category"] in self.classes_list:
-                        labels.append(self.classes_dict[obj["category"]])
-                        boxes.append([
-                            obj["box2d"]["x1"],
-                            obj["box2d"]["y1"],
-                            obj["box2d"]["x2"],
-                            obj["box2d"]["y2"],
-                        ])
+                    name = obj["category"]
+                    if name in ["car", "bus", "truck", "motor", "train"]:
+                        labels.append(self.classes_dict["car"])
+                    elif name in ["pedestrian", "rider"]:
+                        labels.append(self.classes_dict[name])
+                    else:
+                        continue
+                    boxes.append([
+                        obj["box2d"]["x1"],
+                        obj["box2d"]["y1"],
+                        obj["box2d"]["x2"],
+                        obj["box2d"]["y2"],
+                    ])
 
         return np.array(labels), np.array(boxes)
 

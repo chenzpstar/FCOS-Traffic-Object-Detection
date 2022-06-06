@@ -20,11 +20,7 @@ except:
 class FCOSTarget(nn.Module):
     def __init__(self, cfg=None):
         super(FCOSTarget, self).__init__()
-        if cfg is None:
-            self.cfg = FCOSConfig
-        else:
-            self.cfg = cfg
-
+        self.cfg = FCOSConfig if cfg is None else cfg
         self.strides = self.cfg.strides
         self.ranges = self.cfg.ranges
         assert len(self.strides) == len(self.ranges)
@@ -111,7 +107,7 @@ class FCOSTarget(nn.Module):
         tb_max = torch.max(reg_targets[..., 1], reg_targets[..., 3])
         ctr_targets = torch.sqrt(
             (lr_min * tb_min) /
-            (lr_max * tb_max).clamp(min=1e-8)).unsqueeze(dim=-1)
+            (lr_max * tb_max).clamp_(min=1e-8)).unsqueeze_(dim=-1)
         assert ctr_targets.shape == (batch_size, hw, 1)
 
         # 7. 处理负样本

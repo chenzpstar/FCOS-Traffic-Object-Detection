@@ -11,19 +11,19 @@ import torch
 from tqdm import tqdm
 
 
-def eval_model(data_loader, model, num_classes, device="cpu"):
-    # 标签数据的容器
-    gt_labels = []
-    gt_boxes = []
-    # 预测数据的容器
+def eval_model(model, data_loader, num_classes, device="cpu"):
     pred_scores = []
     pred_labels = []
     pred_boxes = []
+    gt_labels = []
+    gt_boxes = []
 
-    # 往两类容器中填值
+    # 1. 预测数据
     for imgs, labels, boxes in tqdm(data_loader):
+        imgs = imgs.to(device)
+
         with torch.no_grad():
-            out = model(imgs.to(device))
+            out = model(imgs)
 
         pred_scores.append(out[0][0].cpu().numpy())
         pred_labels.append(out[1][0].cpu().numpy())
@@ -31,41 +31,38 @@ def eval_model(data_loader, model, num_classes, device="cpu"):
         gt_labels.append(labels[0].numpy())
         gt_boxes.append(boxes[0].numpy())
 
-    # 排序数据
+    # 2. 排序数据
     pred_scores, pred_labels, pred_boxes = sort_by_score(
         pred_scores, pred_labels, pred_boxes)
 
-    # 评估指标
-    recalls, precisions, f1s, aps = eval_metrics(
+    # 3. 评估指标
+    metrics = eval_metrics(
         pred_scores,
         pred_labels,
         pred_boxes,
         gt_labels,
         gt_boxes,
         num_classes,
-        0.5,
+        iou_thr=0.5,
     )
 
-    return recalls, precisions, f1s, aps
+    return metrics
 
 
-def sort_by_score(pred_scores, pred_labels, pred_boxes):
-    score_seq = [(-score).argsort() for score in pred_scores]
+def sort_by_score(scores, labels, boxes):
+    score_seq = [(-score).argsort() for score in scores]
 
-    pred_scores = [
-        sample_boxes[mask]
-        for sample_boxes, mask in zip(pred_scores, score_seq)
+    sorted_scores = [
+        sample_boxes[mask] for sample_boxes, mask in zip(scores, score_seq)
     ]
-    pred_labels = [
-        sample_boxes[mask]
-        for sample_boxes, mask in zip(pred_labels, score_seq)
+    sorted_labels = [
+        sample_boxes[mask] for sample_boxes, mask in zip(labels, score_seq)
     ]
-    pred_boxes = [
-        sample_boxes[mask]
-        for sample_boxes, mask in zip(pred_boxes, score_seq)
+    sorted_boxes = [
+        sample_boxes[mask] for sample_boxes, mask in zip(boxes, score_seq)
     ]
 
-    return pred_scores, pred_labels, pred_boxes
+    return sorted_scores, sorted_labels, sorted_boxes
 
 
 def _compute_iou(boxes_a, boxes_b):
@@ -143,6 +140,7 @@ def eval_metrics(pred_scores,
     :return: a dict containing average precision for each cls
     """
     recalls, precisions, f1s, aps = [], [], [], []
+
     for label in range(1, num_classes):
         # get samples with specific label
         pred_label_loc = [

@@ -30,7 +30,7 @@ parser.add_argument("--data_folder",
                     type=str,
                     help="dataset folder name")
 parser.add_argument("--ckpt_folder",
-                    default="kitti_12e_2022-05-26_19-14",
+                    default="kitti_12e_2022-06-01_16-01",
                     type=str,
                     help="checkpoint folder name")
 args = parser.parse_args()
@@ -79,7 +79,7 @@ if __name__ == "__main__":
         img_norm = Normalize(cfg.mean, cfg.std)(img_rgb)
         img_chw = img_norm.transpose((2, 0, 1))  # hwc -> chw
         img_tensor = torch.from_numpy(img_chw).float()
-        img_tensor = img_tensor.unsqueeze(dim=0).to(device)  # chw -> bchw
+        img_tensor = img_tensor.unsqueeze_(dim=0).to(device)  # chw -> bchw
 
         torch.cuda.synchronize()
         start_time = time.time()

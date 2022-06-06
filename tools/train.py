@@ -54,8 +54,8 @@ cfg.ckpt_folder = args.ckpt_folder if args.ckpt_folder else cfg.ckpt_folder
 
 
 def train_model(cfg,
-                data_loader,
                 model,
+                data_loader,
                 epoch,
                 logger,
                 optimizer=None,
@@ -136,19 +136,19 @@ def train_model(cfg,
     )
 
 
-def eval_model(data_loader, model, num_classes, device="cpu"):
-    # 预测数据的容器
+def eval_model(model, data_loader, num_classes, device="cpu"):
     pred_scores = []
     pred_labels = []
     pred_boxes = []
-    # 标签数据的容器
     gt_labels = []
     gt_boxes = []
 
-    # 往两类容器中填值
+    # 1. 预测数据
     for imgs, labels, boxes in data_loader:
+        imgs = imgs.to(device)
+
         with torch.no_grad():
-            preds = model(imgs.to(device))
+            preds = model(imgs)
             outs = detect_layer(imgs, preds)
 
         pred_scores.append(outs[0][0].cpu().numpy())
@@ -157,22 +157,22 @@ def eval_model(data_loader, model, num_classes, device="cpu"):
         gt_labels.append(labels[0].numpy())
         gt_boxes.append(boxes[0].numpy())
 
-    # 排序数据
+    # 2. 排序数据
     pred_scores, pred_labels, pred_boxes = sort_by_score(
         pred_scores, pred_labels, pred_boxes)
 
-    # 评估指标
-    recalls, precisions, f1s, aps = eval_metrics(
+    # 3. 评估指标
+    metrics = eval_metrics(
         pred_scores,
         pred_labels,
         pred_boxes,
         gt_labels,
         gt_boxes,
         num_classes,
-        0.5,
+        iou_thr=0.5,
     )
 
-    return recalls, precisions, f1s, aps
+    return metrics
 
 
 if __name__ == "__main__":
@@ -320,8 +320,8 @@ if __name__ == "__main__":
         model.train()
         train_total_loss, train_cls_loss, train_reg_loss, train_ctr_loss = train_model(
             cfg,
-            train_loader,
             model,
+            train_loader,
             epoch,
             logger,
             optimizer=optimizer,
@@ -332,7 +332,7 @@ if __name__ == "__main__":
         # 2. valid
         model.eval()
         valid_total_loss, valid_cls_loss, valid_reg_loss, valid_ctr_loss = train_model(
-            cfg, valid_loader, model, epoch, logger, mode="valid")
+            cfg, model, valid_loader, epoch, logger, mode="valid")
 
         # 记录训练信息
         logger.info(
@@ -400,15 +400,15 @@ if __name__ == "__main__":
         if epoch >= cfg.milestones[0]:
             num_classes = valid_set.num_classes
             # 评估指标
-            recalls, precisions, f1s, aps = eval_model(
-                test_loader,
+            metrics = eval_model(
                 model,
+                test_loader,
                 num_classes,
                 device=cfg.device,
             )
 
             # 计算mAP
-            mAP = sum(aps) / (num_classes - 1)
+            mAP = sum(metrics[-1]) / (num_classes - 1)
             logger.info("mAP: {:.3%}".format(mAP))
 
             # 保存模型

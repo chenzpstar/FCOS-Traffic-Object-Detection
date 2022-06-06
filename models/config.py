@@ -18,6 +18,7 @@ class FCOSConfig():
     use_p5 = True
 
     # head
+    num_convs = 4  # 4
     num_classes = 3
     use_gn = True
     ctr_on_reg = True
@@ -33,7 +34,7 @@ class FCOSConfig():
     ranges = [[-1, 64], [64, 128], [128, 256], [256, 512], [512, 999999]]
 
     # detect
+    max_boxes_num = 150  # 1000
     score_thr = 0.05  # 0.05
     nms_iou_thr = 0.5  # 0.6
-    max_boxes_num = 150  # 1000
     nms_mode = "iou"  # ["iou", "diou"]
