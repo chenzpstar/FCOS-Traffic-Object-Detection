@@ -49,6 +49,8 @@ if __name__ == "__main__":
     ckpt_path = os.path.join(ckpt_dir, cfg.ckpt_folder, "checkpoint_best.pth")
     assert os.path.exists(ckpt_path)
 
+    out_path = os.path.join(ckpt_dir, cfg.ckpt_folder, "eval.txt")
+
     # 1. dataset
     test_set = KITTIDataset(
         data_dir,
@@ -82,24 +84,25 @@ if __name__ == "__main__":
 
     # 3. test
     num_classes = test_set.num_classes
-    # 评估指标
-    recalls, precisions, f1s, aps = eval_model(
-        model,
-        test_loader,
-        num_classes,
-        device=device,
-    )
+    for thr in [0.5, 0.75]:
+        # 评估指标
+        recalls, precisions, f1s, aps = eval_model(
+            model,
+            test_loader,
+            num_classes,
+            iou_thr=thr,
+            device=device,
+        )
 
-    # 计算mAP
-    mAP = sum(aps) / (num_classes - 1)
+        # 计算mAP
+        mAP = sum(aps) / (num_classes - 1)
 
-    # 输出结果
-    out_path = os.path.join(ckpt_dir, cfg.ckpt_folder, "eval.txt")
-    with open(out_path, "w") as f:
-        for label in range(num_classes - 1):
-            print(
-                "class: {}, recall: {:.3%}, precision: {:.3%}, f1: {:.3%}, ap: {:.3%}"
-                .format(test_set.labels_dict[label + 1], recalls[label],
-                        precisions[label], f1s[label], aps[label]),
-                file=f)
-        print("mAP: {:.3%}".format(mAP), file=f)
+        # 输出结果
+        with open(out_path, "a") as f:
+            for label in range(num_classes - 1):
+                print(
+                    "class: {}, recall: {:.3%}, precision: {:.3%}, f1: {:.3%}, ap: {:.3%}"
+                    .format(test_set.labels_dict[label + 1], recalls[label],
+                            precisions[label], f1s[label], aps[label]),
+                    file=f)
+            print("mAP: {:.3%}".format(mAP), file=f)

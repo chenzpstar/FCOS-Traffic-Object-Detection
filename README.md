@@ -210,17 +210,13 @@ Time: 2022.1.1 - 2022.6.30
 
     ![](http://latex.codecogs.com/svg.latex?Recall=\frac{TP}{TP+FN})
 
-- 准确率
-
-    ![](http://latex.codecogs.com/svg.latex?Accuracy=\frac{TP+TN}{TP+FP+TN+FN})
-
 - F1分数
 
     ![](http://latex.codecogs.com/svg.latex?F_1-score=\frac{2\cdot%20Precision\cdot%20Recall}{Precision+Recall})
 
 - 平均精度
 
-    ![](http://latex.codecogs.com/svg.latex?AP=\sum_{i=0}^{N-1}(r_{i+1}-r_i)\cdot%20P_{interp}(r_{i+1}))
+    ![](http://latex.codecogs.com/svg.latex?AP=\sum_{i=0}^{N-1}(r_{i+1}-r_i)\cdot%20\rho_{interp}(r_{i+1}))
 
 - 平均精度均值
 

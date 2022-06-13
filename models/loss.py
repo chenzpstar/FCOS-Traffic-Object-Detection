@@ -6,15 +6,19 @@
 # @brief      : FCOS损失函数类
 """
 
+from math import pi
+
 import torch
 import torch.nn as nn
 
 try:
     from .config import FCOSConfig
-    from .utils import decode_preds, decode_targets, reshape_feats
+    from .utils import (box_area, box_ratio, decode_preds, decode_targets,
+                        offset_area, reshape_feats)
 except:
     from config import FCOSConfig
-    from utils import decode_preds, decode_targets, reshape_feats
+    from utils import (box_area, box_ratio, decode_preds, decode_targets,
+                       offset_area, reshape_feats)
 
 
 def bce_loss(logits, targets, eps=1e-8):
@@ -41,114 +45,67 @@ def smooth_l1_loss(preds, targets):
     return loss.sum()
 
 
-def iou_loss(preds, targets):
+def offset_iou_loss(preds, targets, mode="iou", eps=1e-8):
     # [l,t,r,b]
-    lt_min = torch.min(preds[:, :2], targets[:, :2])
-    rb_min = torch.min(preds[:, 2:], targets[:, 2:])
+    lt_min = torch.min(preds[..., :2], targets[..., :2])
+    rb_min = torch.min(preds[..., 2:], targets[..., 2:])
     wh_min = (lt_min + rb_min).clamp_(min=0)
-    overlap = wh_min[:, 0] * wh_min[:, 1]
+    overlap = wh_min[..., 0] * wh_min[..., 1]
 
-    pred_area = (preds[:, 0] + preds[:, 2]) * (preds[:, 1] + preds[:, 3])
-    target_area = (targets[:, 0] + targets[:, 2]) * (targets[:, 1] +
-                                                     targets[:, 3])
-    union = pred_area + target_area - overlap
-    iou = overlap / union.clamp_(min=1e-8)
-    # loss = -torch.log(iou.clamp_(min=1e-8))
+    union = offset_area(preds) + offset_area(targets) - overlap
+    iou = overlap / union.clamp_(min=eps)
+
+    if mode == "giou":
+        lt_max = torch.max(preds[..., :2], targets[..., :2])
+        rb_max = torch.max(preds[..., 2:], targets[..., 2:])
+        wh_max = (lt_max + rb_max).clamp_(min=0)
+        C_area = wh_max[..., 0] * wh_max[..., 1]
+
+        iou -= (C_area - union) / C_area.clamp_(min=eps)
+
     loss = 1.0 - iou
 
     return loss.sum()
 
 
-# def iou_loss(preds, targets):
-#     # [x1,y1,x2,y2]
-#     xy1_max = torch.max(preds[:, :2], targets[:, :2])
-#     xy2_min = torch.min(preds[:, 2:], targets[:, 2:])
-#     wh_min = (xy2_min - xy1_max).clamp_(min=0)
-#     overlap = wh_min[:, 0] * wh_min[:, 1]
-
-#     pred_area = (preds[:, 2] - preds[:, 0]) * (preds[:, 3] - preds[:, 1])
-#     target_area = (targets[:, 2] - targets[:, 0]) * (targets[:, 3] -
-#                                                      targets[:, 1])
-#     union = pred_area + target_area - overlap
-#     iou = overlap / union.clamp_(min=1e-8)
-#     loss = 1.0 - iou
-
-#     return loss.sum()
-
-
-def giou_loss(preds, targets):
-    # [l,t,r,b]
-    lt_min = torch.min(preds[:, :2], targets[:, :2])
-    rb_min = torch.min(preds[:, 2:], targets[:, 2:])
-    wh_min = (lt_min + rb_min).clamp_(min=0)
-    overlap = wh_min[:, 0] * wh_min[:, 1]
-
-    pred_area = (preds[:, 0] + preds[:, 2]) * (preds[:, 1] + preds[:, 3])
-    target_area = (targets[:, 0] + targets[:, 2]) * (targets[:, 1] +
-                                                     targets[:, 3])
-    union = pred_area + target_area - overlap
-    iou = overlap / union.clamp_(min=1e-8)
-
-    lt_max = torch.max(preds[:, :2], targets[:, :2])
-    rb_max = torch.max(preds[:, 2:], targets[:, 2:])
-    wh_max = lt_max + rb_max
-    C_area = wh_max[:, 0] * wh_max[:, 1]
-
-    giou = iou - (C_area - union) / C_area.clamp_(min=1e-8)
-    loss = 1.0 - giou
-
-    return loss.sum()
-
-
-# def giou_loss(preds, targets):
-#     # [x1,y1,x2,y2]
-#     xy1_max = torch.max(preds[:, :2], targets[:, :2])
-#     xy2_min = torch.min(preds[:, 2:], targets[:, 2:])
-#     wh_min = (xy2_min - xy1_max).clamp_(min=0)
-#     overlap = wh_min[:, 0] * wh_min[:, 1]
-
-#     pred_area = (preds[:, 2] - preds[:, 0]) * (preds[:, 3] - preds[:, 1])
-#     target_area = (targets[:, 2] - targets[:, 0]) * (targets[:, 3] -
-#                                                      targets[:, 1])
-#     union = pred_area + target_area - overlap
-#     iou = overlap / union.clamp_(min=1e-8)
-
-#     xy1_min = torch.min(preds[:, :2], targets[:, :2])
-#     xy2_max = torch.max(preds[:, 2:], targets[:, 2:])
-#     wh_max = xy2_max - xy1_min
-#     C_area = wh_max[:, 0] * wh_max[:, 1]
-
-#     giou = iou - (C_area - union) / C_area.clamp_(min=1e-8)
-#     loss = 1.0 - giou
-
-#     return loss.sum()
-
-
-def diou_loss(preds, targets):
+def box_iou_loss(preds, targets, mode="iou", eps=1e-8):
     # [x1,y1,x2,y2]
-    xy1_max = torch.max(preds[:, :2], targets[:, :2])
-    xy2_min = torch.min(preds[:, 2:], targets[:, 2:])
+    xy1_max = torch.max(preds[..., :2], targets[..., :2])
+    xy2_min = torch.min(preds[..., 2:], targets[..., 2:])
     wh_min = (xy2_min - xy1_max).clamp_(min=0)
-    overlap = wh_min[:, 0] * wh_min[:, 1]
+    overlap = wh_min[..., 0] * wh_min[..., 1]
 
-    pred_area = (preds[:, 2] - preds[:, 0]) * (preds[:, 3] - preds[:, 1])
-    target_area = (targets[:, 2] - targets[:, 0]) * (targets[:, 3] -
-                                                     targets[:, 1])
-    union = pred_area + target_area - overlap
-    iou = overlap / union.clamp_(min=1e-8)
+    union = box_area(preds) + box_area(targets) - overlap
+    iou = overlap / union.clamp_(min=eps)
 
-    xy1_min = torch.min(preds[:, :2], targets[:, :2])
-    xy2_max = torch.max(preds[:, 2:], targets[:, 2:])
-    wh_max = xy2_max - xy1_min
-    c_dist = wh_max[:, 0].pow(2) + wh_max[:, 1].pow(2)
+    if mode in ["giou", "diou", "ciou"]:
+        xy1_min = torch.min(preds[..., :2], targets[..., :2])
+        xy2_max = torch.max(preds[..., 2:], targets[..., 2:])
+        wh_max = (xy2_max - xy1_min).clamp_(min=0)
 
-    pred_cxy = (preds[:, :2] + preds[:, 2:]) / 2.0
-    target_cxy = (targets[:, :2] + targets[:, 2:]) / 2.0
-    cwh = pred_cxy - target_cxy
-    p_dist = cwh[:, 0].pow(2) + cwh[:, 1].pow(2)
+        if mode == "giou":
+            C_area = wh_max[..., 0] * wh_max[..., 1]
 
-    diou = iou - p_dist / c_dist.clamp_(min=1e-8)
-    loss = 1.0 - diou
+            iou -= (C_area - union) / C_area.clamp_(min=1e-8)
+        else:
+            c_dist = wh_max[..., 0].pow(2) + wh_max[..., 1].pow(2)
+
+            pred_cxy = (preds[..., :2] + preds[..., 2:]) / 2.0
+            target_cxy = (targets[..., :2] + targets[..., 2:]) / 2.0
+            cwh = pred_cxy - target_cxy
+            p_dist = cwh[..., 0].pow(2) + cwh[..., 1].pow(2)
+
+            if mode == "diou":
+                iou -= p_dist / c_dist.clamp_(min=eps)
+            else:
+                v = (4 / pi**2) * (torch.atan(box_ratio(targets)) -
+                                   torch.atan(box_ratio(preds))).pow(2)
+                with torch.no_grad():
+                    alpha = v / (1.0 - iou + v).clamp_(min=eps)
+
+                iou -= p_dist / c_dist.clamp_(min=eps) + alpha * v
+
+    loss = 1.0 - iou
 
     return loss.sum()
 
@@ -156,18 +113,13 @@ def diou_loss(preds, targets):
 def calc_cls_loss(logits, targets, mode="focal"):
     # logits: [b,h*w,c]
     # targets: [b,h*w,1]
-    batch_size = logits.shape[0]
     num_classes = logits.shape[-1]
     assert logits.shape[:2] == targets.shape[:2]
 
     loss = []
-    for i in range(batch_size):
-        pos_logit = logits[i]
-        pos_target = targets[i]
-
-        pos_label = torch.arange(1, num_classes + 1,
-                                 device=pos_target.device).unsqueeze_(dim=0)
-        pos_target = (pos_target == pos_label).float()  # one-hot
+    for pos_logit, pos_target in zip(logits, targets):
+        pos_label = torch.arange(1, num_classes + 1, device=pos_target.device)
+        pos_target = (pos_target == pos_label[None, :]).float()  # one-hot
         assert pos_logit.shape == pos_target.shape
 
         if mode == "bce":
@@ -181,46 +133,42 @@ def calc_cls_loss(logits, targets, mode="focal"):
     return torch.stack(loss, dim=0)
 
 
-def calc_reg_loss(preds, targets, pos_mask, mode="iou"):
+def calc_reg_loss(preds, targets, pos_masks, mode="iou"):
     # preds: [b,h*w,4]
     # targets: [b,h*w,4]
-    # pos_mask: [b,h*w]
-    batch_size = preds.shape[0]
+    # pos_masks: [b,h*w]
     assert preds.shape == targets.shape
 
     loss = []
-    for i in range(batch_size):
-        pos_pred = preds[i][pos_mask[i]]
-        pos_target = targets[i][pos_mask[i]]
+    for pred, target, pos_mask in zip(preds, targets, pos_masks):
+        pos_pred = pred[pos_mask]
+        pos_target = target[pos_mask]
         assert pos_pred.shape == pos_target.shape
 
         if mode == "smooth_l1":
             loss.append(smooth_l1_loss(pos_pred, pos_target))
-        elif mode == "iou":
-            loss.append(iou_loss(pos_pred, pos_target))
-        elif mode == "giou":
-            loss.append(giou_loss(pos_pred, pos_target))
-        elif mode == "diou":
-            loss.append(diou_loss(pos_pred, pos_target))
+        elif mode in ["iou", "giou"]:
+            loss.append(offset_iou_loss(pos_pred, pos_target, mode))
+        elif mode in ["diou", "ciou"]:
+            loss.append(box_iou_loss(pos_pred, pos_target, mode))
         else:
             raise NotImplementedError(
-                "reg loss only implemented ['smooth_l1', 'iou', 'giou', 'diou']"
+                "reg loss only implemented ['smooth_l1', 'iou', 'giou', 'diou', 'ciou]"
             )
 
     return torch.stack(loss, dim=0)
 
 
-def calc_ctr_loss(logits, targets, pos_mask):
+def calc_ctr_loss(logits, targets, pos_masks):
     # logits: [b,h*w,1]
     # targets: [b,h*w,1]
-    # pos_mask: [b,h*w]
-    batch_size = logits.shape[0]
+    # pos_masks: [b,h*w]
     assert logits.shape == targets.shape
 
     loss = []
-    for i in range(batch_size):
-        pos_logit = logits[i][pos_mask[i]]
-        pos_target = targets[i][pos_mask[i]]
+    for logit, target, pos_mask in zip(logits, targets, pos_masks):
+        pos_logit = logit[pos_mask]
+        pos_target = target[pos_mask]
         assert pos_logit.shape == pos_target.shape
 
         loss.append(bce_loss(pos_logit, pos_target))
@@ -252,7 +200,7 @@ class FCOSLoss(nn.Module):
                                  self.cls_loss) / num_pos
         ctr_loss = calc_ctr_loss(ctr_logits, ctr_targets, pos_mask) / num_pos
 
-        if self.reg_loss == "diou":
+        if self.reg_loss in ["diou", "ciou"]:
             pred_boxes = decode_preds(reg_preds)  # bchw -> b(hw)c
             target_boxes = decode_targets(reg_preds, reg_targets)  # b(hw)c
             reg_loss = calc_reg_loss(pred_boxes, target_boxes, pos_mask,

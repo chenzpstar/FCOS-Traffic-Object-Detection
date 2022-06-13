@@ -6,7 +6,7 @@
 # @brief      : FCOS检测网络类
 """
 
-import math
+from math import log
 
 import torch
 import torch.nn as nn
@@ -69,8 +69,7 @@ class FCOSHead(nn.Module):
             self._initialize_weights()
 
         # cls bias init
-        nn.init.constant_(self.cls_logits.bias, -math.log(
-            (1.0 - prior) / prior))
+        nn.init.constant_(self.cls_logits.bias, -log((1.0 - prior) / prior))
 
     def _initialize_weights(self):
         for m in self.modules():

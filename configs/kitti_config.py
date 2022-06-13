@@ -34,7 +34,7 @@ cfg.backbone = "resnet50"
 cfg.pretrained = True
 
 # neck
-cfg.neck = "fpn"  # ["fpn, pan, bifpn"]
+cfg.neck = "fpn"  # ["fpn", "pan", "bifpn"]
 # cfg.neck = "pan"
 # cfg.neck = "bifpn"
 cfg.num_channels = 256  # 256
@@ -50,15 +50,16 @@ cfg.prior = 0.01  # 0.01
 # loss
 # cfg.cls_loss = "bce"  # ["bce", "focal"]
 cfg.cls_loss = "focal"
-# cfg.reg_loss = "smooth_l1"  # ["smooth_l1", "iou", "giou", "diou"]
+# cfg.reg_loss = "smooth_l1"  # ["smooth_l1", "iou", "giou", "diou", "ciou"]
 cfg.reg_loss = "iou"
 # cfg.reg_loss = "giou"
 # cfg.reg_loss = "diou"
+# cfg.reg_loss = "ciou"
 cfg.use_ctr = True
 
 # target
 cfg.strides = [8, 16, 32, 64, 128]
-cfg.ranges = [[-1, 64], [64, 128], [128, 256], [256, 512], [512, 999999]]
+cfg.bounds = [[-1, 64], [64, 128], [128, 256], [256, 512], [512, 999999]]
 
 # detect
 cfg.max_boxes_num = 150  # 1000

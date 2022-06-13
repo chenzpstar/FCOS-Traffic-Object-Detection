@@ -81,13 +81,15 @@ if __name__ == "__main__":
         img_tensor = torch.from_numpy(img_chw).float()
         img_tensor = img_tensor.unsqueeze_(dim=0).to(device)  # chw -> bchw
 
-        torch.cuda.synchronize()
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
         start_time = time.time()
 
         with torch.no_grad():
             scores, labels, boxes = model(img_tensor)
 
-        torch.cuda.synchronize()
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
         cost_time = int((time.time() - start_time) * 1000)
         print("processing img done, cost time: {} ms".format(cost_time))
 

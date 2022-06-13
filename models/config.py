@@ -9,11 +9,11 @@
 
 class FCOSConfig():
     # backbone
-    backbone = "resnet50"  # ["vgg16", "resnet50", "darknet19"]
+    backbone = "resnet50"  # ["vgg16", "resnet50", "darknet19", "mobilenet", "shufflenet", "efficientnet"]
     pretrained = True
 
     # neck
-    neck = "fpn"  # ["fpn, pan"]
+    neck = "fpn"  # ["fpn", "pan", "bifpn"]
     num_channels = 256  # 256
     use_p5 = True
 
@@ -26,12 +26,12 @@ class FCOSConfig():
 
     # loss
     cls_loss = "focal"  # ["bce", "focal"]
-    reg_loss = "iou"  # ["smooth_l1", "iou", "giou", "diou"]
+    reg_loss = "iou"  # ["smooth_l1", "iou", "giou", "diou", "ciou"]
     use_ctr = True
 
     # target
     strides = [8, 16, 32, 64, 128]
-    ranges = [[-1, 64], [64, 128], [128, 256], [256, 512], [512, 999999]]
+    bounds = [[-1, 64], [64, 128], [128, 256], [256, 512], [512, 999999]]
 
     # detect
     max_boxes_num = 150  # 1000

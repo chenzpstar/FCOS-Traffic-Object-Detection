@@ -72,7 +72,8 @@ def train_model(cfg,
         labels = labels.to(cfg.device)
         boxes = boxes.to(cfg.device)
 
-        torch.cuda.synchronize()
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
         start_time = time.time()
 
         if mode == "train":
@@ -112,7 +113,8 @@ def train_model(cfg,
                 total_loss, cls_loss, reg_loss, ctr_loss = loss_layer(
                     preds, targets)
 
-        torch.cuda.synchronize()
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
         cost_time = int((time.time() - start_time) * 1000)
 
         # 统计loss
@@ -136,7 +138,7 @@ def train_model(cfg,
     )
 
 
-def eval_model(model, data_loader, num_classes, device="cpu"):
+def eval_model(model, data_loader, num_classes, iou_thr=0.5, device="cpu"):
     pred_scores = []
     pred_labels = []
     pred_boxes = []
@@ -169,7 +171,7 @@ def eval_model(model, data_loader, num_classes, device="cpu"):
         gt_labels,
         gt_boxes,
         num_classes,
-        iou_thr=0.5,
+        iou_thr,
     )
 
     return metrics
@@ -237,7 +239,7 @@ if __name__ == "__main__":
         num_workers=cfg.workers,
         collate_fn=Collate(),
     )
-    test_loader = DataLoader(
+    eval_loader = DataLoader(
         valid_set,
         batch_size=1,
         shuffle=False,
@@ -246,7 +248,7 @@ if __name__ == "__main__":
     )
     logger.info("train loader has {} iters".format(len(train_loader)))
     logger.info("valid loader has {} iters".format(len(valid_loader)))
-    logger.info("test loader has {} iters".format(len(test_loader)))
+    logger.info("eval loader has {} iters".format(len(eval_loader)))
 
     # 2. model
     model = FCOS(cfg=cfg)
@@ -327,12 +329,19 @@ if __name__ == "__main__":
             optimizer=optimizer,
             scheduler=warmup_scheduler,
             scaler=scaler,
-            mode="train")
+            mode="train",
+        )
 
         # 2. valid
         model.eval()
         valid_total_loss, valid_cls_loss, valid_reg_loss, valid_ctr_loss = train_model(
-            cfg, model, valid_loader, epoch, logger, mode="valid")
+            cfg,
+            model,
+            valid_loader,
+            epoch,
+            logger,
+            mode="valid",
+        )
 
         # 记录训练信息
         logger.info(
@@ -397,12 +406,13 @@ if __name__ == "__main__":
             out_dir=log_dir,
         )
 
+        # 4. eval
         if epoch >= cfg.milestones[0]:
             num_classes = valid_set.num_classes
             # 评估指标
             metrics = eval_model(
                 model,
-                test_loader,
+                eval_loader,
                 num_classes,
                 device=cfg.device,
             )
@@ -412,7 +422,7 @@ if __name__ == "__main__":
             logger.info("mAP: {:.3%}".format(mAP))
 
             # 保存模型
-            if best_mAP < mAP:
+            if mAP > best_mAP:
                 best_epoch, best_mAP = epoch + 1, mAP
                 ckpt_path = os.path.join(log_dir, "checkpoint_best.pth")
                 torch.save(model.state_dict(), ckpt_path)

@@ -44,9 +44,9 @@ class Collate:
                     F.pad(boxes, (0, 4, 0, max_boxes_num - boxes.shape[0]),
                           value=-1))
 
-        batch_imgs = torch.stack(pad_imgs)
-        batch_labels = torch.stack(pad_labels)
-        batch_boxes = torch.stack(pad_boxes)
+        batch_imgs = torch.stack(pad_imgs, dim=0)
+        batch_labels = torch.stack(pad_labels, dim=0)
+        batch_boxes = torch.stack(pad_boxes, dim=0)
 
         return batch_imgs, batch_labels, batch_boxes
 

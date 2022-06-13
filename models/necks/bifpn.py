@@ -70,9 +70,9 @@ class BiFPN(nn.Module):
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
 
-    def upsample(self, src_feat, tar_feat):
+    def upsample(self, src_feat, dst_feat):
         return F.interpolate(src_feat,
-                             size=tar_feat.shape[-2:],
+                             size=dst_feat.shape[-2:],
                              mode="nearest")
 
     def forward(self, feats):

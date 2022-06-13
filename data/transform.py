@@ -31,8 +31,8 @@ class Normalize:
 
         if boxes is None:
             return norm_img
-        else:
-            return norm_img, boxes
+
+        return norm_img, boxes
 
 
 class Colorjitter:
@@ -87,8 +87,8 @@ class Resize:
             return pad_img
 
         if boxes.shape[0] != 0:
-            boxes[..., [0, 2]] = boxes[..., [0, 2]] * scale
-            boxes[..., [1, 3]] = boxes[..., [1, 3]] * scale
+            boxes[..., [0, 2]] *= scale
+            boxes[..., [1, 3]] *= scale
 
         return pad_img, boxes
 
@@ -123,21 +123,22 @@ class Translate:
             dy = random.randint(-self.dy, self.dy)
 
             trans_img = np.zeros_like(img)
+            if dx > 0 and dy > 0:
+                trans_img[dy:, dx:, :] = img[:h - dy, :w - dx, :]
+            elif dx > 0 and dy <= 0:
+                trans_img[:h + dy, dx:, :] = img[-dy:, :w - dx, :]
+            elif dx <= 0 and dy > 0:
+                trans_img[dy:, :w + dx, :] = img[:h - dy, -dx:, :]
+            else:
+                trans_img[:h + dy, :w + dx, :] = img[-dy:, -dx:, :]
 
             if boxes.shape[0] != 0:
-                if dx > 0 and dy > 0:
-                    trans_img[dy:, dx:, :] = img[:h - dy, :w - dx, :]
-                elif dx > 0 and dy <= 0:
-                    trans_img[:h + dy, dx:, :] = img[-dy:, :w - dx, :]
-                elif dx <= 0 and dy > 0:
-                    trans_img[dy:, :w + dx, :] = img[:h - dy, -dx:, :]
-                else:
-                    trans_img[:h + dy, :w + dx, :] = img[-dy:, -dx:, :]
-
-                boxes[..., [0, 2]] = (boxes[..., [0, 2]] + dx).clamp(min=0,
-                                                                     max=w - 1)
-                boxes[..., [1, 3]] = (boxes[..., [1, 3]] + dy).clamp(min=0,
-                                                                     max=h - 1)
+                boxes = torch.from_numpy(boxes)
+                boxes[..., [0, 2]] += dx
+                boxes[..., [1, 3]] += dy
+                boxes[..., [0, 2]].clamp_(min=0, max=w - 1)
+                boxes[..., [1, 3]].clamp_(min=0, max=h - 1)
+                boxes = boxes.numpy()
 
             return trans_img, boxes
         else:
@@ -162,22 +163,16 @@ class Rotate:
             if boxes.shape[0] != 0:
                 boxes = torch.from_numpy(boxes)
                 rot_boxes = torch.zeros_like(boxes)
-                rot_boxes[..., 0] = boxes[..., 1]
-                rot_boxes[..., 1] = boxes[..., 0]
-                rot_boxes[..., 2] = boxes[..., 3]
-                rot_boxes[..., 3] = boxes[..., 2]
+                rot_boxes[..., [0, 1]] = boxes[..., [1, 0]]
+                rot_boxes[..., [2, 3]] = boxes[..., [3, 2]]
 
                 for i in range(boxes.shape[0]):
                     ymin, xmin, ymax, xmax = rot_boxes[i, :]
-                    x0, y0 = xmin, ymin
-                    x1, y1 = xmin, ymax
-                    x2, y2 = xmax, ymin
-                    x3, y3 = xmax, ymax
                     pt = torch.FloatTensor([
-                        [y0, x0],
-                        [y1, x1],
-                        [y2, x2],
-                        [y3, x3],
+                        [ymin, xmin],
+                        [ymax, xmin],
+                        [ymin, xmax],
+                        [ymax, xmax],
                     ])
 
                     rot_pt = torch.zeros_like(pt)
@@ -185,20 +180,15 @@ class Rotate:
                         pt[:, 0] - cy) * math.sin(theta) + cx
                     rot_pt[:, 0] = (pt[:, 1] - cx) * math.sin(theta) + (
                         pt[:, 0] - cy) * math.cos(theta) + cy
-                    ymax, xmax = rot_pt.max(dim=0)[0]
-                    ymin, xmin = rot_pt.min(dim=0)[0]
-                    rot_boxes[i] = torch.stack([ymin, xmin, ymax, xmax])
+                    rot_ymax, rot_xmax = rot_pt.max(dim=0)[0]
+                    rot_ymin, rot_xmin = rot_pt.min(dim=0)[0]
+                    rot_boxes[i] = torch.stack(
+                        [rot_ymin, rot_xmin, rot_ymax, rot_xmax], dim=0)
 
-                rot_boxes[..., [1, 3]] = rot_boxes[...,
-                                                   [1, 3]].clamp(min=0,
-                                                                 max=w - 1)
-                rot_boxes[..., [0, 2]] = rot_boxes[...,
-                                                   [0, 2]].clamp(min=0,
-                                                                 max=h - 1)
-                boxes[..., 0] = rot_boxes[..., 1]
-                boxes[..., 1] = rot_boxes[..., 0]
-                boxes[..., 2] = rot_boxes[..., 3]
-                boxes[..., 3] = rot_boxes[..., 2]
+                boxes[..., [0, 1]] = rot_boxes[..., [1, 0]]
+                boxes[..., [2, 3]] = rot_boxes[..., [3, 2]]
+                boxes[..., [0, 2]].clamp_(min=0, max=w - 1)
+                boxes[..., [1, 3]].clamp_(min=0, max=h - 1)
                 boxes = boxes.numpy()
 
             return rot_img, boxes

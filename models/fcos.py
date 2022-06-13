@@ -29,41 +29,41 @@ except:
 class FCOS(nn.Module):
     def __init__(self, cfg=None):
         super(FCOS, self).__init__()
-        if cfg is None:
-            self.cfg = FCOSConfig
-        else:
-            self.cfg = cfg
+        self.cfg = FCOSConfig if cfg is None else cfg
 
+        # 1. backbone
         if self.cfg.backbone == "vgg16":
             self.backbone = vgg16_bn(pretrained=self.cfg.pretrained)
-            self.in_channels = [512, 512, 256, 128]
+            self.stage_channels = [512, 512, 256, 128]
         elif self.cfg.backbone == "resnet50":
             self.backbone = resnet50(pretrained=self.cfg.pretrained)
-            self.in_channels = [2048, 1024, 512, 256]
+            self.stage_channels = [2048, 1024, 512, 256]
         elif self.cfg.backbone == "darknet19":
             self.backbone = darknet19(pretrained=self.cfg.pretrained)
-            self.in_channels = [1024, 512, 256, 128]
+            self.stage_channels = [1024, 512, 256, 128]
         elif self.cfg.backbone == "mobilenet":
             self.backbone = mobilenetv2(pretrained=self.cfg.pretrained)
-            self.in_channels = [320, 96, 32, 24]
+            self.stage_channels = [320, 96, 32, 24]
         elif self.cfg.backbone == "shufflenet":
             self.backbone = shufflenetv2_x1_0(pretrained=self.cfg.pretrained)
-            self.in_channels = [464, 232, 116, 24]
+            self.stage_channels = [464, 232, 116, 24]
         elif self.cfg.backbone == "efficientnet":
             self.backbone = efficientnetv2_s(pretrained=self.cfg.pretrained)
-            self.in_channels = [256, 160, 64, 48]
+            self.stage_channels = [256, 160, 64, 48]
 
+        # 2. neck
         if self.cfg.neck == "fpn":
-            self.neck = FPN(in_channels=self.in_channels,
+            self.neck = FPN(in_channels=self.stage_channels,
                             num_channels=self.cfg.num_channels,
                             use_p5=self.cfg.use_p5)
         elif self.cfg.neck == "pan":
-            self.neck = PAN(in_channels=self.in_channels,
+            self.neck = PAN(in_channels=self.stage_channels,
                             num_channels=self.cfg.num_channels)
         elif self.cfg.neck == "bifpn":
-            self.neck = BiFPN(in_channels=self.in_channels,
+            self.neck = BiFPN(in_channels=self.stage_channels,
                               num_channels=self.cfg.num_channels)
 
+        # 3. head
         self.head = FCOSHead(in_channels=self.cfg.num_channels,
                              num_convs=self.cfg.num_convs,
                              num_classes=self.cfg.num_classes,
@@ -72,9 +72,9 @@ class FCOS(nn.Module):
                              prior=self.cfg.prior)
 
     def forward(self, imgs):
-        backbone_outs = self.backbone(imgs)
-        neck_outs = self.neck(backbone_outs)
-        preds = self.head(neck_outs)
+        backbone_feats = self.backbone(imgs)
+        neck_feats = self.neck(backbone_feats)
+        preds = self.head(neck_feats)
 
         return preds
 
@@ -103,7 +103,7 @@ class FCOSDetector(nn.Module):
         elif self.mode == "inference":
             imgs = inputs
             preds = self.fcos(imgs)
-            outs = self.detect_layer(imgs, preds)
+            outs = self.detect_layer(preds, imgs)
 
             return outs
 

@@ -28,7 +28,7 @@ class FCOSDetect(nn.Module):
         self.nms_iou_thr = self.cfg.nms_iou_thr
         self.nms_mode = self.cfg.nms_mode
 
-    def forward(self, imgs, preds):
+    def forward(self, preds, imgs):
         cls_logits, reg_preds, ctr_logits = preds
 
         cls_logits = reshape_feats(cls_logits)  # bchw -> b(hw)c
@@ -43,13 +43,13 @@ class FCOSDetect(nn.Module):
 
         pred_boxes = decode_preds(reg_preds, self.strides)  # bchw -> b(hw)c
 
-        return self._post_process(imgs, (cls_scores, pred_labels, pred_boxes))
+        return self._post_process((cls_scores, pred_labels, pred_boxes), imgs)
 
-    def _post_process(self, imgs, preds):
+    def _post_process(self, preds, imgs):
         cls_scores, pred_labels, pred_boxes = preds
-        batch_size = cls_scores.shape[0]  # b(hw)
+        batch_size, hw = cls_scores.shape  # b(hw)
 
-        max_boxes_num = min(self.max_boxes_num, cls_scores.shape[-1])
+        max_boxes_num = min(self.max_boxes_num, hw)
         topk_idx = torch.topk(cls_scores, max_boxes_num, dim=-1)[1]
         assert topk_idx.shape == (batch_size, max_boxes_num)
 
@@ -64,16 +64,16 @@ class FCOSDetect(nn.Module):
             topk_pred_boxes = pred_boxes[i][topk_idx[i]]
 
             # 2. 过滤低分
-            score_mask = topk_cls_scores > self.score_thr
+            score_mask = topk_cls_scores >= self.score_thr
             filter_cls_scores = topk_cls_scores[score_mask]
             filter_pred_labels = topk_pred_labels[score_mask]
             filter_pred_boxes = topk_pred_boxes[score_mask]
 
             # 3. 计算nms
             nms_idx = self._batch_nms(
+                filter_pred_boxes,
                 filter_cls_scores,
                 filter_pred_labels,
-                filter_pred_boxes,
                 self.nms_iou_thr,
                 self.nms_mode,
             )
@@ -81,24 +81,24 @@ class FCOSDetect(nn.Module):
             nms_pred_labels.append(filter_pred_labels[nms_idx])
             nms_pred_boxes.append(filter_pred_boxes[nms_idx])
 
-        nms_pred_boxes = list(map(clip_boxes, imgs, nms_pred_boxes))
+        nms_pred_boxes = list(map(clip_boxes, nms_pred_boxes, imgs))
 
         return nms_cls_scores, nms_pred_labels, nms_pred_boxes
 
-    def _batch_nms(self, scores, labels, boxes, iou_thr, mode):
-        # strategy: in order to perform NMS independently per class.
+    def _batch_nms(self, boxes, scores, labels, iou_thr, mode):
+        # Strategy: in order to perform NMS independently per class,
         # we add an offset to all the boxes. The offset is dependent
         # only on the class idx, and is large enough so that boxes
         # from different classes do not overlap.
         if boxes.shape[0] == 0:
-            return torch.zeros(0, dtype=torch.long)
+            return torch.zeros(0, dtype=torch.long, device=boxes.device)
         assert boxes.shape[-1] == 4
 
-        max_coord = boxes.max()
-        offsets = labels.to(boxes) * (max_coord + 1)
-        new_boxes = boxes + offsets.unsqueeze_(dim=-1)
+        max_coord, min_coord = boxes.max(), boxes.min()
+        offsets = labels.to(boxes) * (max_coord - min_coord + 1)
+        new_boxes = boxes.clone() + offsets[:, None]
 
-        return nms_boxes(scores, new_boxes, iou_thr, mode)
+        return nms_boxes(new_boxes, scores, iou_thr, mode)
 
 
 if __name__ == "__main__":

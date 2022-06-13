@@ -11,10 +11,12 @@ import torch.nn as nn
 
 try:
     from .config import FCOSConfig
-    from .utils import coords2centers, coords2offsets, decode_coords, reshape_feat
+    from .utils import (coords2centers, coords2offsets, decode_coords,
+                        offset_area, reshape_feat)
 except:
     from config import FCOSConfig
-    from utils import coords2centers, coords2offsets, decode_coords, reshape_feat
+    from utils import (coords2centers, coords2offsets, decode_coords,
+                       offset_area, reshape_feat)
 
 
 class FCOSTarget(nn.Module):
@@ -22,24 +24,23 @@ class FCOSTarget(nn.Module):
         super(FCOSTarget, self).__init__()
         self.cfg = FCOSConfig if cfg is None else cfg
         self.strides = self.cfg.strides
-        self.ranges = self.cfg.ranges
-        assert len(self.strides) == len(self.ranges)
+        self.bounds = self.cfg.bounds
+        assert len(self.strides) == len(self.bounds)
 
     def forward(self, feats, labels, boxes):
-        num_stages = len(self.strides)
-        assert len(feats) == num_stages
+        assert len(self.strides) == len(feats)
 
         cls_targets = []
         reg_targets = []
         ctr_targets = []
 
-        for i in range(num_stages):
+        for feat, stride, bound in zip(feats, self.strides, self.bounds):
             stage_targets = self._gen_stage_targets(
-                feats[i],
+                feat,
                 labels,
                 boxes,
-                self.strides[i],
-                self.ranges[i],
+                stride,
+                bound,
             )
             cls_targets.append(stage_targets[0])
             reg_targets.append(stage_targets[1])
@@ -52,8 +53,8 @@ class FCOSTarget(nn.Module):
                            labels,
                            boxes,
                            stride,
-                           range,
-                           sample_radio=1.5):
+                           bound,
+                           sample_ratio=1.5):
         coords = decode_coords(feat, stride).to(boxes.device)
         feat = reshape_feat(feat)  # bchw -> b(hw)c
 
@@ -64,40 +65,39 @@ class FCOSTarget(nn.Module):
         offsets = coords2offsets(coords, boxes)
         assert offsets.shape == (batch_size, hw, num_boxes, 4)
 
-        offsets_min = offsets.min(dim=-1)[0]
-        offsets_max = offsets.max(dim=-1)[0]
-        boxes_mask = offsets_min > 0
-        stage_mask = (offsets_max > range[0]) & (offsets_max <= range[1])
+        min_offsets = offsets.min(dim=-1)[0]
+        max_offsets = offsets.max(dim=-1)[0]
+        boxes_mask = min_offsets > 0
+        stage_mask = (max_offsets > bound[0]) & (max_offsets <= bound[1])
 
         # 2. 计算每个坐标到所有标注框中心的偏移量
         ctr_offsets = coords2centers(coords, boxes)
         assert ctr_offsets.shape == (batch_size, hw, num_boxes, 4)
 
-        radius = sample_radio * stride
-        ctr_offsets_max = ctr_offsets.max(dim=-1)[0]
-        ctr_mask = ctr_offsets_max < radius
+        radius = sample_ratio * stride
+        max_ctr_offsets = ctr_offsets.max(dim=-1)[0]
+        ctr_mask = max_ctr_offsets < radius
 
         pos_mask = boxes_mask & stage_mask & ctr_mask
         assert pos_mask.shape == (batch_size, hw, num_boxes)
 
         # 3. 计算所有标注框面积
-        areas = (offsets[..., 0] + offsets[..., 2]) * (offsets[..., 1] +
-                                                       offsets[..., 3])
+        areas = offset_area(offsets)
         areas[~pos_mask] = 99999999  # neg_areas
-        areas_min_idx = areas.min(dim=-1, keepdim=True)[1]
-        areas_min_mask = torch.zeros_like(areas, dtype=torch.bool).scatter_(
-            -1, areas_min_idx, 1)
-        assert areas_min_mask.shape == (batch_size, hw, num_boxes)
+        min_areas_idx = areas.argmin(dim=-1, keepdim=True)
+        min_areas_mask = torch.zeros_like(areas, dtype=torch.bool).scatter_(
+            -1, min_areas_idx, 1)
+        assert min_areas_mask.shape == (batch_size, hw, num_boxes)
 
         # 4. 计算分类目标
         labels = torch.broadcast_tensors(
             labels[:, None, :], areas.long())[0]  # [b,1,n] -> [b,h*w,n]
-        cls_targets = labels[areas_min_mask].reshape((batch_size, -1, 1))
+        cls_targets = labels[min_areas_mask].reshape((batch_size, -1, 1))
         assert cls_targets.shape == (batch_size, hw, 1)
 
         # 5. 计算回归目标
         offsets = offsets / stride
-        reg_targets = offsets[areas_min_mask].reshape((batch_size, -1, 4))
+        reg_targets = offsets[min_areas_mask].reshape((batch_size, -1, 4))
         assert reg_targets.shape == (batch_size, hw, 4)
 
         # 6. 计算中心度目标
@@ -111,8 +111,8 @@ class FCOSTarget(nn.Module):
         assert ctr_targets.shape == (batch_size, hw, 1)
 
         # 7. 处理负样本
-        pos_mask = pos_mask.long().sum(dim=-1)
-        neg_mask = pos_mask < 1
+        num_pos_mask = pos_mask.long().sum(dim=-1)
+        neg_mask = num_pos_mask < 1
         assert neg_mask.shape == (batch_size, hw)
 
         cls_targets[neg_mask] = 0
