@@ -9,18 +9,10 @@
 import torch
 import torch.nn as nn
 
-
-def conv(in_channels, out_channels, kernel_size=1, stride=1, padding=0):
-    return nn.Sequential(
-        nn.Conv2d(in_channels,
-                  out_channels,
-                  kernel_size=kernel_size,
-                  stride=stride,
-                  padding=padding,
-                  bias=False),
-        nn.BatchNorm2d(out_channels),
-        nn.ReLU(inplace=True),
-    )
+try:
+    from .conv import conv1x1
+except:
+    from conv import conv1x1
 
 
 class SPP(nn.Module):
@@ -28,12 +20,12 @@ class SPP(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=(5, 9, 13)):
         super(SPP, self).__init__()
         num_channels = in_channels // 2  # hidden channels
-        self.conv = conv(in_channels, num_channels, kernel_size=1)
+        self.conv = conv1x1(in_channels, num_channels)
         self.maxpool = nn.ModuleList([
             nn.MaxPool2d(kernel_size=k, stride=1, padding=k // 2)
             for k in kernel_size
         ])
-        self.proj = conv(num_channels * 4, out_channels, kernel_size=1)
+        self.proj = conv1x1(num_channels * 4, out_channels)
 
     def forward(self, x):
         x = self.conv(x)
@@ -47,11 +39,11 @@ class SPPF(nn.Module):
         # equivalent to SPP(kernel_size=(5, 9, 13))
         super(SPPF, self).__init__()
         num_channels = in_channels // 2  # hidden channels
-        self.conv = conv(in_channels, num_channels, kernel_size=1)
+        self.conv = conv1x1(in_channels, num_channels)
         self.maxpool = nn.MaxPool2d(kernel_size=kernel_size,
                                     stride=1,
                                     padding=kernel_size // 2)
-        self.proj = conv(num_channels * 4, out_channels, kernel_size=1)
+        self.proj = conv1x1(num_channels * 4, out_channels)
 
     def forward(self, x):
         x = self.conv(x)

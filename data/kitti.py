@@ -148,12 +148,12 @@ if __name__ == "__main__":
     train_loader = DataLoader(train_set)
 
     for (img, labels, boxes) in train_loader:
-        img = img.squeeze(0).data.numpy().astype(np.uint8)  # bchw -> chw
+        img = img.squeeze_(dim=0).data.numpy().astype(np.uint8)  # bchw -> chw
         img = img.transpose((1, 2, 0))  # chw -> hwc
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)  # rgb -> bgr
 
-        labels = labels.squeeze(0).data.numpy().astype(np.int64)
-        boxes = boxes.squeeze(0).data.numpy().astype(np.int64)
+        labels = labels.squeeze_(dim=0).data.numpy().astype(np.int64)
+        boxes = boxes.squeeze_(dim=0).data.numpy().astype(np.int64)
 
         for label, box in zip(labels, boxes):
             color = [i * 255 for i in colors[label - 1]]

@@ -11,14 +11,10 @@ from math import log
 import torch
 import torch.nn as nn
 
-
-def conv3x3(in_channels, out_channels, stride=1, bias=True):
-    return nn.Conv2d(in_channels,
-                     out_channels,
-                     kernel_size=3,
-                     stride=stride,
-                     padding=1,
-                     bias=bias)
+try:
+    from .layers import conv3x3
+except:
+    from layers import conv3x3
 
 
 class FCOSHead(nn.Module):
@@ -38,30 +34,21 @@ class FCOSHead(nn.Module):
         self.ctr_on_reg = ctr_on_reg
         self.prior = prior
 
-        cls_branch = []
-        reg_branch = []
-
-        for _ in range(num_convs):
-            cls_branch.append(conv3x3(in_channels, in_channels))
-            if use_gn:
-                cls_branch.append(nn.GroupNorm(32, in_channels))
-            else:
-                cls_branch.append(nn.BatchNorm2d(32, in_channels))
-            cls_branch.append(nn.ReLU(inplace=True))
-
-            reg_branch.append(conv3x3(in_channels, in_channels))
-            if use_gn:
-                reg_branch.append(nn.GroupNorm(32, in_channels))
-            else:
-                reg_branch.append(nn.BatchNorm2d(32, in_channels))
-            reg_branch.append(nn.ReLU(inplace=True))
-
+        norm = "gn" if use_gn else "bn"
+        cls_branch = [
+            conv3x3(in_channels, in_channels, norm=norm)
+            for _ in range(num_convs)
+        ]
+        reg_branch = [
+            conv3x3(in_channels, in_channels, norm=norm)
+            for _ in range(num_convs)
+        ]
         self.cls_conv = nn.Sequential(*cls_branch)
         self.reg_conv = nn.Sequential(*reg_branch)
 
-        self.cls_logits = conv3x3(in_channels, num_classes)
-        self.reg_preds = conv3x3(in_channels, 4)
-        self.ctr_logits = conv3x3(in_channels, 1)
+        self.cls_logits = nn.Conv2d(in_channels, num_classes, 3, 1, 1)
+        self.reg_preds = nn.Conv2d(in_channels, 4, 3, 1, 1)
+        self.ctr_logits = nn.Conv2d(in_channels, 1, 3, 1, 1)
 
         self.scales = nn.ModuleList([ScaleExp(1.0) for _ in range(5)])
 

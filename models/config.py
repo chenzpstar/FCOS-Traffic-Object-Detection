@@ -24,17 +24,17 @@ class FCOSConfig():
     ctr_on_reg = True
     prior = 0.01  # 0.01
 
+    # target
+    strides = [8, 16, 32, 64, 128]
+    bounds = [[-1, 64], [64, 128], [128, 256], [256, 512], [512, 999999]]
+
     # loss
     cls_loss = "focal"  # ["bce", "focal"]
     reg_loss = "iou"  # ["smooth_l1", "iou", "giou", "diou", "ciou"]
     use_ctr = True
 
-    # target
-    strides = [8, 16, 32, 64, 128]
-    bounds = [[-1, 64], [64, 128], [128, 256], [256, 512], [512, 999999]]
-
     # detect
-    max_boxes_num = 150  # 1000
+    max_boxes_num = 1000  # 1000
     score_thr = 0.05  # 0.05
-    nms_iou_thr = 0.5  # 0.6
+    nms_iou_thr = 0.6  # 0.6
     nms_mode = "iou"  # ["iou", "diou"]

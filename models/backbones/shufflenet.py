@@ -10,6 +10,7 @@
 import torch
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
+from ..layers import conv1x1, conv3x3
 
 __all__ = [
     'ShuffleNetV2', 'shufflenetv2_x0_5', 'shufflenetv2_x1_0',
@@ -26,38 +27,6 @@ model_urls = {
     'shufflenetv2_x2_0':
     'https://download.pytorch.org/models/shufflenetv2_x2_0-8be3c8ee.pth',
 }
-
-
-def conv3x3(in_channels, out_channels, stride=1, groups=1, act=True):
-    layers = [
-        nn.Conv2d(in_channels,
-                  out_channels,
-                  kernel_size=3,
-                  stride=stride,
-                  padding=1,
-                  groups=groups,
-                  bias=False),
-        nn.BatchNorm2d(out_channels)
-    ]
-    if act:
-        layers.append(nn.ReLU(inplace=True))
-
-    return nn.Sequential(*layers)
-
-
-def conv1x1(in_channels, out_channels, stride=1, act=True):
-    layers = [
-        nn.Conv2d(in_channels,
-                  out_channels,
-                  kernel_size=1,
-                  stride=stride,
-                  bias=False),
-        nn.BatchNorm2d(out_channels)
-    ]
-    if act:
-        layers.append(nn.ReLU(inplace=True))
-
-    return nn.Sequential(*layers)
 
 
 def channel_split(x, split):
@@ -102,7 +71,7 @@ class ShuffleUnit(nn.Module):
                         in_channels,
                         stride=stride,
                         groups=in_channels,
-                        act=False),
+                        act=None),
                 # pw
                 conv1x1(in_channels, split_channels),
             ])
@@ -117,7 +86,7 @@ class ShuffleUnit(nn.Module):
                     split_channels,
                     stride=stride,
                     groups=split_channels,
-                    act=False),
+                    act=None),
             # pw
             conv1x1(split_channels, split_channels),
         ])

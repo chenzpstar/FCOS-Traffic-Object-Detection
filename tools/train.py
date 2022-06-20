@@ -16,6 +16,7 @@ sys.path.append(os.path.join(BASE_DIR, ".."))
 
 import numpy as np
 import torch
+import torch.nn as nn
 import torch.optim as optim
 # from configs.bdd100k_config import cfg
 from configs.kitti_config import cfg
@@ -88,8 +89,7 @@ def train_model(cfg,
                 scaler.scale(total_loss).backward()
                 if cfg.clip_grad:
                     scaler.unscale_(optimizer)
-                    torch.nn.utils.clip_grad_norm_(model.parameters(),
-                                                   max_norm=5)
+                    nn.utils.clip_grad_norm_(model.parameters(), max_norm=5)
                 scaler.step(optimizer)
                 scaler.update()
             else:
@@ -99,8 +99,7 @@ def train_model(cfg,
                     preds, targets)
                 total_loss.backward()
                 if cfg.clip_grad:
-                    torch.nn.utils.clip_grad_norm_(model.parameters(),
-                                                   max_norm=5)
+                    nn.utils.clip_grad_norm_(model.parameters(), max_norm=5)
                 optimizer.step()
 
             if cfg.warmup:
@@ -151,7 +150,7 @@ def eval_model(model, data_loader, num_classes, iou_thr=0.5, device="cpu"):
 
         with torch.no_grad():
             preds = model(imgs)
-            outs = detect_layer(imgs, preds)
+            outs = detect_layer(preds, imgs)
 
         pred_scores.append(outs[0][0].cpu().numpy())
         pred_labels.append(outs[1][0].cpu().numpy())
@@ -231,6 +230,7 @@ if __name__ == "__main__":
         shuffle=True,
         num_workers=cfg.workers,
         collate_fn=Collate(),
+        pin_memory=True,
     )
     valid_loader = DataLoader(
         valid_set,
@@ -238,13 +238,15 @@ if __name__ == "__main__":
         shuffle=False,
         num_workers=cfg.workers,
         collate_fn=Collate(),
+        pin_memory=True,
     )
     eval_loader = DataLoader(
         valid_set,
         batch_size=1,
         shuffle=False,
-        num_workers=1,
+        num_workers=cfg.workers,
         collate_fn=Collate(),
+        pin_memory=True,
     )
     logger.info("train loader has {} iters".format(len(train_loader)))
     logger.info("valid loader has {} iters".format(len(valid_loader)))

@@ -21,5 +21,4 @@ class SELayer(nn.Module):
         )
 
     def forward(self, x):
-        scale = self.fc(self.avgpool(x))
-        return x * scale
+        return x * self.fc(self.avgpool(x))

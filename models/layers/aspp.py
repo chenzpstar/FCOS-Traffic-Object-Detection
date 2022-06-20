@@ -10,24 +10,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
-def conv(in_channels,
-         out_channels,
-         kernel_size=1,
-         stride=1,
-         padding=0,
-         dilation=1):
-    return nn.Sequential(
-        nn.Conv2d(in_channels,
-                  out_channels,
-                  kernel_size=kernel_size,
-                  stride=stride,
-                  padding=padding,
-                  dilation=dilation,
-                  bias=False),
-        nn.BatchNorm2d(out_channels),
-        nn.ReLU(inplace=True),
-    )
+try:
+    from .conv import conv1x1, conv3x3
+except:
+    from conv import conv1x1, conv3x3
 
 
 class ASPP(nn.Module):
@@ -35,18 +21,14 @@ class ASPP(nn.Module):
         super(ASPP, self).__init__()
         self.avgpool = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
-            conv(in_channels, num_channels, kernel_size=1),
+            conv1x1(in_channels, num_channels),
         )
-        self.conv = conv(in_channels, num_channels, kernel_size=1)
+        self.conv = conv1x1(in_channels, num_channels)
         self.atrous = nn.ModuleList([
-            conv(in_channels,
-                 num_channels,
-                 kernel_size=3,
-                 stride=1,
-                 padding=r,
-                 dilation=r) for r in rate
+            conv3x3(in_channels, num_channels, padding=r, dilation=r)
+            for r in rate
         ])
-        self.proj = conv(num_channels * 5, num_channels, kernel_size=1)
+        self.proj = conv1x1(num_channels * 5, num_channels)
 
     def forward(self, x):
         pool_feat = self.avgpool(x)

@@ -52,20 +52,27 @@ if __name__ == "__main__":
     out_path = os.path.join(ckpt_dir, cfg.ckpt_folder, "eval.txt")
 
     # 1. dataset
-    test_set = KITTIDataset(
-        data_dir,
-        set_name="training",
-        mode="valid",
-        split=True,
-        transform=cfg.base_trans,
-    )
+    if cfg.data_folder == "kitti":
+        test_set = KITTIDataset(
+            data_dir,
+            set_name="training",
+            mode="valid",
+            split=True,
+            transform=cfg.base_trans,
+        )
+    elif cfg.data_folder == "bdd100k":
+        test_set = BDD100KDataset(
+            data_dir,
+            set_name="val",
+            transform=cfg.base_trans,
+        )
     print("test set has {} imgs".format(len(test_set)))
 
     test_loader = DataLoader(
         test_set,
         batch_size=1,
         shuffle=False,
-        num_workers=1,
+        num_workers=cfg.workers,
         collate_fn=Collate(),
     )
     print("test loader has {} iters".format(len(test_loader)))

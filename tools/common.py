@@ -36,9 +36,9 @@ class Logger(object):
     def __init__(self, log_path):
         log_name = os.path.basename(log_path)
         self.log_name = log_name if log_name else "root"
-        self.out_path = log_path
+        self.log_path = log_path
 
-        log_dir = os.path.dirname(self.out_path)
+        log_dir = os.path.dirname(self.log_path)
         if not os.path.exists(log_dir):
             os.makedirs(log_dir)
 
@@ -47,7 +47,7 @@ class Logger(object):
         logger.setLevel(level=logging.INFO)
 
         # 配置文件Handler
-        file_handler = logging.FileHandler(self.out_path, "w")
+        file_handler = logging.FileHandler(self.log_path, "w")
         file_handler.setLevel(logging.INFO)
         formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s")

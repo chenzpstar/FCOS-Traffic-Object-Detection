@@ -11,7 +11,7 @@ import torch
 import torch.nn.functional as F
 
 
-class Collate:
+class Collate():
     def __call__(self, data):
         imgs_list, labels_list, boxes_list = zip(*data)
         assert len(imgs_list) == len(labels_list) == len(boxes_list)
@@ -23,6 +23,7 @@ class Collate:
         h_list = [int(img.shape[1]) for img in imgs_list]
         w_list = [int(img.shape[2]) for img in imgs_list]
         boxes_num_list = [int(boxes.shape[0]) for boxes in boxes_list]
+
         max_h = np.array(h_list).max()
         max_w = np.array(w_list).max()
         max_boxes_num = np.array(boxes_num_list).max()
@@ -32,14 +33,16 @@ class Collate:
                 F.pad(img, (0, int(max_w - img.shape[2]), 0,
                             int(max_h - img.shape[1])),
                       value=0.0))
+
             pad_labels.append(
                 F.pad(labels, (0, max_boxes_num - labels.shape[0]), value=-1))
+
             if boxes.shape[0] != 0:
                 pad_boxes.append(
                     F.pad(boxes, (0, 0, 0, max_boxes_num - boxes.shape[0]),
                           value=-1))
             else:
-                boxes.unsqueeze_(0)
+                boxes.unsqueeze_(dim=0)
                 pad_boxes.append(
                     F.pad(boxes, (0, 4, 0, max_boxes_num - boxes.shape[0]),
                           value=-1))
@@ -77,5 +80,5 @@ if __name__ == "__main__":
 
     imgs, labels, boxes = next(iter(train_loader))
 
-    print(labels, boxes)
+    print(labels), print(boxes)
     print(imgs.shape, boxes.shape, labels.shape)

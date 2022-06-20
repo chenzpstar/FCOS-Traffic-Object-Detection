@@ -20,9 +20,13 @@ cfg.data_folder = "bdd100k"
 cfg.ckpt_root_dir = os.path.join(BASE_DIR, "..", "..", "results")
 cfg.ckpt_folder = None
 
-cfg.use_fp16 = False
-cfg.clip_grad = False
-cfg.log_interval = 100
+# transform
+cfg.size = [800, 1333]  # [800, 1333]
+cfg.mean = [0.279, 0.293, 0.290]  # [0.485, 0.456, 0.406]
+cfg.std = [0.247, 0.265, 0.276]  # [0.229, 0.224, 0.225]
+
+cfg.aug_trans = AugTransform(cfg.size, cfg.mean, cfg.std)
+cfg.base_trans = BaseTransform(cfg.size, cfg.mean, cfg.std)
 
 # backbone
 # cfg.backbone = "vgg16"  # ["vgg16", "resnet50", "darknet19", "mobilenet", "shufflenet", "efficientnet"]
@@ -47,6 +51,10 @@ cfg.use_gn = True
 cfg.ctr_on_reg = True
 cfg.prior = 0.01  # 0.01
 
+# target
+cfg.strides = [8, 16, 32, 64, 128]
+cfg.bounds = [[-1, 64], [64, 128], [128, 256], [256, 512], [512, 999999]]
+
 # loss
 # cfg.cls_loss = "bce"  # ["bce", "focal"]
 cfg.cls_loss = "focal"
@@ -56,10 +64,6 @@ cfg.reg_loss = "iou"
 # cfg.reg_loss = "diou"
 # cfg.reg_loss = "ciou"
 cfg.use_ctr = True
-
-# target
-cfg.strides = [8, 16, 32, 64, 128]
-cfg.bounds = [[-1, 64], [64, 128], [128, 256], [256, 512], [512, 999999]]
 
 # detect
 cfg.max_boxes_num = 150  # 1000
@@ -71,7 +75,7 @@ cfg.nms_mode = "iou"  # ["iou", "diou"]
 # dataloader
 cfg.train_bs = 4
 cfg.valid_bs = 4
-cfg.workers = 16
+cfg.workers = 4
 
 # optimizer
 cfg.lr_init = 0.005  # 0.01
@@ -79,7 +83,7 @@ cfg.momentum = 0.9  # 0.9
 cfg.weight_decay = 5e-4  # 1e-4
 
 # scheduler
-cfg.warmup = False
+cfg.warmup = True
 cfg.warmup_factor = 0.001
 
 cfg.exp_lr = False
@@ -92,10 +96,7 @@ cfg.factor = 0.1
 cfg.milestones = [8, 11]
 cfg.max_epoch = 12
 
-# transform
-cfg.size = [800, 1333]  # [800, 1333]
-cfg.mean = [0.279, 0.293, 0.290]  # [0.485, 0.456, 0.406]
-cfg.std = [0.247, 0.265, 0.276]  # [0.229, 0.224, 0.225]
-
-cfg.aug_trans = AugTransform(cfg.size, cfg.mean, cfg.std)
-cfg.base_trans = BaseTransform(cfg.size, cfg.mean, cfg.std)
+# other
+cfg.use_fp16 = False
+cfg.clip_grad = False
+cfg.log_interval = 100

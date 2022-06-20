@@ -69,7 +69,7 @@ def _compute_iou(boxes_a, boxes_b):
     numpy 计算IoU
     :param boxes_a: [N,(x1,y1,x2,y2)]
     :param boxes_b: [M,(x1,y1,x2,y2)]
-    :return:  IoU [N,M]
+    :return: IoU [N,M]
     """
     # expands dim
     boxes_a = np.expand_dims(boxes_a, axis=1)  # [N,1,4]
@@ -147,7 +147,7 @@ def eval_metrics(pred_boxes,
     :param gt_labels: list of 1d array, shape[(a),(b)...], value is sparse label index
     :param num_classes: eg. 4, total number of class including background which is equal to 0
     :param iou_thr: eg. 0.5
-    :return: a dict containing average precision for each cls
+    :return: a series of metrics for each cls
     """
     recalls, precisions, f1s, aps = [], [], [], []
 

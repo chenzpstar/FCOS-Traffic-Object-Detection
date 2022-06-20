@@ -21,8 +21,8 @@ class FCOSDetect(nn.Module):
     def __init__(self, cfg=None):
         super(FCOSDetect, self).__init__()
         self.cfg = FCOSConfig if cfg is None else cfg
-        self.use_ctr = self.cfg.use_ctr
         self.strides = self.cfg.strides
+        self.use_ctr = self.cfg.use_ctr
         self.max_boxes_num = self.cfg.max_boxes_num
         self.score_thr = self.cfg.score_thr
         self.nms_iou_thr = self.cfg.nms_iou_thr

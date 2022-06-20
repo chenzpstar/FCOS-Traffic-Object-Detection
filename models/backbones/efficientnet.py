@@ -9,6 +9,7 @@
 
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
+from ..layers import conv1x1, conv3x3
 
 __all__ = [
     'EfficientNetV2', 'efficientnetv2_s', 'efficientnetv2_m',
@@ -23,15 +24,6 @@ model_urls = {
     'efficientnetv2_l':
     'https://download.pytorch.org/models/efficientnet_v2_l-59c71312.pth',
 }
-
-# SiLU (Swish) activation function
-# if hasattr(nn, 'SiLU'):
-#     SiLU = nn.SiLU
-# else:
-#     # For compatibility with old PyTorch versions
-#     class SiLU(nn.Module):
-#         def forward(self, x):
-#             return x * torch.sigmoid(x)
 
 
 class SELayer(nn.Module):
@@ -50,40 +42,7 @@ class SELayer(nn.Module):
         )
 
     def forward(self, x):
-        scale = self.fc(self.avgpool(x))
-        return x * scale
-
-
-def conv3x3(in_channels, out_channels, stride=1, groups=1, act=True):
-    layers = [
-        nn.Conv2d(in_channels,
-                  out_channels,
-                  kernel_size=3,
-                  stride=stride,
-                  padding=1,
-                  groups=groups,
-                  bias=False),
-        nn.BatchNorm2d(out_channels)
-    ]
-    if act:
-        layers.append(nn.SiLU(inplace=True))
-
-    return nn.Sequential(*layers)
-
-
-def conv1x1(in_channels, out_channels, stride=1, act=True):
-    layers = [
-        nn.Conv2d(in_channels,
-                  out_channels,
-                  kernel_size=1,
-                  stride=stride,
-                  bias=False),
-        nn.BatchNorm2d(out_channels)
-    ]
-    if act:
-        layers.append(nn.SiLU(inplace=True))
-
-    return nn.Sequential(*layers)
+        return x * self.fc(self.avgpool(x))
 
 
 class MBConv(nn.Module):
@@ -99,28 +58,35 @@ class MBConv(nn.Module):
             if t != 1:
                 layers.extend([
                     # fused
-                    conv3x3(in_channels, exp_channels, stride=stride),
+                    conv3x3(in_channels,
+                            exp_channels,
+                            stride=stride,
+                            act="silu"),
                     # pw-linear
-                    conv1x1(exp_channels, out_channels, act=False),
+                    conv1x1(exp_channels, out_channels, act=None),
                 ])
             else:
                 # fused
-                layers.append(conv3x3(in_channels, out_channels,
-                                      stride=stride))
+                layers.append(
+                    conv3x3(in_channels,
+                            out_channels,
+                            stride=stride,
+                            act="silu"))
         else:
             if t != 1:
                 # pw
-                layers.append(conv1x1(in_channels, exp_channels))
+                layers.append(conv1x1(in_channels, exp_channels, act="silu"))
             layers.extend([
                 # dw
                 conv3x3(exp_channels,
                         exp_channels,
                         stride=stride,
-                        groups=exp_channels),
+                        groups=exp_channels,
+                        act="silu"),
                 # attention
                 SELayer(exp_channels, in_channels),
                 # pw-linear
-                conv1x1(exp_channels, out_channels, act=False),
+                conv1x1(exp_channels, out_channels, act=None),
             ])
         self.residual = nn.Sequential(*layers)
 
@@ -135,7 +101,7 @@ class MBConv(nn.Module):
 class EfficientNetV2(nn.Module):
     def __init__(self, out_channels, repeat, init_weights=True):
         super(EfficientNetV2, self).__init__()
-        self.stage0 = conv3x3(3, out_channels[0], 2)
+        self.stage0 = conv3x3(3, out_channels[0], 2, act="silu")
         self.stage1 = self._make_stage(out_channels[0], out_channels[0],
                                        repeat[0], 1, 1, True)
         self.stage2 = self._make_stage(out_channels[0], out_channels[1],

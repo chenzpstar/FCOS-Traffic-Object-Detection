@@ -67,14 +67,14 @@ if __name__ == '__main__':
         train_set,
         batch_size=8,
         shuffle=False,
-        num_workers=16,
+        num_workers=4,
         collate_fn=Collate(),
     )
     valid_loader = DataLoader(
         valid_set,
         batch_size=8,
         shuffle=False,
-        num_workers=16,
+        num_workers=4,
         collate_fn=Collate(),
     )
 

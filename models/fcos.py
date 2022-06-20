@@ -84,12 +84,12 @@ class FCOSDetector(nn.Module):
         super(FCOSDetector, self).__init__()
         self.cfg = FCOSConfig if cfg is None else cfg
         self.fcos = FCOS(self.cfg)
-        self.mode = mode
         if mode == "train":
             self.target_layer = FCOSTarget(self.cfg)
             self.loss_layer = FCOSLoss(self.cfg)
         elif mode == "inference":
             self.detect_layer = FCOSDetect(self.cfg)
+        self.mode = mode
 
     def forward(self, inputs):
         if self.mode == "train":

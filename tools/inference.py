@@ -55,8 +55,10 @@ if __name__ == "__main__":
     # 1. dataset
     if cfg.data_folder == "kitti":
         img_dir = os.path.join(data_dir, "testing", "image_2")
+        dataset = KITTIDataset
     elif cfg.data_folder == "bdd100k":
         img_dir = os.path.join(data_dir, "images", "100k", "test")
+        dataset = BDD100KDataset
 
     # 2. model
     model = FCOSDetector(mode="inference", cfg=cfg)
@@ -99,7 +101,7 @@ if __name__ == "__main__":
 
         for score, label, box in zip(scores, labels, boxes):
             color = [i * 255 for i in colors[label - 1]]
-            cls_name = KITTIDataset.labels_dict[label]
+            cls_name = dataset.labels_dict[label]
             cv2.rectangle(img_pad, box[:2], box[2:], color, 1)
             cv2.rectangle(img_pad, box[:2],
                           (box[0] + len(cls_name) * 10 + 72, box[1] - 20),

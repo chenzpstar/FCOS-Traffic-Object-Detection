@@ -9,6 +9,7 @@
 
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
+from ..layers import conv1x1, conv3x3, conv7x7
 
 __all__ = [
     'ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152'
@@ -23,44 +24,13 @@ model_urls = {
 }
 
 
-def conv3x3(in_channels, out_channels, stride=1, act=True):
-    layers = [
-        nn.Conv2d(in_channels,
-                  out_channels,
-                  kernel_size=3,
-                  stride=stride,
-                  padding=1,
-                  bias=False),
-        nn.BatchNorm2d(out_channels)
-    ]
-    if act:
-        layers.append(nn.ReLU(inplace=True))
-
-    return nn.Sequential(*layers)
-
-
-def conv1x1(in_channels, out_channels, stride=1, act=True):
-    layers = [
-        nn.Conv2d(in_channels,
-                  out_channels,
-                  kernel_size=1,
-                  stride=stride,
-                  bias=False),
-        nn.BatchNorm2d(out_channels)
-    ]
-    if act:
-        layers.append(nn.ReLU(inplace=True))
-
-    return nn.Sequential(*layers)
-
-
 class BasicBlock(nn.Module):
     expansion = 1
 
     def __init__(self, in_channels, num_channels, stride=1, downsample=None):
         super(BasicBlock, self).__init__()
         self.conv1 = conv3x3(in_channels, num_channels, stride=stride)
-        self.conv2 = conv3x3(num_channels, num_channels, act=False)
+        self.conv2 = conv3x3(num_channels, num_channels, act=None)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
@@ -89,7 +59,7 @@ class Bottleneck(nn.Module):
         self.conv2 = conv3x3(num_channels, num_channels, stride=stride)
         self.conv3 = conv1x1(num_channels,
                              num_channels * self.expansion,
-                             act=False)
+                             act=None)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
@@ -118,11 +88,7 @@ class ResNet(nn.Module):
                  zero_init_residual=False):
         super(ResNet, self).__init__()
         self.in_channels = 64
-        self.conv1 = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False),
-            nn.BatchNorm2d(64),
-            nn.ReLU(inplace=True),
-        )
+        self.conv1 = conv7x7(3, 64, stride=2)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.conv2 = self._make_layer(block, 64, layers[0])
         self.conv3 = self._make_layer(block, 128, layers[1], stride=2)
@@ -157,7 +123,7 @@ class ResNet(nn.Module):
             downsample = conv1x1(self.in_channels,
                                  num_channels * block.expansion,
                                  stride=stride,
-                                 act=False)
+                                 act=None)
 
         layers = [block(self.in_channels, num_channels, stride, downsample)]
         self.in_channels = num_channels * block.expansion

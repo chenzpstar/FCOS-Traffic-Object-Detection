@@ -9,6 +9,7 @@
 
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
+from ..layers import conv1x1, conv3x3
 
 __all__ = ['MobileNetV2', 'mobilenetv2']
 
@@ -16,38 +17,6 @@ model_urls = {
     'mobilenetv2':
     'https://download.pytorch.org/models/mobilenet_v2-7ebf99e0.pth',
 }
-
-
-def conv3x3(in_channels, out_channels, stride=1, groups=1, act=True):
-    layers = [
-        nn.Conv2d(in_channels,
-                  out_channels,
-                  kernel_size=3,
-                  stride=stride,
-                  padding=1,
-                  groups=groups,
-                  bias=False),
-        nn.BatchNorm2d(out_channels)
-    ]
-    if act:
-        layers.append(nn.ReLU6(inplace=True))
-
-    return nn.Sequential(*layers)
-
-
-def conv1x1(in_channels, out_channels, stride=1, act=True):
-    layers = [
-        nn.Conv2d(in_channels,
-                  out_channels,
-                  kernel_size=1,
-                  stride=stride,
-                  bias=False),
-        nn.BatchNorm2d(out_channels)
-    ]
-    if act:
-        layers.append(nn.ReLU6(inplace=True))
-
-    return nn.Sequential(*layers)
 
 
 class MBConv(nn.Module):
@@ -61,15 +30,16 @@ class MBConv(nn.Module):
         exp_channels = int(in_channels * t)
         if t != 1:
             # pw
-            layers.append(conv1x1(in_channels, exp_channels))
+            layers.append(conv1x1(in_channels, exp_channels, act="relu6"))
         layers.extend([
             # dw
             conv3x3(exp_channels,
                     exp_channels,
                     stride=stride,
-                    groups=exp_channels),
+                    groups=exp_channels,
+                    act="relu6"),
             # pw-linear
-            conv1x1(exp_channels, out_channels, act=False),
+            conv1x1(exp_channels, out_channels, act=None),
         ])
         self.residual = nn.Sequential(*layers)
 
@@ -84,7 +54,7 @@ class MBConv(nn.Module):
 class MobileNetV2(nn.Module):
     def __init__(self, init_weights=True):
         super(MobileNetV2, self).__init__()
-        self.stage0 = conv3x3(3, 32, 2)
+        self.stage0 = conv3x3(3, 32, 2, act="relu6")
         self.stage1 = MBConv(32, 16, 1, 1)
         self.stage2 = self._make_stage(16, 24, 2, 2, 6)
         self.stage3 = self._make_stage(24, 32, 3, 2, 6)
