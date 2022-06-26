@@ -7,9 +7,15 @@
 # @reference  : https://github.com/pytorch/vision/blob/main/torchvision/models/efficientnet.py
 """
 
+import os
+import sys
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(BASE_DIR, ".."))
+
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
-from ..layers import conv1x1, conv3x3
+from layers import conv1x1, conv3x3
 
 __all__ = [
     'EfficientNetV2', 'efficientnetv2_s', 'efficientnetv2_m',

@@ -10,42 +10,64 @@ from math import pi
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 try:
     from .config import FCOSConfig
-    from .utils import (box_area, box_ratio, decode_preds, decode_targets,
-                        offset_area, reshape_feats)
+    from .utils import box_area, box_ratio, decode_boxes, offset_area
 except:
     from config import FCOSConfig
-    from utils import (box_area, box_ratio, decode_preds, decode_targets,
-                       offset_area, reshape_feats)
+    from utils import box_area, box_ratio, decode_boxes, offset_area
 
 
-def bce_loss(logits, targets, eps=1e-8):
-    probs = torch.sigmoid(logits).clamp(min=eps, max=1.0 - eps)
-    loss = -(targets * torch.log(probs) +
-             (1.0 - targets) * torch.log(1.0 - probs))
+def bce_loss(logits, targets, reduction="sum"):
+    # probs = torch.sigmoid(logits)
+    # loss = -(targets * torch.log(probs) +
+    #          (1.0 - targets) * torch.log(1.0 - probs))
 
-    return loss.sum()
+    loss = F.binary_cross_entropy_with_logits(logits,
+                                              targets,
+                                              reduction="none")
+
+    if reduction == "sum":
+        return loss.sum()
+    elif reduction == "mean":
+        return loss.mean()
+
+    return loss
 
 
-def focal_loss(logits, targets, alpha=0.25, gamma=2.0, eps=1e-8):
-    probs = torch.sigmoid(logits).clamp(min=eps, max=1.0 - eps)
-    loss = -(alpha * (1.0 - probs).pow(gamma) * targets * torch.log(probs) +
-             (1.0 - alpha) * probs.pow(gamma) *
-             (1.0 - targets) * torch.log(1.0 - probs))
+def focal_loss(logits, targets, alpha=0.25, gamma=2.0, reduction="sum"):
+    probs = torch.sigmoid(logits)
+    loss = bce_loss(logits, targets, reduction=None)
 
-    return loss.sum()
+    probs_t = probs * targets + (1.0 - probs) * (1.0 - targets)
+    loss *= (1.0 - probs_t).pow(gamma)
+
+    alpha_t = alpha * targets + (1.0 - alpha) * (1.0 - targets)
+    loss *= alpha_t
+
+    if reduction == "sum":
+        return loss.sum()
+    elif reduction == "mean":
+        return loss.mean()
+
+    return loss
 
 
-def smooth_l1_loss(preds, targets):
+def smooth_l1_loss(preds, targets, reduction="sum"):
     res = torch.abs(preds - targets)
     loss = torch.where(res < 1, 0.5 * res.pow(2), res - 0.5)
 
-    return loss.sum()
+    if reduction == "sum":
+        return loss.sum()
+    elif reduction == "mean":
+        return loss.mean()
+
+    return loss
 
 
-def offset_iou_loss(preds, targets, mode="iou", eps=1e-8):
+def offset_iou_loss(preds, targets, mode="iou", reduction="sum", eps=1e-8):
     # [l,t,r,b]
     lt_min = torch.min(preds[..., :2], targets[..., :2])
     rb_min = torch.min(preds[..., 2:], targets[..., 2:])
@@ -65,10 +87,15 @@ def offset_iou_loss(preds, targets, mode="iou", eps=1e-8):
 
     loss = 1.0 - iou
 
-    return loss.sum()
+    if reduction == "sum":
+        return loss.sum()
+    elif reduction == "mean":
+        return loss.mean()
+
+    return loss
 
 
-def box_iou_loss(preds, targets, mode="iou", eps=1e-8):
+def box_iou_loss(preds, targets, mode="iou", reduction="sum", eps=1e-8):
     # [x1,y1,x2,y2]
     xy1_max = torch.max(preds[..., :2], targets[..., :2])
     xy2_min = torch.min(preds[..., 2:], targets[..., 2:])
@@ -86,7 +113,7 @@ def box_iou_loss(preds, targets, mode="iou", eps=1e-8):
         if mode == "giou":
             C_area = wh_max[..., 0] * wh_max[..., 1]
 
-            iou -= (C_area - union) / C_area.clamp_(min=1e-8)
+            iou -= (C_area - union) / C_area.clamp_(min=eps)
         else:
             c_dist = wh_max[..., 0].pow(2) + wh_max[..., 1].pow(2)
 
@@ -95,22 +122,27 @@ def box_iou_loss(preds, targets, mode="iou", eps=1e-8):
             cwh = pred_cxy - target_cxy
             p_dist = cwh[..., 0].pow(2) + cwh[..., 1].pow(2)
 
-            if mode == "diou":
-                iou -= p_dist / c_dist.clamp_(min=eps)
-            else:
+            iou -= p_dist / c_dist.clamp_(min=eps)
+
+            if mode == "ciou":
                 v = (4 / pi**2) * (torch.atan(box_ratio(targets)) -
                                    torch.atan(box_ratio(preds))).pow(2)
                 with torch.no_grad():
                     alpha = v / (1.0 - iou + v).clamp_(min=eps)
 
-                iou -= p_dist / c_dist.clamp_(min=eps) + alpha * v
+                iou -= alpha * v
 
     loss = 1.0 - iou
 
-    return loss.sum()
+    if reduction == "sum":
+        return loss.sum()
+    elif reduction == "mean":
+        return loss.mean()
+
+    return loss
 
 
-def calc_cls_loss(logits, targets, mode="focal"):
+def calc_cls_loss(logits, targets, num_pos, mode="focal"):
     # logits: [b,h*w,c]
     # targets: [b,h*w,1]
     num_classes = logits.shape[-1]
@@ -130,10 +162,10 @@ def calc_cls_loss(logits, targets, mode="focal"):
             raise NotImplementedError(
                 "cls loss only implemented ['bce', 'focal']")
 
-    return torch.stack(loss, dim=0)
+    return torch.stack(loss, dim=0) / num_pos
 
 
-def calc_reg_loss(preds, targets, pos_masks, mode="iou"):
+def calc_reg_loss(preds, targets, pos_masks, num_pos, mode="iou"):
     # preds: [b,h*w,4]
     # targets: [b,h*w,4]
     # pos_masks: [b,h*w]
@@ -156,10 +188,10 @@ def calc_reg_loss(preds, targets, pos_masks, mode="iou"):
                 "reg loss only implemented ['smooth_l1', 'iou', 'giou', 'diou', 'ciou]"
             )
 
-    return torch.stack(loss, dim=0)
+    return torch.stack(loss, dim=0) / num_pos
 
 
-def calc_ctr_loss(logits, targets, pos_masks):
+def calc_ctr_loss(logits, targets, pos_masks, num_pos):
     # logits: [b,h*w,1]
     # targets: [b,h*w,1]
     # pos_masks: [b,h*w]
@@ -173,7 +205,7 @@ def calc_ctr_loss(logits, targets, pos_masks):
 
         loss.append(bce_loss(pos_logit, pos_target))
 
-    return torch.stack(loss, dim=0)
+    return torch.stack(loss, dim=0) / num_pos
 
 
 class FCOSLoss(nn.Module):
@@ -185,35 +217,30 @@ class FCOSLoss(nn.Module):
         self.use_ctr = self.cfg.use_ctr
 
     def forward(self, preds, targets):
-        cls_logits, reg_preds, ctr_logits = preds
+        cls_logits, reg_preds, ctr_logits, coords = preds
         cls_targets, reg_targets, ctr_targets = targets
 
-        cls_logits = reshape_feats(cls_logits)  # bchw -> b(hw)c
-        ctr_logits = reshape_feats(ctr_logits)  # bchw -> b(hw)c
+        cls_logits = torch.cat(cls_logits, dim=1)
+        ctr_logits = torch.cat(ctr_logits, dim=1)
         cls_targets = torch.cat(cls_targets, dim=1)
         ctr_targets = torch.cat(ctr_targets, dim=1)
 
-        pos_mask = (ctr_targets > -1).squeeze_(dim=-1)  # b(hw)c -> b(hw)
-        num_pos = pos_mask.float().sum(dim=-1).clamp_(min=1)
-
-        cls_loss = calc_cls_loss(cls_logits, cls_targets,
-                                 self.cls_loss) / num_pos
-        ctr_loss = calc_ctr_loss(ctr_logits, ctr_targets, pos_mask) / num_pos
-
         if self.reg_loss in ["diou", "ciou"]:
-            pred_boxes = decode_preds(reg_preds)  # bchw -> b(hw)c
-            target_boxes = decode_targets(reg_preds, reg_targets)  # b(hw)c
-            reg_loss = calc_reg_loss(pred_boxes, target_boxes, pos_mask,
-                                     self.reg_loss) / num_pos
+            reg_preds = decode_boxes(reg_preds, coords)
+            reg_targets = decode_boxes(reg_targets, coords)
         else:
-            pred_offsets = reshape_feats(reg_preds)  # bchw -> b(hw)c
-            target_offsets = torch.cat(reg_targets, dim=1)
-            reg_loss = calc_reg_loss(pred_offsets, target_offsets, pos_mask,
-                                     self.reg_loss) / num_pos
+            reg_preds = torch.cat(reg_preds, dim=1)
+            reg_targets = torch.cat(reg_targets, dim=1)
 
-        cls_loss = cls_loss.mean()
-        reg_loss = reg_loss.mean()
-        ctr_loss = ctr_loss.mean() if self.use_ctr else 0.0
+        pos_mask = (ctr_targets > -1).squeeze_(dim=-1)  # b(hw)c -> b(hw)
+        num_pos = pos_mask.float().sum(dim=-1).clamp_(min=1)  # b(hw) -> b
+
+        cls_loss = calc_cls_loss(cls_logits, cls_targets, num_pos,
+                                 self.cls_loss).mean()
+        reg_loss = calc_reg_loss(reg_preds, reg_targets, pos_mask, num_pos,
+                                 self.reg_loss).mean()
+        ctr_loss = calc_ctr_loss(ctr_logits, ctr_targets, pos_mask,
+                                 num_pos).mean() if self.use_ctr else 0.0
         total_loss = cls_loss + reg_loss + ctr_loss
 
         return total_loss, cls_loss, reg_loss, ctr_loss
@@ -224,20 +251,27 @@ if __name__ == "__main__":
     import torch
     torch.manual_seed(0)
 
+    from torchvision.ops import sigmoid_focal_loss
+
+    from utils import decode_coords
+
     flag = 0
     # flag = 1
     # flag = 2
+    # flag = 3
+    # flag = 4
 
     if flag == 0:
         model = FCOSLoss()
 
         preds = (
-            [torch.rand(2, 3, 2, 2)] * 5,
-            [torch.rand(2, 4, 2, 2)] * 5,
-            [torch.rand(2, 1, 2, 2)] * 5,
+            [torch.rand(2, 4, 3)] * 5,
+            [torch.rand(2, 4, 4)] * 5,
+            [torch.rand(2, 4, 1)] * 5,
+            [torch.rand(4, 2)] * 5,
         )
         targets = (
-            [torch.rand(2, 4, 1)] * 5,
+            [torch.randint(4, (2, 4, 1))] * 5,
             [torch.rand(2, 4, 4)] * 5,
             [torch.rand(2, 4, 1)] * 5,
         )
@@ -246,17 +280,43 @@ if __name__ == "__main__":
         [print(branch_out.item()) for branch_out in out]
 
     if flag == 1:
-        preds = torch.rand(2, 3, 2, 2)
-        targets = torch.rand(2, 3, 2, 2)
+        preds = torch.rand(2, 4, 3)
+        targets = torch.rand(2, 4, 3)
 
         loss1 = bce_loss(preds, targets)
-        loss2 = nn.BCEWithLogitsLoss(reduction="sum")(preds, targets)
-        print(loss1, loss2)
+        loss2 = F.binary_cross_entropy_with_logits(preds,
+                                                   targets,
+                                                   reduction="sum")
+        print(loss1.item() == loss2.item())
 
     if flag == 2:
+        preds = torch.rand(2, 4, 3)
+        targets = torch.rand(2, 4, 3)
+
+        loss1 = focal_loss(preds, targets)
+        loss2 = sigmoid_focal_loss(preds, targets, reduction="sum")
+        print(loss1.item() == loss2.item())
+
+    if flag == 3:
+        preds = torch.rand(2, 4, 4)
+        targets = torch.rand(2, 4, 4)
+
+        loss1 = smooth_l1_loss(preds, targets)
+        loss2 = F.smooth_l1_loss(preds, targets, reduction="sum")
+        print(loss1.item() == loss2.item())
+
+    if flag == 4:
         preds = torch.rand(2, 4, 2, 2)
         targets = torch.rand(2, 4, 2, 2)
 
-        loss1 = smooth_l1_loss(preds, targets)
-        loss2 = nn.SmoothL1Loss(reduction="sum")(preds, targets)
-        print(loss1, loss2)
+        coords = list(map(decode_coords, preds))
+
+        pred_offsets = preds.permute(0, 2, 3, 1).reshape((2, -1, 4))
+        target_offsets = targets.permute(0, 2, 3, 1).reshape((2, -1, 4))
+
+        pred_boxes = decode_boxes(pred_offsets, coords)
+        target_boxes = decode_boxes(target_offsets, coords)
+
+        loss1 = offset_iou_loss(pred_offsets, target_offsets, "giou")
+        loss2 = box_iou_loss(pred_boxes, target_boxes, "giou")
+        print(loss1.item() == loss2.item())

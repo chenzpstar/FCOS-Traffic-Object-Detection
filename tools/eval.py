@@ -28,13 +28,13 @@ def eval_model(model,
         imgs = imgs.to(device)
 
         with torch.no_grad():
-            out = model(imgs)
+            outs = model(imgs, mode="inference")
 
-        pred_scores.append(out[0][0].cpu().numpy())
-        pred_labels.append(out[1][0].cpu().numpy())
-        pred_boxes.append(out[2][0].cpu().numpy())
-        gt_labels.append(labels[0].numpy())
-        gt_boxes.append(boxes[0].numpy())
+        pred_scores.extend(map(lambda scores: scores.cpu().numpy(), outs[0]))
+        pred_labels.extend(map(lambda labels: labels.cpu().numpy(), outs[1]))
+        pred_boxes.extend(map(lambda boxes: boxes.cpu().numpy(), outs[2]))
+        gt_labels.extend(labels.numpy())
+        gt_boxes.extend(boxes.numpy())
 
     # 2. 排序数据
     pred_scores, pred_labels, pred_boxes = sort_by_score(
@@ -151,7 +151,7 @@ def eval_metrics(pred_boxes,
     """
     recalls, precisions, f1s, aps = [], [], [], []
 
-    for label in range(1, num_classes):
+    for label in range(1, num_classes + 1):
         # get samples with specific label
         pred_label_loc = [labels == label for labels in pred_labels]
         pred_boxes_cls = [

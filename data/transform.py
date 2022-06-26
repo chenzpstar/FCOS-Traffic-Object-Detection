@@ -251,7 +251,7 @@ if __name__ == "__main__":
     from kitti import KITTIDataset
 
     cmap = plt.get_cmap("rainbow")
-    colors = [cmap(i) for i in np.linspace(0, 1, 10)]
+    colors = list(map(cmap, np.linspace(0, 1, 10)))
 
     size = [800, 1333]
     mean = [0.485, 0.456, 0.406]
@@ -275,7 +275,7 @@ if __name__ == "__main__":
         boxes = boxes.squeeze_(dim=0).data.numpy().astype(np.int64)
 
         for label, box in zip(labels, boxes):
-            color = [i * 255 for i in colors[label - 1]]
+            color = list(map(lambda i: i * 255, colors[label - 1]))
             cls_name = train_set.labels_dict[label]
             cv2.rectangle(img, box[:2], box[2:], color, 1)
             cv2.rectangle(img, box[:2],

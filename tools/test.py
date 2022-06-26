@@ -13,6 +13,7 @@ import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(BASE_DIR, ".."))
 
+import numpy as np
 import torch
 # from configs.bdd100k_config import cfg
 from configs.kitti_config import cfg
@@ -40,8 +41,6 @@ cfg.ckpt_folder = args.ckpt_folder if args.ckpt_folder else cfg.ckpt_folder
 
 if __name__ == "__main__":
     # 0. config
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
     data_dir = os.path.join(BASE_DIR, "..", "..", "datasets", cfg.data_folder)
     assert os.path.exists(data_dir)
 
@@ -70,7 +69,7 @@ if __name__ == "__main__":
 
     test_loader = DataLoader(
         test_set,
-        batch_size=1,
+        batch_size=cfg.valid_bs,
         shuffle=False,
         num_workers=cfg.workers,
         collate_fn=Collate(),
@@ -78,35 +77,34 @@ if __name__ == "__main__":
     print("test loader has {} iters".format(len(test_loader)))
 
     # 2. model
-    model = FCOSDetector(mode="inference", cfg=cfg)
+    model = FCOSDetector(cfg)
     model_weights = torch.load(ckpt_path, map_location=torch.device("cpu"))
     state_dict = {
         k: v
         for k, v in zip(model.state_dict(), model_weights.values())
     }
     model.load_state_dict(state_dict)
-    model.to(device)
+    model.to(cfg.device)
     model.eval()
     print("loading model successfully")
 
     # 3. test
-    num_classes = test_set.num_classes
     for thr in [0.5, 0.75]:
         # 评估指标
         recalls, precisions, f1s, aps = eval_model(
             model,
             test_loader,
-            num_classes,
+            num_classes=cfg.num_classes,
             iou_thr=thr,
-            device=device,
+            device=cfg.device,
         )
 
         # 计算mAP
-        mAP = sum(aps) / (num_classes - 1)
+        mAP = np.mean(aps)
 
         # 输出结果
         with open(out_path, "a") as f:
-            for label in range(num_classes - 1):
+            for label in range(cfg.num_classes):
                 print(
                     "class: {}, recall: {:.3%}, precision: {:.3%}, f1: {:.3%}, ap: {:.3%}"
                     .format(test_set.labels_dict[label + 1], recalls[label],

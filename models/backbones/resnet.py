@@ -7,9 +7,15 @@
 # @reference  : https://github.com/pytorch/vision/blob/main/torchvision/models/resnet.py
 """
 
+import os
+import sys
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(BASE_DIR, ".."))
+
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
-from ..layers import conv1x1, conv3x3, conv7x7
+from layers import conv1x1, conv3x3, conv7x7
 
 __all__ = [
     'ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152'

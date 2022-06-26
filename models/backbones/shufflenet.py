@@ -7,10 +7,16 @@
 # @reference  : https://github.com/pytorch/vision/blob/main/torchvision/models/shufflenetv2.py
 """
 
+import os
+import sys
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(BASE_DIR, ".."))
+
 import torch
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
-from ..layers import conv1x1, conv3x3
+from layers import conv1x1, conv3x3
 
 __all__ = [
     'ShuffleNetV2', 'shufflenetv2_x0_5', 'shufflenetv2_x1_0',
@@ -36,6 +42,7 @@ def channel_split(x, split):
         split:(int) channel size for each pieces
     """
     assert x.shape[1] == split * 2
+
     return torch.split(x, split, dim=1)
 
 
@@ -46,9 +53,9 @@ def channel_shuffle(x, groups):
         groups: input branch number
     """
     b, c, h, w = x.shape
-    group_channels = int(c / groups)
+    group_c = int(c / groups)
 
-    x = x.view(b, groups, group_channels, h, w)
+    x = x.view(b, groups, group_c, h, w)
     x = x.transpose(1, 2).contiguous()
     x = x.view(b, -1, h, w)
 

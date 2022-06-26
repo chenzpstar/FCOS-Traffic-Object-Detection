@@ -47,9 +47,9 @@ cfg.use_p5 = True
 # head
 cfg.num_convs = 4  # 4
 cfg.num_classes = 3  # 8
+cfg.prior = 0.01  # 0.01
 cfg.use_gn = True
 cfg.ctr_on_reg = True
-cfg.prior = 0.01  # 0.01
 
 # target
 cfg.strides = [8, 16, 32, 64, 128]
@@ -66,7 +66,7 @@ cfg.reg_loss = "iou"
 cfg.use_ctr = True
 
 # detect
-cfg.max_boxes_num = 150  # 1000
+cfg.max_num_boxes = 150  # 1000
 cfg.score_thr = 0.05  # 0.05
 cfg.nms_iou_thr = 0.5  # 0.6
 cfg.nms_mode = "iou"  # ["iou", "diou"]

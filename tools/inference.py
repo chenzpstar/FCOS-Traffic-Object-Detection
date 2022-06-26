@@ -42,8 +42,7 @@ cfg.ckpt_folder = args.ckpt_folder if args.ckpt_folder else cfg.ckpt_folder
 if __name__ == "__main__":
     # 0. config
     cmap = plt.get_cmap("rainbow")
-    colors = [cmap(i) for i in np.linspace(0, 1, 10)]
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    colors = list(map(cmap, np.linspace(0, 1, 10)))
 
     data_dir = os.path.join(BASE_DIR, "..", "..", "datasets", cfg.data_folder)
     assert os.path.exists(data_dir)
@@ -61,14 +60,14 @@ if __name__ == "__main__":
         dataset = BDD100KDataset
 
     # 2. model
-    model = FCOSDetector(mode="inference", cfg=cfg)
+    model = FCOSDetector(cfg)
     model_weights = torch.load(ckpt_path, map_location=torch.device("cpu"))
     state_dict = {
         k: v
         for k, v in zip(model.state_dict(), model_weights.values())
     }
     model.load_state_dict(state_dict)
-    model.to(device)
+    model.to(cfg.device)
     model.eval()
     print("loading model successfully")
 
@@ -81,14 +80,14 @@ if __name__ == "__main__":
         img_norm = Normalize(cfg.mean, cfg.std)(img_rgb)
         img_chw = img_norm.transpose((2, 0, 1))  # hwc -> chw
         img_tensor = torch.from_numpy(img_chw).float()
-        img_tensor = img_tensor.unsqueeze_(dim=0).to(device)  # chw -> bchw
+        img_tensor = img_tensor.unsqueeze_(dim=0).to(cfg.device)  # chw -> bchw
 
         if torch.cuda.is_available():
             torch.cuda.synchronize()
         start_time = time.time()
 
         with torch.no_grad():
-            scores, labels, boxes = model(img_tensor)
+            scores, labels, boxes = model(img_tensor, mode="inference")
 
         if torch.cuda.is_available():
             torch.cuda.synchronize()
@@ -100,7 +99,7 @@ if __name__ == "__main__":
         boxes = boxes[0].cpu().numpy().astype(np.int64)
 
         for score, label, box in zip(scores, labels, boxes):
-            color = [i * 255 for i in colors[label - 1]]
+            color = list(map(lambda i: i * 255, colors[label - 1]))
             cls_name = dataset.labels_dict[label]
             cv2.rectangle(img_pad, box[:2], box[2:], color, 1)
             cv2.rectangle(img_pad, box[:2],

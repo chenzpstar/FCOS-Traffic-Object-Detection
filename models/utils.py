@@ -9,52 +9,10 @@
 import torch
 
 __all__ = [
-    'reshape_feat', 'reshape_feats', 'decode_preds', 'decode_targets',
-    'decode_coords', 'coords2boxes', 'coords2offsets', 'coords2centers',
-    'box_ratio', 'box_area', 'box_iou', 'offset_area', 'offset_iou',
-    'nms_boxes', 'clip_boxes'
+    'decode_coords', 'reshape_feats', 'decode_boxes', 'coords2boxes',
+    'coords2offsets', 'coords2centers', 'box_ratio', 'box_area', 'box_iou',
+    'offset_area', 'offset_iou', 'nms_boxes', 'clip_boxes'
 ]
-
-
-def reshape_feat(feat):
-    b, c = feat.shape[:2]  # bchw
-    feat = feat.permute(0, 2, 3, 1).reshape((b, -1, c))  # bchw -> b(hw)c
-
-    return feat
-
-
-def reshape_feats(feats):
-    out = list(map(reshape_feat, feats))
-
-    return torch.cat(out, dim=1)
-
-
-def decode_preds(preds, strides=None):
-    boxes = []
-
-    if strides is not None:
-        for pred, stride in zip(preds, strides):
-            coord = decode_coords(pred, stride).to(pred.device)
-            box = coords2boxes(coord, pred, stride)
-            boxes.append(box)
-    else:
-        for pred in preds:
-            coord = decode_coords(pred).to(pred.device)
-            box = coords2boxes(coord, pred)
-            boxes.append(box)
-
-    return torch.cat(boxes, dim=1)
-
-
-def decode_targets(preds, targets):
-    boxes = []
-
-    for pred, target in zip(preds, targets):
-        coord = decode_coords(pred).to(target.device)
-        box = coords2boxes(coord, target)
-        boxes.append(box)
-
-    return torch.cat(boxes, dim=1)
 
 
 def decode_coords(feat, stride=1):
@@ -63,30 +21,44 @@ def decode_coords(feat, stride=1):
     y_shifts = (torch.arange(0, h) + 0.5) * stride
 
     y_shift, x_shift = torch.meshgrid(y_shifts, x_shifts)
-    x_shift = x_shift.reshape(-1)
-    y_shift = y_shift.reshape(-1)
+    x_shift = x_shift.reshape(-1)  # [h,w] -> [h*w]
+    y_shift = y_shift.reshape(-1)  # [h,w] -> [h*w]
 
     return torch.stack([x_shift, y_shift], dim=-1)
 
 
-def coords2boxes(coords, offsets, stride=1):
-    if len(offsets.shape) == 4:
-        offsets = reshape_feat(offsets)  # bchw -> b(hw)c
+def reshape_feats(feats):
+    b, c = feats[0].shape[:2]  # bchw
+    out = [feat.permute(0, 2, 3, 1).reshape((b, -1, c))
+           for feat in feats]  # bchw -> b(hw)c
 
-    offsets = offsets * stride
+    return out
+
+
+def decode_boxes(offsets, coords, strides=None):
+    if strides is not None:
+        boxes = list(map(coords2boxes, coords, offsets, strides))
+    else:
+        boxes = list(map(coords2boxes, coords, offsets))
+
+    return torch.cat(boxes, dim=1)
+
+
+def coords2boxes(coords, offsets, stride=1):
+    offsets *= stride
     # xy - lt -> xy1
-    boxes_xy1 = coords[None, :, :] - offsets[..., :2]
+    boxes_xy1 = coords[None, :] - offsets[..., :2]
     # xy + rb -> xy2
-    boxes_xy2 = coords[None, :, :] + offsets[..., 2:]
+    boxes_xy2 = coords[None, :] + offsets[..., 2:]
 
     return torch.cat([boxes_xy1, boxes_xy2], dim=-1)
 
 
 def coords2offsets(coords, boxes):
     # xy - xy1 -> lt
-    offsets_lt = coords[None, :, None] - boxes[..., :2][:, None, :]
+    offsets_lt = coords[None, :, None] - boxes[..., :2][:, None]
     # xy2 - xy -> rb
-    offsets_rb = boxes[..., 2:][:, None, :] - coords[None, :, None]
+    offsets_rb = boxes[..., 2:][:, None] - coords[None, :, None]
 
     return torch.cat([offsets_lt, offsets_rb], dim=-1)
 
@@ -95,7 +67,7 @@ def coords2centers(coords, boxes):
     # (xy1 + xy2) / 2 -> cxy
     boxes_cxy = (boxes[..., :2] + boxes[..., 2:]) / 2.0
     # xy - cxy -> lt
-    ctr_offsets_lt = coords[None, :, None] - boxes_cxy[:, None, :]
+    ctr_offsets_lt = coords[None, :, None] - boxes_cxy[:, None]
     # cxy - xy -> rb
     ctr_offsets_rb = -ctr_offsets_lt
 

@@ -21,14 +21,14 @@ import torch.optim as optim
 # from configs.bdd100k_config import cfg
 from configs.kitti_config import cfg
 from data import BDD100KDataset, Collate, KITTIDataset
-from models import FCOS, FCOSDetect, FCOSLoss, FCOSTarget
+from models import FCOSDetector
 from torch.cuda.amp import GradScaler, autocast
 from torch.optim.lr_scheduler import (CosineAnnealingLR, ExponentialLR,
                                       MultiStepLR)
 from torch.utils.data import DataLoader
 
 from common import WarmupLR, make_logger, plot_curve, setup_seed
-from eval import eval_metrics, sort_by_score
+from eval import eval_model
 
 # 添加解析参数
 parser = argparse.ArgumentParser(description="Train")
@@ -82,10 +82,8 @@ def train_model(cfg,
 
             if cfg.use_fp16:
                 with autocast():
-                    preds = model(imgs)
-                    targets = target_layer(preds[0], labels, boxes)
-                    total_loss, cls_loss, reg_loss, ctr_loss = loss_layer(
-                        preds, targets)
+                    total_loss, cls_loss, reg_loss, ctr_loss = model(
+                        imgs, (labels, boxes))
                 scaler.scale(total_loss).backward()
                 if cfg.clip_grad:
                     scaler.unscale_(optimizer)
@@ -93,24 +91,20 @@ def train_model(cfg,
                 scaler.step(optimizer)
                 scaler.update()
             else:
-                preds = model(imgs)
-                targets = target_layer(preds[0], labels, boxes)
-                total_loss, cls_loss, reg_loss, ctr_loss = loss_layer(
-                    preds, targets)
+                total_loss, cls_loss, reg_loss, ctr_loss = model(
+                    imgs, (labels, boxes))
                 total_loss.backward()
                 if cfg.clip_grad:
                     nn.utils.clip_grad_norm_(model.parameters(), max_norm=5)
                 optimizer.step()
 
-            if cfg.warmup:
+            if epoch == 0:
                 scheduler.step()
 
         elif mode == "valid":
             with torch.no_grad():
-                preds = model(imgs)
-                targets = target_layer(preds[0], labels, boxes)
-                total_loss, cls_loss, reg_loss, ctr_loss = loss_layer(
-                    preds, targets)
+                total_loss, cls_loss, reg_loss, ctr_loss = model(
+                    imgs, (labels, boxes))
 
         if torch.cuda.is_available():
             torch.cuda.synchronize()
@@ -135,45 +129,6 @@ def train_model(cfg,
         np.mean(reg_loss_sigma),
         np.mean(ctr_loss_sigma),
     )
-
-
-def eval_model(model, data_loader, num_classes, iou_thr=0.5, device="cpu"):
-    pred_scores = []
-    pred_labels = []
-    pred_boxes = []
-    gt_labels = []
-    gt_boxes = []
-
-    # 1. 预测数据
-    for imgs, labels, boxes in data_loader:
-        imgs = imgs.to(device)
-
-        with torch.no_grad():
-            preds = model(imgs)
-            outs = detect_layer(preds, imgs)
-
-        pred_scores.append(outs[0][0].cpu().numpy())
-        pred_labels.append(outs[1][0].cpu().numpy())
-        pred_boxes.append(outs[2][0].cpu().numpy())
-        gt_labels.append(labels[0].numpy())
-        gt_boxes.append(boxes[0].numpy())
-
-    # 2. 排序数据
-    pred_scores, pred_labels, pred_boxes = sort_by_score(
-        pred_scores, pred_labels, pred_boxes)
-
-    # 3. 评估指标
-    metrics = eval_metrics(
-        pred_scores,
-        pred_labels,
-        pred_boxes,
-        gt_labels,
-        gt_boxes,
-        num_classes,
-        iou_thr,
-    )
-
-    return metrics
 
 
 if __name__ == "__main__":
@@ -240,20 +195,11 @@ if __name__ == "__main__":
         collate_fn=Collate(),
         pin_memory=True,
     )
-    eval_loader = DataLoader(
-        valid_set,
-        batch_size=1,
-        shuffle=False,
-        num_workers=cfg.workers,
-        collate_fn=Collate(),
-        pin_memory=True,
-    )
     logger.info("train loader has {} iters".format(len(train_loader)))
     logger.info("valid loader has {} iters".format(len(valid_loader)))
-    logger.info("eval loader has {} iters".format(len(eval_loader)))
 
     # 2. model
-    model = FCOS(cfg=cfg)
+    model = FCOSDetector(cfg)
     if cfg.ckpt_folder is not None:
         if os.path.exists(ckpt_path):
             model_weights = torch.load(ckpt_path, map_location="cpu")
@@ -267,9 +213,6 @@ if __name__ == "__main__":
             logger.info(
                 "please check your path to checkpoint: {}".format(ckpt_path))
     model.to(cfg.device)
-    target_layer = FCOSTarget(cfg=cfg).to(cfg.device)
-    loss_layer = FCOSLoss(cfg=cfg).to(cfg.device)
-    detect_layer = FCOSDetect(cfg=cfg).to(cfg.device)
     logger.info("loading model successfully")
 
     # 3. optimize
@@ -318,8 +261,8 @@ if __name__ == "__main__":
     ctr_loss_rec = {"train": [], "valid": []}
     best_epoch, best_mAP = 0, 0.0
 
-    epochs = cfg.max_epoch
-    for epoch in range(epochs):
+    num_epochs = cfg.max_epoch
+    for epoch in range(num_epochs):
         # 1. train
         model.train()
         train_total_loss, train_cls_loss, train_reg_loss, train_ctr_loss = train_model(
@@ -350,14 +293,13 @@ if __name__ == "__main__":
             "Epoch: [{:0>2}/{:0>2}], lr: {}\n"
             "Train: total loss: {:.4f}, cls loss: {:.4f}, reg loss: {:.4f}, ctr loss: {:.4f}\n"
             "Valid: total loss: {:.4f}, cls loss: {:.4f}, reg loss: {:.4f}, ctr loss: {:.4f}\n"
-            .format(epoch + 1, epochs, optimizer.param_groups[0]["lr"],
+            .format(epoch + 1, num_epochs, optimizer.param_groups[0]["lr"],
                     train_total_loss, train_cls_loss, train_reg_loss,
                     train_ctr_loss, valid_total_loss, valid_cls_loss,
                     valid_reg_loss, valid_ctr_loss))
 
         # 3. update lr
         scheduler.step()
-        cfg.warmup = False
 
         # 记录loss信息
         total_loss_rec["train"].append(train_total_loss)
@@ -410,17 +352,16 @@ if __name__ == "__main__":
 
         # 4. eval
         if epoch >= cfg.milestones[0]:
-            num_classes = valid_set.num_classes
             # 评估指标
             metrics = eval_model(
                 model,
-                eval_loader,
-                num_classes,
+                valid_loader,
+                num_classes=cfg.num_classes,
                 device=cfg.device,
             )
 
             # 计算mAP
-            mAP = sum(metrics[-1]) / (num_classes - 1)
+            mAP = np.mean(metrics[-1])
             logger.info("mAP: {:.3%}".format(mAP))
 
             # 保存模型

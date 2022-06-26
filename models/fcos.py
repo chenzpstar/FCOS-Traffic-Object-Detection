@@ -67,9 +67,10 @@ class FCOS(nn.Module):
         self.head = FCOSHead(in_channels=self.cfg.num_channels,
                              num_convs=self.cfg.num_convs,
                              num_classes=self.cfg.num_classes,
+                             prior=self.cfg.prior,
                              use_gn=self.cfg.use_gn,
                              ctr_on_reg=self.cfg.ctr_on_reg,
-                             prior=self.cfg.prior)
+                             strides=self.cfg.strides)
 
     def forward(self, imgs):
         backbone_feats = self.backbone(imgs)
@@ -80,32 +81,26 @@ class FCOS(nn.Module):
 
 
 class FCOSDetector(nn.Module):
-    def __init__(self, mode="train", cfg=None):
+    def __init__(self, cfg=None):
         super(FCOSDetector, self).__init__()
         self.cfg = FCOSConfig if cfg is None else cfg
         self.fcos = FCOS(self.cfg)
+        self.target_layer = FCOSTarget(self.cfg)
+        self.loss_layer = FCOSLoss(self.cfg)
+        self.detect_layer = FCOSDetect(self.cfg)
+
+    def forward(self, imgs, annos=None, mode="train"):
+        preds = self.fcos(imgs)
+
         if mode == "train":
-            self.target_layer = FCOSTarget(self.cfg)
-            self.loss_layer = FCOSLoss(self.cfg)
+            assert annos is not None
+            labels, boxes = annos
+            targets = self.target_layer(labels, boxes, preds[-1])
+
+            return self.loss_layer(preds, targets)
+
         elif mode == "inference":
-            self.detect_layer = FCOSDetect(self.cfg)
-        self.mode = mode
-
-    def forward(self, inputs):
-        if self.mode == "train":
-            imgs, labels, boxes = inputs
-            preds = self.fcos(imgs)
-            targets = self.target_layer(preds[0], labels, boxes)
-            losses = self.loss_layer(preds, targets)
-
-            return losses
-
-        elif self.mode == "inference":
-            imgs = inputs
-            preds = self.fcos(imgs)
-            outs = self.detect_layer(preds, imgs)
-
-            return outs
+            return self.detect_layer(preds, imgs)
 
 
 if __name__ == "__main__":
@@ -116,21 +111,18 @@ if __name__ == "__main__":
     # flag = 1
     flag = 2
 
+    model = FCOSDetector()
+
+    imgs = torch.rand(2, 3, 224, 224)
+    labels = torch.rand(2, 3)
+    boxes = torch.rand(2, 3, 4)
+
     if flag == 1:
-        model = FCOSDetector(mode="train")
-
-        imgs = torch.rand(2, 3, 224, 224)
-        labels = torch.rand(2, 3)
-        boxes = torch.rand(2, 3, 4)
-
-        out = model((imgs, labels, boxes))
+        out = model(imgs, (labels, boxes))
         [print(branch_out.item()) for branch_out in out]
 
     if flag == 2:
-        model = FCOSDetector(mode="inference")
-
-        imgs = torch.rand(2, 3, 224, 224)
-        out = model(imgs)
+        out = model(imgs, mode="inference")
         [
             print(batch_out.shape) for result_out in out
             for batch_out in result_out

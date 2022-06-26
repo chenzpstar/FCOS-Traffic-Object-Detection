@@ -13,8 +13,10 @@ import torch.nn as nn
 
 try:
     from .layers import conv3x3
+    from .utils import decode_coords, reshape_feats
 except:
     from layers import conv3x3
+    from utils import decode_coords, reshape_feats
 
 
 class FCOSHead(nn.Module):
@@ -22,17 +24,19 @@ class FCOSHead(nn.Module):
                  in_channels=256,
                  num_convs=4,
                  num_classes=3,
+                 prior=0.01,
                  use_gn=True,
                  ctr_on_reg=True,
-                 prior=0.01,
+                 strides=[8, 16, 32, 64, 128],
                  init_weights=True):
         super(FCOSHead, self).__init__()
         self.in_channels = in_channels
         self.num_convs = num_convs
         self.num_classes = num_classes
+        self.prior = prior
         self.use_gn = use_gn
         self.ctr_on_reg = ctr_on_reg
-        self.prior = prior
+        self.strides = strides
 
         norm = "gn" if use_gn else "bn"
         cls_branch = [
@@ -50,7 +54,8 @@ class FCOSHead(nn.Module):
         self.reg_preds = nn.Conv2d(in_channels, 4, 3, 1, 1)
         self.ctr_logits = nn.Conv2d(in_channels, 1, 3, 1, 1)
 
-        self.scales = nn.ModuleList([ScaleExp(1.0) for _ in range(5)])
+        self.scales = nn.ModuleList(
+            [ScaleExp(1.0) for _ in range(len(strides))])
 
         if init_weights:
             self._initialize_weights()
@@ -69,11 +74,14 @@ class FCOSHead(nn.Module):
                 nn.init.zeros_(m.bias)
 
     def forward(self, feats):
+        assert len(feats) == len(self.strides)
+
         cls_logits = []
         reg_preds = []
         ctr_logits = []
+        coords = []
 
-        for feat, scale in zip(feats, self.scales):
+        for feat, scale, stride in zip(feats, self.scales, self.strides):
             cls_conv_out = self.cls_conv(feat)
             reg_conv_out = self.reg_conv(feat)
 
@@ -85,7 +93,13 @@ class FCOSHead(nn.Module):
             else:
                 ctr_logits.append(self.ctr_logits(reg_conv_out))
 
-        return cls_logits, reg_preds, ctr_logits
+            coords.append(decode_coords(feat, stride).to(feat.device))
+
+        cls_logits = reshape_feats(cls_logits)  # bchw -> b(hw)c
+        reg_preds = reshape_feats(reg_preds)  # bchw -> b(hw)c
+        ctr_logits = reshape_feats(ctr_logits)  # bchw -> b(hw)c
+
+        return cls_logits, reg_preds, ctr_logits, coords
 
 
 class ScaleExp(nn.Module):
