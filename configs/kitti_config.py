@@ -25,8 +25,8 @@ cfg.size = [800, 1333]  # [800, 1333]
 cfg.mean = [0.367, 0.386, 0.374]  # [0.485, 0.456, 0.406]
 cfg.std = [0.316, 0.321, 0.326]  # [0.229, 0.224, 0.225]
 
-cfg.aug_trans = AugTransform(cfg.size, cfg.mean, cfg.std)
-cfg.base_trans = BaseTransform(cfg.size, cfg.mean, cfg.std)
+cfg.aug_tf = AugTransform(cfg.size, cfg.mean, cfg.std)
+cfg.base_tf = BaseTransform(cfg.size, cfg.mean, cfg.std)
 
 # backbone
 # cfg.backbone = "vgg16"  # ["vgg16", "resnet50", "darknet19", "mobilenet", "shufflenet", "efficientnet"]
@@ -53,7 +53,7 @@ cfg.ctr_on_reg = True
 
 # target
 cfg.strides = [8, 16, 32, 64, 128]
-cfg.bounds = [[-1, 64], [64, 128], [128, 256], [256, 512], [512, 999999]]
+cfg.bounds = [[-1, 64], [64, 128], [128, 256], [256, 512], [512, 1e6]]
 
 # loss
 # cfg.cls_loss = "bce"  # ["bce", "focal"]

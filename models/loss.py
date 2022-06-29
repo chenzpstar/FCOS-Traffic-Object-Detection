@@ -24,7 +24,6 @@ def bce_loss(logits, targets, reduction="sum"):
     # probs = torch.sigmoid(logits)
     # loss = -(targets * torch.log(probs) +
     #          (1.0 - targets) * torch.log(1.0 - probs))
-
     loss = F.binary_cross_entropy_with_logits(logits,
                                               targets,
                                               reduction="none")
@@ -75,7 +74,7 @@ def offset_iou_loss(preds, targets, mode="iou", reduction="sum", eps=1e-8):
     overlap = wh_min[..., 0] * wh_min[..., 1]
 
     union = offset_area(preds) + offset_area(targets) - overlap
-    iou = overlap / union.clamp_(min=eps)
+    iou = overlap / union.clamp(min=eps)
 
     if mode == "giou":
         lt_max = torch.max(preds[..., :2], targets[..., :2])
@@ -83,7 +82,7 @@ def offset_iou_loss(preds, targets, mode="iou", reduction="sum", eps=1e-8):
         wh_max = (lt_max + rb_max).clamp_(min=0)
         C_area = wh_max[..., 0] * wh_max[..., 1]
 
-        iou -= (C_area - union) / C_area.clamp_(min=eps)
+        iou -= (C_area - union) / C_area.clamp(min=eps)
 
     loss = 1.0 - iou
 
@@ -103,7 +102,7 @@ def box_iou_loss(preds, targets, mode="iou", reduction="sum", eps=1e-8):
     overlap = wh_min[..., 0] * wh_min[..., 1]
 
     union = box_area(preds) + box_area(targets) - overlap
-    iou = overlap / union.clamp_(min=eps)
+    iou = overlap / union.clamp(min=eps)
 
     if mode in ["giou", "diou", "ciou"]:
         xy1_min = torch.min(preds[..., :2], targets[..., :2])
@@ -113,7 +112,7 @@ def box_iou_loss(preds, targets, mode="iou", reduction="sum", eps=1e-8):
         if mode == "giou":
             C_area = wh_max[..., 0] * wh_max[..., 1]
 
-            iou -= (C_area - union) / C_area.clamp_(min=eps)
+            iou -= (C_area - union) / C_area.clamp(min=eps)
         else:
             c_dist = wh_max[..., 0].pow(2) + wh_max[..., 1].pow(2)
 
@@ -122,7 +121,7 @@ def box_iou_loss(preds, targets, mode="iou", reduction="sum", eps=1e-8):
             cwh = pred_cxy - target_cxy
             p_dist = cwh[..., 0].pow(2) + cwh[..., 1].pow(2)
 
-            iou -= p_dist / c_dist.clamp_(min=eps)
+            iou -= p_dist / c_dist.clamp(min=eps)
 
             if mode == "ciou":
                 v = (4 / pi**2) * (torch.atan(box_ratio(targets)) -
@@ -146,18 +145,18 @@ def calc_cls_loss(logits, targets, num_pos, mode="focal"):
     # logits: [b,h*w,c]
     # targets: [b,h*w,1]
     num_classes = logits.shape[-1]
+    label = torch.arange(1, num_classes + 1, device=targets.device)
     assert logits.shape[:2] == targets.shape[:2]
 
     loss = []
-    for pos_logit, pos_target in zip(logits, targets):
-        pos_label = torch.arange(1, num_classes + 1, device=pos_target.device)
-        pos_target = (pos_target == pos_label[None, :]).float()  # one-hot
-        assert pos_logit.shape == pos_target.shape
+    for logit, target in zip(logits, targets):
+        target = (target == label).float()  # one-hot
+        assert logit.shape == target.shape
 
         if mode == "bce":
-            loss.append(bce_loss(pos_logit, pos_target))
+            loss.append(bce_loss(logit, target))
         elif mode == "focal":
-            loss.append(focal_loss(pos_logit, pos_target))
+            loss.append(focal_loss(logit, target))
         else:
             raise NotImplementedError(
                 "cls loss only implemented ['bce', 'focal']")
@@ -249,11 +248,11 @@ class FCOSLoss(nn.Module):
 if __name__ == "__main__":
 
     import torch
-    torch.manual_seed(0)
-
     from torchvision.ops import sigmoid_focal_loss
 
     from utils import decode_coords
+
+    torch.manual_seed(0)
 
     flag = 0
     # flag = 1

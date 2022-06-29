@@ -114,6 +114,7 @@ class ScaleExp(nn.Module):
 if __name__ == "__main__":
 
     import torch
+    torch.manual_seed(0)
 
     model = FCOSHead(num_classes=3)
 

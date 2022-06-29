@@ -26,7 +26,7 @@ class FCOSConfig():
 
     # target
     strides = [8, 16, 32, 64, 128]
-    bounds = [[-1, 64], [64, 128], [128, 256], [256, 512], [512, 999999]]
+    bounds = [[-1, 64], [64, 128], [128, 256], [256, 512], [512, 1e6]]
 
     # loss
     cls_loss = "focal"  # ["bce", "focal"]

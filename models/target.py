@@ -78,15 +78,16 @@ class FCOSTarget(nn.Module):
 
         # 3. 计算所有标注框面积
         areas = offset_area(offsets)
-        areas[~pos_mask] = 99999999  # neg_areas
+        areas[~pos_mask] = 1e8  # neg_areas
         min_areas_idx = areas.argmin(dim=-1, keepdim=True)
         min_areas_mask = torch.zeros_like(areas, dtype=torch.bool).scatter_(
             -1, min_areas_idx, 1)
         assert min_areas_mask.shape == (batch_size, num_points, num_boxes)
 
         # 4. 计算分类目标
-        labels = torch.broadcast_tensors(labels[:, None],
-                                         areas.long())[0]  # bn -> b(hw)n
+        # labels = torch.broadcast_tensors(labels[:, None],
+        #                                  areas.long())[0]  # bn -> b(hw)n
+        labels = labels[:, None].repeat(1, num_points, 1)  # bn -> b(hw)n
         cls_targets = labels[min_areas_mask].reshape((batch_size, -1, 1))
         assert cls_targets.shape == (batch_size, num_points, 1)
 
@@ -130,7 +131,7 @@ if __name__ == "__main__":
         [torch.rand(2, 4, 1)] * 5,
         [torch.rand(4, 2)] * 5,
     )
-    labels = torch.rand(2, 3)
+    labels = torch.randint(1, 4, (2, 3))
     boxes = torch.rand(2, 3, 4)
 
     out = model(labels, boxes, preds[-1])

@@ -155,25 +155,25 @@ if __name__ == "__main__":
             set_name="training",
             mode="train",
             split=True,
-            transform=cfg.aug_trans,
+            transform=cfg.aug_tf,
         )
         valid_set = KITTIDataset(
             data_dir,
             set_name="training",
             mode="valid",
             split=True,
-            transform=cfg.base_trans,
+            transform=cfg.base_tf,
         )
     elif cfg.data_folder == "bdd100k":
         train_set = BDD100KDataset(
             data_dir,
             set_name="train",
-            transform=cfg.aug_trans,
+            transform=cfg.aug_tf,
         )
         valid_set = BDD100KDataset(
             data_dir,
             set_name="val",
-            transform=cfg.base_trans,
+            transform=cfg.base_tf,
         )
     logger.info("train set has {} imgs".format(len(train_set)))
     logger.info("valid set has {} imgs".format(len(valid_set)))

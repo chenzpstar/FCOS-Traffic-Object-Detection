@@ -29,8 +29,9 @@ def decode_coords(feat, stride=1):
 
 def reshape_feats(feats):
     b, c = feats[0].shape[:2]  # bchw
-    out = [feat.permute(0, 2, 3, 1).reshape((b, -1, c))
-           for feat in feats]  # bchw -> b(hw)c
+    out = list(
+        map(lambda feat: feat.permute(0, 2, 3, 1).reshape((b, -1, c)),
+            feats))  # bchw -> b(hw)c
 
     return out
 
@@ -93,24 +94,25 @@ def box_iou(boxes1, boxes2):
 
     union = box_area(boxes1) + box_area(boxes2) - overlap
 
-    return overlap / union.clamp_(min=1e-8)
+    return overlap / union.clamp(min=1e-8)
 
 
-def offset_area(boxes):
+def offset_area(offsets):
     # [l,t,r,b]
-    return (boxes[..., 0] + boxes[..., 2]) * (boxes[..., 1] + boxes[..., 3])
+    return (offsets[..., 0] + offsets[..., 2]) * (offsets[..., 1] +
+                                                  offsets[..., 3])
 
 
-def offset_iou(boxes1, boxes2):
+def offset_iou(offsets1, offsets2):
     # [l,t,r,b]
-    lt = torch.min(boxes1[..., :2], boxes2[..., :2])
-    rb = torch.min(boxes1[..., 2:], boxes2[..., 2:])
+    lt = torch.min(offsets1[..., :2], offsets2[..., :2])
+    rb = torch.min(offsets1[..., 2:], offsets2[..., 2:])
     wh = (lt + rb).clamp_(min=0)
     overlap = wh[..., 0] * wh[..., 1]
 
-    union = offset_area(boxes1) + offset_area(boxes2) - overlap
+    union = offset_area(offsets1) + offset_area(offsets2) - overlap
 
-    return overlap / union.clamp_(min=1e-8)
+    return overlap / union.clamp(min=1e-8)
 
 
 def nms_boxes(boxes, scores, iou_thr=0.5, mode="iou"):
@@ -119,7 +121,7 @@ def nms_boxes(boxes, scores, iou_thr=0.5, mode="iou"):
     assert boxes.shape[-1] == 4
 
     keep = []
-    order = (-scores).argsort(dim=0)
+    order = (-scores).argsort()
 
     while order.numel() > 0:
         if order.numel() == 1:
@@ -146,7 +148,7 @@ def nms_boxes(boxes, scores, iou_thr=0.5, mode="iou"):
             cwh = top_cxy - other_cxy
             p_dist = cwh[..., 0].pow(2) + cwh[..., 1].pow(2)
 
-            iou -= p_dist / c_dist.clamp_(min=1e-8)
+            iou -= p_dist / c_dist.clamp(min=1e-8)
 
         idx = torch.where(iou <= iou_thr)[0]
         if idx.numel() == 0:

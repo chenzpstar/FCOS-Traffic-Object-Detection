@@ -57,13 +57,13 @@ if __name__ == "__main__":
             set_name="training",
             mode="valid",
             split=True,
-            transform=cfg.base_trans,
+            transform=cfg.base_tf,
         )
     elif cfg.data_folder == "bdd100k":
         test_set = BDD100KDataset(
             data_dir,
             set_name="val",
-            transform=cfg.base_trans,
+            transform=cfg.base_tf,
         )
     print("test set has {} imgs".format(len(test_set)))
 

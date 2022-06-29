@@ -114,7 +114,7 @@ if __name__ == "__main__":
     model = FCOSDetector()
 
     imgs = torch.rand(2, 3, 224, 224)
-    labels = torch.rand(2, 3)
+    labels = torch.randint(1, 4, (2, 3))
     boxes = torch.rand(2, 3, 4)
 
     if flag == 1:

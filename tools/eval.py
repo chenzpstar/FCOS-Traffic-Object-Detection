@@ -56,10 +56,12 @@ def eval_model(model,
 
 
 def sort_by_score(scores, labels, boxes):
-    orders = [(-score).argsort() for score in scores]
-    sorted_scores = [score[order] for score, order in zip(scores, orders)]
-    sorted_labels = [label[order] for label, order in zip(labels, orders)]
-    sorted_boxes = [box[order] for box, order in zip(boxes, orders)]
+    orders = list(map(lambda score: (-score).argsort(), scores))
+    sorted_scores = list(map(lambda score, order: score[order], scores,
+                             orders))
+    sorted_labels = list(map(lambda label, order: label[order], labels,
+                             orders))
+    sorted_boxes = list(map(lambda box, order: box[order], boxes, orders))
 
     return sorted_scores, sorted_labels, sorted_boxes
 
@@ -145,7 +147,7 @@ def eval_metrics(pred_boxes,
     :param pred_labels: list of 1d array, shape[(m),(n)...], value is sparse label index
     :param gt_boxes: list of 2d array, shape[(a,(x1,y1,x2,y2)),(b,(x1,y1,x2,y2))...]
     :param gt_labels: list of 1d array, shape[(a),(b)...], value is sparse label index
-    :param num_classes: eg. 4, total number of class including background which is equal to 0
+    :param num_classes: eg. 3, total number of classes, not including background which is equal to 0
     :param iou_thr: eg. 0.5
     :return: a series of metrics for each cls
     """
@@ -153,18 +155,16 @@ def eval_metrics(pred_boxes,
 
     for label in range(1, num_classes + 1):
         # get samples with specific label
-        pred_label_loc = [labels == label for labels in pred_labels]
-        pred_boxes_cls = [
-            boxes[mask] for boxes, mask in zip(pred_boxes, pred_label_loc)
-        ]
-        pred_scores_cls = [
-            scores[mask] for scores, mask in zip(pred_scores, pred_label_loc)
-        ]
+        pred_label_loc = list(map(lambda labels: labels == label, pred_labels))
+        pred_boxes_cls = list(
+            map(lambda boxes, mask: boxes[mask], pred_boxes, pred_label_loc))
+        pred_scores_cls = list(
+            map(lambda scores, mask: scores[mask], pred_scores,
+                pred_label_loc))
 
-        gt_label_loc = [labels == label for labels in gt_labels]
-        gt_boxes_cls = [
-            boxes[mask] for boxes, mask in zip(gt_boxes, gt_label_loc)
-        ]
+        gt_label_loc = list(map(lambda labels: labels == label, gt_labels))
+        gt_boxes_cls = list(
+            map(lambda boxes, mask: boxes[mask], gt_boxes, gt_label_loc))
 
         fp = np.zeros((0, ))
         tp = np.zeros((0, ))

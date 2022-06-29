@@ -13,7 +13,7 @@ import cv2
 import numpy as np
 import torch
 from PIL import Image
-from torchvision import transforms
+from torchvision.transforms import ColorJitter
 
 __all__ = [
     'Normalize', 'Colorjitter', 'Resize', 'Flip', 'Translate', 'Rotate',
@@ -51,9 +51,9 @@ class Colorjitter:
     def __call__(self, img, boxes):
         if random.random() < self.prob:
             img = Image.fromarray(img)
-            img = transforms.ColorJitter(self.brightness, self.contrast,
-                                         self.saturation, self.hue)(img)
-            cj_img = np.asarray(img, dtype=np.uint8)
+            cj_img = ColorJitter(self.brightness, self.contrast,
+                                 self.saturation, self.hue)(img)
+            cj_img = np.asarray(cj_img, dtype=np.uint8)
 
             return cj_img, boxes
         else:
@@ -146,18 +146,18 @@ class Translate:
 
 
 class Rotate:
-    def __init__(self, d=10, p=0.5):
-        self.degree = d
+    def __init__(self, degree=10, p=0.5):
+        self.degree = degree
         self.prob = p
 
     def __call__(self, img, boxes):
         if random.random() < self.prob:
             h, w = img.shape[:2]
             cx, cy = w / 2.0, h / 2.0
-            degree = random.uniform(-self.degree, self.degree)
-            theta = -degree / 180.0 * math.pi
+            d = random.uniform(-self.degree, self.degree)
+            theta = -d / 180.0 * math.pi
 
-            rot_mat = cv2.getRotationMatrix2D((cx, cy), degree, 1)
+            rot_mat = cv2.getRotationMatrix2D((cx, cy), d, 1)
             rot_img = cv2.warpAffine(img, rot_mat, (w, h))
 
             if boxes.shape[0] != 0:
@@ -180,8 +180,9 @@ class Rotate:
                         pt[:, 0] - cy) * math.sin(theta) + cx
                     rot_pt[:, 0] = (pt[:, 1] - cx) * math.sin(theta) + (
                         pt[:, 0] - cy) * math.cos(theta) + cy
-                    rot_ymax, rot_xmax = rot_pt.max(dim=0)[0]
+
                     rot_ymin, rot_xmin = rot_pt.min(dim=0)[0]
+                    rot_ymax, rot_xmax = rot_pt.max(dim=0)[0]
                     rot_boxes[i] = torch.stack(
                         [rot_ymin, rot_xmin, rot_ymax, rot_xmax], dim=0)
 
@@ -197,12 +198,12 @@ class Rotate:
 
 
 class Compose:
-    def __init__(self, trans_list):
-        self.trans_list = trans_list
+    def __init__(self, transforms):
+        self.transforms = transforms
 
     def __call__(self, img, boxes):
-        for trans in self.trans_list:
-            img, boxes = trans(img, boxes)
+        for transform in self.transforms:
+            img, boxes = transform(img, boxes)
 
         return img, boxes
 
@@ -212,14 +213,14 @@ class AugTransform:
         self.size = size
         self.mean = mean
         self.std = std
-        self.trans = Compose([
+        self.transforms = Compose([
             Resize(size),
             Flip(),
             Normalize(mean, std),
         ])
 
     def __call__(self, img, boxes):
-        return self.trans(img, boxes)
+        return self.transforms(img, boxes)
 
 
 class BaseTransform:
@@ -227,13 +228,13 @@ class BaseTransform:
         self.size = size
         self.mean = mean
         self.std = std
-        self.trans = Compose([
+        self.transforms = Compose([
             Resize(size),
             Normalize(mean, std),
         ])
 
     def __call__(self, img, boxes):
-        return self.trans(img, boxes)
+        return self.transforms(img, boxes)
 
 
 if __name__ == "__main__":

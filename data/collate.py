@@ -13,45 +13,45 @@ import torch.nn.functional as F
 
 class Collate():
     def __call__(self, data):
-        imgs_list, labels_list, boxes_list = zip(*data)
-        assert len(imgs_list) == len(labels_list) == len(boxes_list)
+        imgs, labels, boxes = zip(*data)
+        assert len(imgs) == len(labels) == len(boxes)
 
         pad_imgs = []
         pad_labels = []
         pad_boxes = []
 
-        h_list = [int(img.shape[1]) for img in imgs_list]
-        w_list = [int(img.shape[2]) for img in imgs_list]
-        boxes_num_list = [int(boxes.shape[0]) for boxes in boxes_list]
+        num_h = list(map(lambda img: int(img.shape[1]), imgs))
+        num_w = list(map(lambda img: int(img.shape[2]), imgs))
+        num_boxes = list(map(lambda boxes: int(boxes.shape[0]), boxes))
 
-        max_h = np.array(h_list).max()
-        max_w = np.array(w_list).max()
-        max_boxes_num = np.array(boxes_num_list).max()
+        max_h = np.array(num_h).max()
+        max_w = np.array(num_w).max()
+        max_num_boxes = np.array(num_boxes).max()
 
-        for img, labels, boxes in zip(imgs_list, labels_list, boxes_list):
+        for img, label, box in zip(imgs, labels, boxes):
             pad_imgs.append(
                 F.pad(img, (0, int(max_w - img.shape[2]), 0,
                             int(max_h - img.shape[1])),
                       value=0.0))
 
             pad_labels.append(
-                F.pad(labels, (0, max_boxes_num - labels.shape[0]), value=-1))
+                F.pad(label, (0, max_num_boxes - label.shape[0]), value=-1))
 
-            if boxes.shape[0] != 0:
+            if box.shape[0] != 0:
                 pad_boxes.append(
-                    F.pad(boxes, (0, 0, 0, max_boxes_num - boxes.shape[0]),
+                    F.pad(box, (0, 0, 0, max_num_boxes - box.shape[0]),
                           value=-1))
             else:
-                boxes.unsqueeze_(dim=0)
+                box.unsqueeze_(dim=0)
                 pad_boxes.append(
-                    F.pad(boxes, (0, 4, 0, max_boxes_num - boxes.shape[0]),
+                    F.pad(box, (0, 4, 0, max_num_boxes - box.shape[0]),
                           value=-1))
 
-        batch_imgs = torch.stack(pad_imgs, dim=0)
-        batch_labels = torch.stack(pad_labels, dim=0)
-        batch_boxes = torch.stack(pad_boxes, dim=0)
-
-        return batch_imgs, batch_labels, batch_boxes
+        return (
+            torch.stack(pad_imgs, dim=0),
+            torch.stack(pad_labels, dim=0),
+            torch.stack(pad_boxes, dim=0),
+        )
 
 
 if __name__ == "__main__":
