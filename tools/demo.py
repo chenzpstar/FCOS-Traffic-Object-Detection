@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-# @file name  : inference.py
+# @file name  : demo.py
 # @author     : chenzhanpeng https://github.com/chenzpstar
 # @date       : 2022-01-18
-# @brief      : FCOS推理
+# @brief      : FCOS演示
 """
 
 import argparse
@@ -30,7 +30,7 @@ parser.add_argument("--data_folder",
                     type=str,
                     help="dataset folder name")
 parser.add_argument("--ckpt_folder",
-                    default="kitti_12e_2022-06-01_16-01",
+                    default="kitti_12e_2022-07-01_14-24",
                     type=str,
                     help="checkpoint folder name")
 args = parser.parse_args()
@@ -71,8 +71,12 @@ if __name__ == "__main__":
     model.eval()
     print("loading model successfully")
 
-    # 3. inference
+    # 3. demo
     for img in os.listdir(img_dir):
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+        start_time = time.time()
+
         img_path = os.path.join(img_dir, img)
         img_bgr = cv2.imread(img_path, cv2.IMREAD_COLOR)
         img_pad = Resize(cfg.size)(img_bgr)
@@ -82,17 +86,13 @@ if __name__ == "__main__":
         img_tensor = torch.from_numpy(img_chw).float()
         img_tensor = img_tensor.unsqueeze_(dim=0).to(cfg.device)  # chw -> bchw
 
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
-        start_time = time.time()
-
         with torch.no_grad():
-            scores, labels, boxes = model(img_tensor, mode="inference")
+            scores, labels, boxes = model(img_tensor, mode="infer")
 
         if torch.cuda.is_available():
             torch.cuda.synchronize()
-        cost_time = int((time.time() - start_time) * 1000)
-        print("processing img done, cost time: {} ms".format(cost_time))
+        cost_time = time.time() - start_time
+        print("cost time: {} ms".format(int(cost_time * 1000)))
 
         scores = scores[0].cpu().numpy().astype(np.float32)
         labels = labels[0].cpu().numpy().astype(np.int64)

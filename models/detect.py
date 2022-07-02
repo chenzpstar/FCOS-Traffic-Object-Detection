@@ -42,10 +42,11 @@ class FCOSDetect(nn.Module):
         pred_labels += 1
 
         pred_boxes = decode_boxes(reg_preds, coords, self.strides)
+        pred_boxes = clip_boxes(pred_boxes, imgs)
 
-        return self._post_process(pred_scores, pred_labels, pred_boxes, imgs)
+        return self._post_process(pred_scores, pred_labels, pred_boxes)
 
-    def _post_process(self, scores, labels, boxes, imgs):
+    def _post_process(self, scores, labels, boxes):
         batch_size, num_points = scores.shape  # b(hw)
 
         max_num_boxes = min(self.max_num_boxes, num_points)
@@ -80,11 +81,9 @@ class FCOSDetect(nn.Module):
             nms_labels.append(filter_labels[nms_idx])
             nms_boxes.append(filter_boxes[nms_idx])
 
-        nms_boxes = list(map(clip_boxes, nms_boxes, imgs))
-
         return nms_scores, nms_labels, nms_boxes
 
-    def _batch_nms(self, boxes, scores, labels, iou_thr, mode):
+    def _batch_nms(self, boxes, scores, labels, iou_thr=0.5, mode="iou"):
         # Strategy: in order to perform NMS independently per class,
         # we add an offset to all the boxes. The offset is dependent
         # only on the class idx, and is large enough so that boxes

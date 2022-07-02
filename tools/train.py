@@ -31,7 +31,7 @@ from common import WarmupLR, make_logger, plot_curve, setup_seed
 from eval import eval_model
 
 # 添加解析参数
-parser = argparse.ArgumentParser(description="Train")
+parser = argparse.ArgumentParser(description="Training")
 parser.add_argument("--lr", default=None, type=float, help="learning rate")
 parser.add_argument("--bs", default=None, type=int, help="train batch size")
 parser.add_argument("--max_epoch", default=None, type=int, help="max epoch")
@@ -357,6 +357,7 @@ if __name__ == "__main__":
                 model,
                 valid_loader,
                 num_classes=cfg.num_classes,
+                use_07_metric=cfg.use_07_metric,
                 device=cfg.device,
             )
 

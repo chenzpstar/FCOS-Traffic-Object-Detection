@@ -25,8 +25,8 @@ cfg.size = [800, 1333]  # [800, 1333]
 cfg.mean = [0.367, 0.386, 0.374]  # [0.485, 0.456, 0.406]
 cfg.std = [0.316, 0.321, 0.326]  # [0.229, 0.224, 0.225]
 
-cfg.aug_tf = AugTransform(cfg.size, cfg.mean, cfg.std)
 cfg.base_tf = BaseTransform(cfg.size, cfg.mean, cfg.std)
+cfg.aug_tf = AugTransform(cfg.size, cfg.mean, cfg.std)
 
 # backbone
 # cfg.backbone = "vgg16"  # ["vgg16", "resnet50", "darknet19", "mobilenet", "shufflenet", "efficientnet"]
@@ -54,6 +54,8 @@ cfg.ctr_on_reg = True
 # target
 cfg.strides = [8, 16, 32, 64, 128]
 cfg.bounds = [[-1, 64], [64, 128], [128, 256], [256, 512], [512, 1e6]]
+cfg.use_ctr_sampling = True
+cfg.ctr_ratio = 1.5  # 1.5
 
 # loss
 # cfg.cls_loss = "bce"  # ["bce", "focal"]
@@ -83,8 +85,9 @@ cfg.momentum = 0.9  # 0.9
 cfg.weight_decay = 5e-4  # 1e-4
 
 # scheduler
-cfg.warmup = True
-cfg.warmup_factor = 0.001
+cfg.factor = 0.1
+cfg.milestones = [8, 11]
+cfg.max_epoch = 12
 
 cfg.exp_lr = False
 cfg.exp_factor = 0.66  # 0.66^11 = 0.01
@@ -92,11 +95,11 @@ cfg.exp_factor = 0.66  # 0.66^11 = 0.01
 cfg.cos_lr = False
 cfg.lr_final = 5e-5
 
-cfg.factor = 0.1
-cfg.milestones = [8, 11]
-cfg.max_epoch = 12
+cfg.warmup = True
+cfg.warmup_factor = 0.001
 
 # other
+cfg.log_interval = 100
 cfg.use_fp16 = False
 cfg.clip_grad = False
-cfg.log_interval = 100
+cfg.use_07_metric = False

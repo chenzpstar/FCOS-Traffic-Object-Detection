@@ -99,7 +99,7 @@ class FCOSDetector(nn.Module):
 
             return self.loss_layer(preds, targets)
 
-        elif mode == "inference":
+        elif mode == "infer":
             return self.detect_layer(preds, imgs)
 
 
@@ -122,7 +122,7 @@ if __name__ == "__main__":
         [print(branch_out.item()) for branch_out in out]
 
     if flag == 2:
-        out = model(imgs, mode="inference")
+        out = model(imgs, mode="infer")
         [
             print(batch_out.shape) for result_out in out
             for batch_out in result_out

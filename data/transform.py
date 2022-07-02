@@ -17,7 +17,7 @@ from torchvision.transforms import ColorJitter
 
 __all__ = [
     'Normalize', 'Colorjitter', 'Resize', 'Flip', 'Translate', 'Rotate',
-    'Compose', 'AugTransform', 'BaseTransform'
+    'Compose', 'BaseTransform', 'AugTransform'
 ]
 
 
@@ -77,11 +77,11 @@ class Resize:
         nw, nh = int(w * scale), int(h * scale)
         resize_img = cv2.resize(img, (nw, nh))
 
-        pad_w = 32 - nw % 32
-        pad_h = 32 - nh % 32
+        pad_w = 32 - nw % 32 if nw % 32 != 0 else 0
+        pad_h = 32 - nh % 32 if nh % 32 != 0 else 0
 
         pad_img = np.zeros((nh + pad_h, nw + pad_w, c), dtype=np.uint8)
-        pad_img[:nh, :nw, :] = resize_img
+        pad_img[:nh, :nw] = resize_img
 
         if boxes is None:
             return pad_img
@@ -124,13 +124,13 @@ class Translate:
 
             trans_img = np.zeros_like(img)
             if dx > 0 and dy > 0:
-                trans_img[dy:, dx:, :] = img[:h - dy, :w - dx, :]
+                trans_img[dy:, dx:] = img[:h - dy, :w - dx]
             elif dx > 0 and dy <= 0:
-                trans_img[:h + dy, dx:, :] = img[-dy:, :w - dx, :]
+                trans_img[:h + dy, dx:] = img[-dy:, :w - dx]
             elif dx <= 0 and dy > 0:
-                trans_img[dy:, :w + dx, :] = img[:h - dy, -dx:, :]
+                trans_img[dy:, :w + dx] = img[:h - dy, -dx:]
             else:
-                trans_img[:h + dy, :w + dx, :] = img[-dy:, -dx:, :]
+                trans_img[:h + dy, :w + dx] = img[-dy:, -dx:]
 
             if boxes.shape[0] != 0:
                 boxes = torch.from_numpy(boxes)
@@ -167,7 +167,7 @@ class Rotate:
                 rot_boxes[..., [2, 3]] = boxes[..., [3, 2]]
 
                 for i in range(boxes.shape[0]):
-                    ymin, xmin, ymax, xmax = rot_boxes[i, :]
+                    ymin, xmin, ymax, xmax = rot_boxes[i]
                     pt = torch.FloatTensor([
                         [ymin, xmin],
                         [ymax, xmin],
@@ -208,6 +208,20 @@ class Compose:
         return img, boxes
 
 
+class BaseTransform:
+    def __init__(self, size, mean, std):
+        self.size = size
+        self.mean = mean
+        self.std = std
+        self.transforms = Compose([
+            Resize(size),
+            Normalize(mean, std),
+        ])
+
+    def __call__(self, img, boxes):
+        return self.transforms(img, boxes)
+
+
 class AugTransform:
     def __init__(self, size, mean, std):
         self.size = size
@@ -216,20 +230,6 @@ class AugTransform:
         self.transforms = Compose([
             Resize(size),
             Flip(),
-            Normalize(mean, std),
-        ])
-
-    def __call__(self, img, boxes):
-        return self.transforms(img, boxes)
-
-
-class BaseTransform:
-    def __init__(self, size, mean, std):
-        self.size = size
-        self.mean = mean
-        self.std = std
-        self.transforms = Compose([
-            Resize(size),
             Normalize(mean, std),
         ])
 
@@ -254,7 +254,7 @@ if __name__ == "__main__":
     cmap = plt.get_cmap("rainbow")
     colors = list(map(cmap, np.linspace(0, 1, 10)))
 
-    size = [800, 1333]
+    size = [600, 1000]
     mean = [0.485, 0.456, 0.406]
     std = [0.229, 0.224, 0.225]
 
@@ -265,15 +265,14 @@ if __name__ == "__main__":
     train_loader = DataLoader(train_set)
 
     for (img, labels, boxes) in train_loader:
-        img = img.squeeze_(dim=0).data.numpy()  # bchw -> chw
-        img = img.transpose((1, 2, 0))  # chw -> hwc
-        for i in range(3):
-            img[..., i] = (img[..., i] * std[i] + mean[i]) * 255.0
-        img = img.astype(np.uint8)
+        img = img[0].data.numpy()  # bchw -> chw
+        for i in range(img.shape[0]):
+            img[i] = (img[i] * std[i] + mean[i]) * 255.0
+        img = img.transpose((1, 2, 0)).astype(np.uint8)  # chw -> hwc
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)  # rgb -> bgr
 
-        labels = labels.squeeze_(dim=0).data.numpy().astype(np.int64)
-        boxes = boxes.squeeze_(dim=0).data.numpy().astype(np.int64)
+        labels = labels[0].data.numpy().astype(np.int64)
+        boxes = boxes[0].data.numpy().astype(np.int64)
 
         for label, box in zip(labels, boxes):
             color = list(map(lambda i: i * 255, colors[label - 1]))

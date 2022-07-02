@@ -13,7 +13,7 @@ import random
 import cv2
 import numpy as np
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
 
 
 class BDD100KDataset(Dataset):
@@ -127,6 +127,7 @@ if __name__ == "__main__":
     sys.path.append(os.path.join(BASE_DIR, ".."))
 
     import matplotlib.pyplot as plt
+    from torch.utils.data import DataLoader
 
     cmap = plt.get_cmap("rainbow")
     colors = list(map(cmap, np.linspace(0, 1, 10)))
@@ -136,12 +137,12 @@ if __name__ == "__main__":
     train_loader = DataLoader(train_set)
 
     for (img, labels, boxes) in train_loader:
-        img = img.squeeze_(dim=0).data.numpy().astype(np.uint8)  # bchw -> chw
+        img = img[0].data.numpy().astype(np.uint8)  # bchw -> chw
         img = img.transpose((1, 2, 0))  # chw -> hwc
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)  # rgb -> bgr
 
-        labels = labels.squeeze_(dim=0).data.numpy().astype(np.int64)
-        boxes = boxes.squeeze_(dim=0).data.numpy().astype(np.int64)
+        labels = labels[0].data.numpy().astype(np.int64)
+        boxes = boxes[0].data.numpy().astype(np.int64)
 
         for label, box in zip(labels, boxes):
             color = list(map(lambda i: i * 255, colors[label - 1]))

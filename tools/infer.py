@@ -1,27 +1,28 @@
 # -*- coding: utf-8 -*-
 """
-# @file name  : test.py
+# @file name  : infer.py
 # @author     : chenzhanpeng https://github.com/chenzpstar
-# @date       : 2022-01-17
-# @brief      : FCOS测试
+# @date       : 2022-01-18
+# @brief      : FCOS推理
 """
 
 import argparse
 import os
 import sys
+import time
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(BASE_DIR, ".."))
 
+import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 # from configs.bdd100k_config import cfg
 from configs.kitti_config import cfg
-from data import BDD100KDataset, Collate, KITTIDataset
+from data import BDD100KDataset, KITTIDataset, Normalize, Resize
 from models import FCOSDetector
-from torch.utils.data import DataLoader
-
-from eval import eval_model
+from tqdm import tqdm
 
 # 添加解析参数
 parser = argparse.ArgumentParser(description="Inference")
@@ -41,6 +42,9 @@ cfg.ckpt_folder = args.ckpt_folder if args.ckpt_folder else cfg.ckpt_folder
 
 if __name__ == "__main__":
     # 0. config
+    cmap = plt.get_cmap("rainbow")
+    colors = list(map(cmap, np.linspace(0, 1, 10)))
+
     data_dir = os.path.join(BASE_DIR, "..", "..", "datasets", cfg.data_folder)
     assert os.path.exists(data_dir)
 
@@ -48,33 +52,13 @@ if __name__ == "__main__":
     ckpt_path = os.path.join(ckpt_dir, cfg.ckpt_folder, "checkpoint_best.pth")
     assert os.path.exists(ckpt_path)
 
-    out_path = os.path.join(ckpt_dir, cfg.ckpt_folder, "eval.txt")
-
     # 1. dataset
     if cfg.data_folder == "kitti":
-        test_set = KITTIDataset(
-            data_dir,
-            set_name="training",
-            mode="valid",
-            split=True,
-            transform=cfg.base_tf,
-        )
+        img_dir = os.path.join(data_dir, "testing", "image_2")
+        dataset = KITTIDataset
     elif cfg.data_folder == "bdd100k":
-        test_set = BDD100KDataset(
-            data_dir,
-            set_name="val",
-            transform=cfg.base_tf,
-        )
-    print("test set has {} imgs".format(len(test_set)))
-
-    test_loader = DataLoader(
-        test_set,
-        batch_size=cfg.valid_bs,
-        shuffle=False,
-        num_workers=cfg.workers,
-        collate_fn=Collate(),
-    )
-    print("test loader has {} iters".format(len(test_loader)))
+        img_dir = os.path.join(data_dir, "images", "100k", "test")
+        dataset = BDD100KDataset
 
     # 2. model
     model = FCOSDetector(cfg)
@@ -88,27 +72,30 @@ if __name__ == "__main__":
     model.eval()
     print("loading model successfully")
 
-    # 3. test
-    for thr in [0.5, 0.75]:
-        # 评估指标
-        recalls, precisions, f1s, aps = eval_model(
-            model,
-            test_loader,
-            num_classes=cfg.num_classes,
-            iou_thr=thr,
-            use_07_metric=cfg.use_07_metric,
-            device=cfg.device,
-        )
+    # 3. infer
+    t, fps = 0.0, 0.0
 
-        # 计算mAP
-        mAP = np.mean(aps)
+    for img in tqdm(os.listdir(img_dir)[:1000]):
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+        start_time = time.time()
 
-        # 输出结果
-        with open(out_path, "a") as f:
-            for label in range(cfg.num_classes):
-                print(
-                    "class: {}, recall: {:.3%}, precision: {:.3%}, f1: {:.3%}, ap: {:.3%}"
-                    .format(test_set.labels_dict[label + 1], recalls[label],
-                            precisions[label], f1s[label], aps[label]),
-                    file=f)
-            print("mAP@{}: {:.3%}".format(thr, mAP), file=f)
+        img_path = os.path.join(img_dir, img)
+        img_bgr = cv2.imread(img_path, cv2.IMREAD_COLOR)
+        img_pad = Resize(cfg.size)(img_bgr)
+        img_rgb = cv2.cvtColor(img_pad, cv2.COLOR_BGR2RGB)  # bgr -> rgb
+        img_norm = Normalize(cfg.mean, cfg.std)(img_rgb)
+        img_chw = img_norm.transpose((2, 0, 1))  # hwc -> chw
+        img_tensor = torch.from_numpy(img_chw).float()
+        img_tensor = img_tensor.unsqueeze_(dim=0).to(cfg.device)  # chw -> bchw
+
+        with torch.no_grad():
+            scores, labels, boxes = model(img_tensor, mode="infer")
+
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+        cost_time = time.time() - start_time
+        t = (t + cost_time) / 2.0
+        fps = (fps + 1.0 / cost_time) / 2.0
+
+    print("T: {} ms, FPS: {:.3f}".format(int(t * 1000), fps))

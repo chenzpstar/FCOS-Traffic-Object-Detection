@@ -2,52 +2,57 @@
 
 This project is for personal study and under development, please click 'watch' or 'star' my repo and check back later if you are interested in it.
 
-Time: 2022.1.1 - 2022.6.30
-
 ## 1 任务简述
 
 主要任务：在交通场景下，实现对道路目标（车辆和行人）的实时检测。
 
-完成进度：
+目录结构：
 
-- [x] 数据集 ./data
+```txt
+- ./configs 配置
+    - kitti_config.py
+    - bdd100k_config.py
 
-    - [x] kitti.py
+- ./data 数据
+    - kitti.py
+    - bdd100k.py
+    - transform.py 数据变换
+    - collate.py 数据打包
 
-    - [x] bdd100k.py
+- ./models 模型
+    - ./backbones 特征提取网络
+        - vgg.py
+        - resnet.py
+        - darknet.py
+        - mobilenet.py
+        - shufflenet.py
+        - efficientnet.py
 
-    - [x] 数据变换 transform.py
+    - ./necks 特征融合网络
+        - fpn.py
+        - pan.py
+        - bifpn.py
 
-    - [x] 数据打包 collate.py
+    - ./layers 网络模块
+        - conv.py
+        - spp.py
+        - aspp.py
+        - se.py
+        - cbam.py
 
-- [x] 模型 ./models
+    - head.py 检测网络
+    - target.py 训练目标
+    - loss.py 损失函数
+    - detect.py 检测后处理
+    - fcos.py 完整网络
 
-    - [x] ./backbones
-
-    - [x] ./necks
-
-    - [x] ./layers
-
-    - [x] head.py
-
-    - [x] fcos.py
-
-    - [x] 训练目标 target.py
-
-    - [x] 损失函数 loss.py
-
-    - [x] 检测后处理 detect.py
-
-- [x] 工具 ./tools
-
-    - [x] 评估 eval.py
-
-    - [x] 训练 train.py
-
-    - [x] 测试 test.py
-
-    - [x] 推理 inference.py
-
+- ./tools 工具
+    - train.py 训练
+    - test.py 测试
+    - eval.py 评估
+    - infer.py 推理
+    - demo.py 演示
+```
 
 ## 2 模型
 
@@ -216,7 +221,7 @@ Time: 2022.1.1 - 2022.6.30
 
 - 平均精度
 
-    ![](http://latex.codecogs.com/svg.latex?AP=\sum_{i=0}^{N-1}(r_{i+1}-r_i)\cdot%20\rho_{interp}(r_{i+1}))
+    ![](http://latex.codecogs.com/svg.latex?AP=\sum_{i=0}^{N-2}(r_{i+1}-r_i)\cdot%20\rho_{interp}(r_{i+1}))
 
 - 平均精度均值
 
@@ -230,4 +235,4 @@ Time: 2022.1.1 - 2022.6.30
 
 - 推理时间
 
-    ![](http://latex.codecogs.com/svg.latex?t\le40ms)
+    ![](http://latex.codecogs.com/svg.latex?T\le40ms)

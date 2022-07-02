@@ -9,9 +9,9 @@
 import torch
 
 __all__ = [
-    'decode_coords', 'reshape_feats', 'decode_boxes', 'coords2boxes',
-    'coords2offsets', 'coords2centers', 'box_ratio', 'box_area', 'box_iou',
-    'offset_area', 'offset_iou', 'nms_boxes', 'clip_boxes'
+    'decode_coords', 'reshape_feats', 'coords2offsets', 'coords2centers',
+    'coords2boxes', 'decode_boxes', 'box_ratio', 'box_area', 'box_iou',
+    'offset_area', 'offset_iou', 'clip_boxes', 'nms_boxes'
 ]
 
 
@@ -36,25 +36,6 @@ def reshape_feats(feats):
     return out
 
 
-def decode_boxes(offsets, coords, strides=None):
-    if strides is not None:
-        boxes = list(map(coords2boxes, coords, offsets, strides))
-    else:
-        boxes = list(map(coords2boxes, coords, offsets))
-
-    return torch.cat(boxes, dim=1)
-
-
-def coords2boxes(coords, offsets, stride=1):
-    offsets *= stride
-    # xy - lt -> xy1
-    boxes_xy1 = coords[None, :] - offsets[..., :2]
-    # xy + rb -> xy2
-    boxes_xy2 = coords[None, :] + offsets[..., 2:]
-
-    return torch.cat([boxes_xy1, boxes_xy2], dim=-1)
-
-
 def coords2offsets(coords, boxes):
     # xy - xy1 -> lt
     offsets_lt = coords[None, :, None] - boxes[..., :2][:, None]
@@ -73,6 +54,26 @@ def coords2centers(coords, boxes):
     ctr_offsets_rb = -ctr_offsets_lt
 
     return torch.cat([ctr_offsets_lt, ctr_offsets_rb], dim=-1)
+
+
+def coords2boxes(coords, offsets, stride=None):
+    if stride is not None:
+        offsets *= stride
+    # xy - lt -> xy1
+    boxes_xy1 = coords[None, :] - offsets[..., :2]
+    # xy + rb -> xy2
+    boxes_xy2 = coords[None, :] + offsets[..., 2:]
+
+    return torch.cat([boxes_xy1, boxes_xy2], dim=-1)
+
+
+def decode_boxes(offsets, coords, strides=None):
+    if strides is not None:
+        boxes = list(map(coords2boxes, coords, offsets, strides))
+    else:
+        boxes = list(map(coords2boxes, coords, offsets))
+
+    return torch.cat(boxes, dim=1)
 
 
 def box_ratio(boxes):
@@ -113,6 +114,14 @@ def offset_iou(offsets1, offsets2):
     union = offset_area(offsets1) + offset_area(offsets2) - overlap
 
     return overlap / union.clamp(min=1e-8)
+
+
+def clip_boxes(boxes, imgs):
+    h, w = imgs.shape[-2:]  # bchw
+    boxes[..., [0, 2]].clamp_(min=0, max=w - 1)
+    boxes[..., [1, 3]].clamp_(min=0, max=h - 1)
+
+    return boxes
 
 
 def nms_boxes(boxes, scores, iou_thr=0.5, mode="iou"):
@@ -156,11 +165,3 @@ def nms_boxes(boxes, scores, iou_thr=0.5, mode="iou"):
         order = order[idx]
 
     return torch.LongTensor(keep)
-
-
-def clip_boxes(boxes, img):
-    h, w = img.shape[-2:]  # chw
-    boxes[..., [0, 2]].clamp_(min=0, max=w - 1)
-    boxes[..., [1, 3]].clamp_(min=0, max=h - 1)
-
-    return boxes

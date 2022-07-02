@@ -23,6 +23,8 @@ class FCOSTarget(nn.Module):
         self.cfg = FCOSConfig if cfg is None else cfg
         self.strides = self.cfg.strides
         self.bounds = self.cfg.bounds
+        self.use_ctr_sampling = self.cfg.use_ctr_sampling
+        self.ctr_ratio = self.cfg.ctr_ratio
         assert len(self.strides) == len(self.bounds)
 
     def forward(self, labels, boxes, coords):
@@ -33,26 +35,15 @@ class FCOSTarget(nn.Module):
         ctr_targets = []
 
         for coord, stride, bound in zip(coords, self.strides, self.bounds):
-            stage_targets = self._gen_stage_targets(
-                labels,
-                boxes,
-                coord,
-                stride,
-                bound,
-            )
+            stage_targets = self._gen_stage_targets(labels, boxes, coord,
+                                                    stride, bound)
             cls_targets.append(stage_targets[0])
             reg_targets.append(stage_targets[1])
             ctr_targets.append(stage_targets[2])
 
         return cls_targets, reg_targets, ctr_targets
 
-    def _gen_stage_targets(self,
-                           labels,
-                           boxes,
-                           coords,
-                           stride,
-                           bound,
-                           sample_ratio=1.5):
+    def _gen_stage_targets(self, labels, boxes, coords, stride, bound):
         batch_size, num_boxes = boxes.shape[:2]  # bnc
         num_points = coords.shape[0]  # [h*w,2]
 
@@ -64,16 +55,17 @@ class FCOSTarget(nn.Module):
         max_offsets = offsets.max(dim=-1)[0]
         boxes_mask = min_offsets > 0
         stage_mask = (max_offsets > bound[0]) & (max_offsets <= bound[1])
+        pos_mask = boxes_mask & stage_mask
 
         # 2. 计算每个坐标到所有标注框中心的偏移量
-        ctr_offsets = coords2centers(coords, boxes)
-        assert ctr_offsets.shape == (batch_size, num_points, num_boxes, 4)
+        if self.use_ctr_sampling:
+            ctr_offsets = coords2centers(coords, boxes)
+            assert ctr_offsets.shape == (batch_size, num_points, num_boxes, 4)
 
-        radius = sample_ratio * stride
-        max_ctr_offsets = ctr_offsets.max(dim=-1)[0]
-        ctr_mask = max_ctr_offsets < radius
-
-        pos_mask = boxes_mask & stage_mask & ctr_mask
+            ctr_radius = stride * self.ctr_ratio
+            max_ctr_offsets = ctr_offsets.max(dim=-1)[0]
+            ctr_mask = max_ctr_offsets < ctr_radius
+            pos_mask = pos_mask & ctr_mask
         assert pos_mask.shape == (batch_size, num_points, num_boxes)
 
         # 3. 计算所有标注框面积
@@ -97,13 +89,13 @@ class FCOSTarget(nn.Module):
         assert reg_targets.shape == (batch_size, num_points, 4)
 
         # 6. 计算中心度目标
-        lr_min = torch.min(reg_targets[..., 0], reg_targets[..., 2])
-        lr_max = torch.max(reg_targets[..., 0], reg_targets[..., 2])
-        tb_min = torch.min(reg_targets[..., 1], reg_targets[..., 3])
-        tb_max = torch.max(reg_targets[..., 1], reg_targets[..., 3])
+        min_lr = torch.min(reg_targets[..., 0], reg_targets[..., 2])
+        max_lr = torch.max(reg_targets[..., 0], reg_targets[..., 2])
+        min_tb = torch.min(reg_targets[..., 1], reg_targets[..., 3])
+        max_tb = torch.max(reg_targets[..., 1], reg_targets[..., 3])
         ctr_targets = torch.sqrt(
-            (lr_min * tb_min) /
-            (lr_max * tb_max).clamp_(min=1e-8)).unsqueeze_(dim=-1)
+            (min_lr * min_tb) /
+            (max_lr * max_tb).clamp_(min=1e-8)).unsqueeze_(dim=-1)
         assert ctr_targets.shape == (batch_size, num_points, 1)
 
         # 7. 处理负样本

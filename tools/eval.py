@@ -28,7 +28,7 @@ def eval_model(model,
         imgs = imgs.to(device)
 
         with torch.no_grad():
-            outs = model(imgs, mode="inference")
+            outs = model(imgs, mode="infer")
 
         pred_scores.extend(map(lambda scores: scores.cpu().numpy(), outs[0]))
         pred_labels.extend(map(lambda labels: labels.cpu().numpy(), outs[1]))

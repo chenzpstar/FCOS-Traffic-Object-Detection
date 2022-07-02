@@ -39,7 +39,7 @@ def channel_split(x, split):
     """split a tensor into two pieces along channel dimension
     Args:
         x: input tensor
-        split(int): channel size for each pieces
+        split (int): channel size for each pieces
     """
     assert x.shape[1] == split * 2
 
