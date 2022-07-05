@@ -8,10 +8,6 @@
 
 import json
 import os
-import sys
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.join(BASE_DIR, ".."))
 
 from tqdm import tqdm
 
@@ -39,6 +35,12 @@ def split_json_file(file_dir):
 
 
 if __name__ == "__main__":
+
+    import os
+    import sys
+
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    sys.path.append(os.path.join(BASE_DIR, ".."))
 
     root_dir = os.path.join(BASE_DIR, "..", "..", "datasets")
     json_dir = os.path.join(root_dir, "bdd100k", "labels", "100k")

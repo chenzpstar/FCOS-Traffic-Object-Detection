@@ -36,6 +36,8 @@ cfg.backbone = "resnet50"
 # cfg.backbone = "shufflenet"
 # cfg.backbone = "efficientnet"
 cfg.pretrained = True
+cfg.freeze_bn = False  # freeze bn's statistics
+cfg.freeze_bn_affine = False  # freeze bn's params
 
 # neck
 cfg.neck = "fpn"  # ["fpn", "pan", "bifpn"]
@@ -65,7 +67,7 @@ cfg.reg_loss = "iou"
 # cfg.reg_loss = "giou"
 # cfg.reg_loss = "diou"
 # cfg.reg_loss = "ciou"
-cfg.use_ctr = True
+cfg.use_ctrness = True
 
 # detect
 cfg.max_num_boxes = 150  # 1000

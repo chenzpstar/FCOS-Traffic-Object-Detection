@@ -8,10 +8,6 @@
 
 import os
 import shutil
-import sys
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.join(BASE_DIR, ".."))
 
 
 def remove_unlabeled_img(img_dir, out_dir):
@@ -28,6 +24,12 @@ def remove_unlabeled_img(img_dir, out_dir):
 
 
 if __name__ == "__main__":
+
+    import os
+    import sys
+
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    sys.path.append(os.path.join(BASE_DIR, ".."))
 
     root_dir = os.path.join(BASE_DIR, "..", "..", "datasets")
     data_dir = os.path.join(root_dir, "bdd100k", "images", "100k")

@@ -135,5 +135,5 @@ if __name__ == "__main__":
     summary(model, (3, 224, 224), 2, device="cpu")
 
     x = torch.rand(2, 3, 224, 224)
-    out = model(x)
-    [print(stage_out.shape) for stage_out in out]
+    outs = model(x)
+    [print(stage_outs.shape) for stage_outs in outs]

@@ -217,7 +217,7 @@ if __name__ == "__main__":
 
     # 3. optimize
     optimizer = optim.SGD(
-        model.parameters(),
+        filter(lambda p: p.requires_grad, model.parameters()),
         lr=cfg.lr_init,
         momentum=cfg.momentum,
         weight_decay=cfg.weight_decay,

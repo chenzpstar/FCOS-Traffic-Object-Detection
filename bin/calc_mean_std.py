@@ -6,14 +6,7 @@
 # @brief      : 统计均值和标准差
 """
 
-import os
-import sys
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.join(BASE_DIR, ".."))
-
-from data import BDD100KDataset, Collate, KITTIDataset
-from torch.utils.data import DataLoader
+import torch
 from tqdm import tqdm
 
 
@@ -21,7 +14,7 @@ def calc_mean_std(data_loader):
     img_mean_sigma, img_std_sigma = 0.0, 0.0
 
     for data in tqdm(data_loader):
-        img = data[0]
+        img = data[0].cuda()
         num_channels = img.shape[1]  # bchw
         img /= 255.0
         img = img.permute(0, 2, 3, 1).reshape(
@@ -31,48 +24,61 @@ def calc_mean_std(data_loader):
 
     num_batches = len(data_loader)
     img_mean = img_mean_sigma / num_batches
-    img_std = (img_std_sigma / num_batches - img_mean**2)**0.5
+    img_std = torch.sqrt((img_std_sigma / num_batches - img_mean.pow(2)))
 
     return img_mean, img_std
 
 
 if __name__ == '__main__':
 
-    root_dir = os.path.join(BASE_DIR, "..", "..", "datasets")
-    data_dir = os.path.join(root_dir, "kitti")
-    # data_dir = os.path.join(root_dir, "bdd100k")
+    import os
+    import sys
 
-    train_set = KITTIDataset(
-        data_dir,
-        set_name="training",
-        mode="train",
-        split=True,
-    )
-    valid_set = KITTIDataset(
-        data_dir,
-        set_name="training",
-        mode="valid",
-        split=True,
-    )
-    # train_set = BDD100KDataset(
-    #     data_dir,
-    #     set_name="train",
-    # )
-    # valid_set = BDD100KDataset(
-    #     data_dir,
-    #     set_name="val",
-    # )
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    sys.path.append(os.path.join(BASE_DIR, ".."))
+
+    from data import BDD100KDataset, Collate, KITTIDataset
+    from torch.utils.data import DataLoader
+
+    data_folder = "kitti"
+    # data_folder = "bdd100k"
+
+    root_dir = os.path.join(BASE_DIR, "..", "..", "datasets")
+    data_dir = os.path.join(root_dir, data_folder)
+
+    if data_folder == "kitti":
+        train_set = KITTIDataset(
+            data_dir,
+            set_name="training",
+            mode="train",
+            split=True,
+        )
+        valid_set = KITTIDataset(
+            data_dir,
+            set_name="training",
+            mode="valid",
+            split=True,
+        )
+    elif data_folder == "bdd100k":
+        train_set = BDD100KDataset(
+            data_dir,
+            set_name="train",
+        )
+        valid_set = BDD100KDataset(
+            data_dir,
+            set_name="val",
+        )
 
     train_loader = DataLoader(
         train_set,
-        batch_size=8,
+        batch_size=16,
         shuffle=False,
         num_workers=4,
         collate_fn=Collate(),
     )
     valid_loader = DataLoader(
         valid_set,
-        batch_size=8,
+        batch_size=16,
         shuffle=False,
         num_workers=4,
         collate_fn=Collate(),

@@ -126,5 +126,8 @@ if __name__ == "__main__":
     labels = torch.randint(1, 4, (2, 3))
     boxes = torch.rand(2, 3, 4)
 
-    out = model(labels, boxes, preds[-1])
-    [print(stage_out.shape) for branch_out in out for stage_out in branch_out]
+    outs = model(labels, boxes, preds[-1])
+    [
+        print(stage_outs.shape) for branch_outs in outs
+        for stage_outs in branch_outs
+    ]

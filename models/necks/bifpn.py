@@ -34,28 +34,19 @@ class BiFPN(nn.Module):
                  use_p5=True,
                  init_weights=True):
         super(BiFPN, self).__init__()
-        self.proj5_1 = conv1x1(in_channels[0], num_channels)
-        self.proj4_1 = conv1x1(in_channels[1], num_channels)
-        self.proj3_1 = conv1x1(in_channels[2], num_channels)
-        self.proj2_1 = conv1x1(in_channels[3], num_channels)
-
-        self.proj5_2 = conv1x1(in_channels[0], num_channels)
-        self.proj4_2 = conv1x1(in_channels[1], num_channels)
-        self.proj3_2 = conv1x1(in_channels[2], num_channels)
-
-        # self.conv_p5 = conv3x3(num_channels, num_channels)
-        # self.conv_p4 = conv3x3(num_channels, num_channels)
-        # self.conv_p3 = conv3x3(num_channels, num_channels)
-
-        self.new3 = conv3x3(num_channels, num_channels, stride=2)
-        self.new4 = conv3x3(num_channels, num_channels, stride=2)
-        self.new5 = conv3x3(num_channels, num_channels, stride=2)
-
-        self.conv_n2 = conv3x3(num_channels, num_channels)
-        self.conv_n3 = conv3x3(num_channels, num_channels)
-        self.conv_n4 = conv3x3(num_channels, num_channels)
-        self.conv_n5 = conv3x3(num_channels, num_channels)
-
+        num_layers = len(in_channels)
+        self.projs_1 = nn.ModuleList(
+            [conv1x1(in_channels[i], num_channels) for i in range(num_layers)])
+        self.projs_2 = nn.ModuleList([
+            conv1x1(in_channels[i], num_channels)
+            for i in range(num_layers - 1)
+        ])
+        self.news = nn.ModuleList([
+            conv3x3(num_channels, num_channels, stride=2)
+            for _ in range(num_layers - 1)
+        ])
+        self.convs = nn.ModuleList(
+            [conv3x3(num_channels, num_channels) for _ in range(num_layers)])
         self.relu = nn.ReLU(inplace=True)
 
         if init_weights:
@@ -76,32 +67,33 @@ class BiFPN(nn.Module):
                              mode="nearest")
 
     def forward(self, feats):
-        c2, c3, c4, c5 = feats
+        projs_1, projs_2, outs = [], [], []
+        last_feat = None
 
-        p5_1 = self.relu(self.proj5_1(c5))
-        p4_1 = self.relu(self.proj4_1(c4)) + self.upsample(p5_1, c4)
-        p3_1 = self.relu(self.proj3_1(c3)) + self.upsample(p4_1, c3)
-        p2 = self.relu(self.proj2_1(c2)) + self.upsample(p3_1, c2)
+        for feat, proj_1, proj_2 in zip(feats[::-1][:-1], self.projs_1[:-1],
+                                        self.projs_2):
+            if last_feat is None:
+                last_feat = self.relu(proj_1(feat))
+            else:
+                last_feat = self.relu(proj_1(feat)) + self.upsample(
+                    last_feat, feat)
+            projs_1.append(last_feat)
+            projs_2.append(self.relu(proj_2(feat)))
 
-        # p5_1 = self.relu(self.conv_p5(p5_1))
-        # p4_1 = self.relu(self.conv_p4(p4_1))
-        # p3_1 = self.relu(self.conv_p3(p3_1))
+        last_feat = self.relu(self.projs_1[-1](feats[0])) + self.upsample(
+            last_feat, feats[0])
+        outs.append(self.relu(self.convs[0](last_feat)))
 
-        p5_2 = self.relu(self.proj5_2(c5))
-        p4_2 = self.relu(self.proj4_2(c4))
-        p3_2 = self.relu(self.proj3_2(c3))
+        for feat_1, feat_2, new, conv in zip(projs_1[::-1][:-1],
+                                             projs_2[::-1][:-1],
+                                             self.news[:-1], self.convs[1:-1]):
+            last_feat = feat_1 + feat_2 + self.relu(new(last_feat))
+            outs.append(self.relu(conv(last_feat)))
 
-        n2 = p2
-        n3 = p3_1 + p3_2 + self.relu(self.new3(n2))
-        n4 = p4_1 + p4_2 + self.relu(self.new4(n3))
-        n5 = p5_2 + self.relu(self.new5(n4))
+        last_feat = projs_2[0] + self.relu(self.news[-1](last_feat))
+        outs.append(self.relu(self.convs[-1](last_feat)))
 
-        n2 = self.relu(self.conv_n2(n2))
-        n3 = self.relu(self.conv_n3(n3))
-        n4 = self.relu(self.conv_n4(n4))
-        n5 = self.relu(self.conv_n5(n5))
-
-        return [n2, n3, n4, n5]
+        return outs
 
 
 if __name__ == "__main__":
@@ -109,11 +101,12 @@ if __name__ == "__main__":
     import torch
 
     model = BiFPN([2048, 1024, 512, 256])
+    print(model)
 
     c5 = torch.rand(2, 2048, 7, 7)
     c4 = torch.rand(2, 1024, 14, 14)
     c3 = torch.rand(2, 512, 28, 28)
     c2 = torch.rand(2, 256, 56, 56)
 
-    out = model([c2, c3, c4, c5])
-    [print(stage_out.shape) for stage_out in out]
+    outs = model([c2, c3, c4, c5])
+    [print(stage_outs.shape) for stage_outs in outs]

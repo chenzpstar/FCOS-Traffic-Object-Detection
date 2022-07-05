@@ -92,7 +92,7 @@ if __name__ == "__main__":
         if torch.cuda.is_available():
             torch.cuda.synchronize()
         cost_time = time.time() - start_time
-        print("cost time: {} ms".format(int(cost_time * 1000)))
+        print("cost time: {:.3f} ms".format(cost_time * 1000))
 
         scores = scores[0].cpu().numpy().astype(np.float32)
         labels = labels[0].cpu().numpy().astype(np.int64)

@@ -34,15 +34,14 @@ class FPN(nn.Module):
                  use_p5=True,
                  init_weights=True):
         super(FPN, self).__init__()
-        self.proj5 = conv1x1(in_channels[0], num_channels)
-        self.proj4 = conv1x1(in_channels[1], num_channels)
-        self.proj3 = conv1x1(in_channels[2], num_channels)
-        # self.proj2 = conv1x1(in_channels[3], num_channels)
-
-        self.conv5 = conv3x3(num_channels, num_channels)
-        self.conv4 = conv3x3(num_channels, num_channels)
-        self.conv3 = conv3x3(num_channels, num_channels)
-        # self.conv2 = conv3x3(num_channels, num_channels)
+        num_layers = len(in_channels)
+        self.projs = nn.ModuleList([
+            conv1x1(in_channels[i], num_channels)
+            for i in range(num_layers - 1)
+        ])
+        self.convs = nn.ModuleList([
+            conv3x3(num_channels, num_channels) for _ in range(num_layers - 1)
+        ])
 
         in_channel = num_channels if use_p5 else in_channels[0]
         self.conv6 = conv3x3(in_channel, num_channels, stride=2)
@@ -67,23 +66,21 @@ class FPN(nn.Module):
                              mode="nearest")
 
     def forward(self, feats):
-        _, c3, c4, c5 = feats
+        outs = []
+        last_feat = None
 
-        p5 = self.proj5(c5)
-        p4 = self.proj4(c4) + self.upsample(p5, c4)
-        p3 = self.proj3(c3) + self.upsample(p4, c3)
-        # p2 = self.proj2(c2) + self.upsample(p3, c2)
+        for feat, proj, conv in zip(feats[::-1], self.projs, self.convs):
+            if last_feat is None:
+                last_feat = proj(feat)
+            else:
+                last_feat = proj(feat) + self.upsample(last_feat, feat)
+            outs.insert(0, conv(last_feat))
 
-        p5 = self.conv5(p5)
-        p4 = self.conv4(p4)
-        p3 = self.conv3(p3)
-        # p2 = self.conv2(p2)
+        in_feat = outs[-1] if self.use_p5 else feats[-1]
+        outs.append(self.conv6(in_feat))
+        outs.append(self.conv7(F.relu(outs[-1])))
 
-        in_feat = p5 if self.use_p5 else c5
-        p6 = self.conv6(in_feat)
-        p7 = self.conv7(F.relu(p6))
-
-        return [p3, p4, p5, p6, p7]
+        return outs
 
 
 if __name__ == "__main__":
@@ -91,11 +88,12 @@ if __name__ == "__main__":
     import torch
 
     model = FPN([2048, 1024, 512, 256])
+    print(model)
 
     c5 = torch.rand(2, 2048, 7, 7)
     c4 = torch.rand(2, 1024, 14, 14)
     c3 = torch.rand(2, 512, 28, 28)
     c2 = torch.rand(2, 256, 56, 56)
 
-    out = model([c2, c3, c4, c5])
-    [print(stage_out.shape) for stage_out in out]
+    outs = model([c2, c3, c4, c5])
+    [print(stage_outs.shape) for stage_outs in outs]

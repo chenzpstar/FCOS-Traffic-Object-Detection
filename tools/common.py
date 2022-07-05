@@ -44,19 +44,21 @@ class Logger(object):
 
     def init_logger(self):
         logger = logging.getLogger(self.log_name)
-        logger.setLevel(level=logging.INFO)
+        logger.setLevel(logging.INFO)
 
         # 配置文件Handler
         file_handler = logging.FileHandler(self.log_path, "w")
         file_handler.setLevel(logging.INFO)
-        formatter = logging.Formatter(
+        file_formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-        file_handler.setFormatter(formatter)
+        file_handler.setFormatter(file_formatter)
 
         # 配置屏幕Handler
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.INFO)
-        # console_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+        # console_formatter = logging.Formatter(
+        #     '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        # console_handler.setFormatter(console_formatter)
 
         # 添加handler
         logger.addHandler(file_handler)
@@ -67,7 +69,7 @@ class Logger(object):
 
 def make_logger(cfg):
     """
-    在out_dir文件夹下以当前时间命名, 创建日志文件夹, 并创建logger用于记录信息
+    在log_dir文件夹下以当前时间命名, 创建日志文件夹, 并创建logger用于记录信息
     :param out_dir: str
     :return:
     """
@@ -79,7 +81,7 @@ def make_logger(cfg):
         os.makedirs(log_dir)
 
     # 创建logger
-    log_path = os.path.join(log_dir, "log.log")
+    log_path = os.path.join(log_dir, "train.log")
     logger = Logger(log_path)
     logger = logger.init_logger()
 
@@ -159,6 +161,6 @@ class WarmupLR(_LRScheduler):
             return warmup_factor
         elif method == "linear":
             alpha = iter / warmup_iters
-            return warmup_factor * (1 - alpha) + alpha
+            return warmup_factor * (1.0 - alpha) + alpha
         else:
-            raise ValueError("Unknown warmup method: {}".format(method))
+            raise ValueError("unknown warmup method: {}".format(method))

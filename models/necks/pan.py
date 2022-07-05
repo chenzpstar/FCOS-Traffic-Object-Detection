@@ -34,24 +34,15 @@ class PAN(nn.Module):
                  use_p5=True,
                  init_weights=True):
         super(PAN, self).__init__()
-        self.proj5 = conv1x1(in_channels[0], num_channels)
-        self.proj4 = conv1x1(in_channels[1], num_channels)
-        self.proj3 = conv1x1(in_channels[2], num_channels)
-        self.proj2 = conv1x1(in_channels[3], num_channels)
-
-        # self.conv_p5 = conv3x3(num_channels, num_channels)
-        # self.conv_p4 = conv3x3(num_channels, num_channels)
-        # self.conv_p3 = conv3x3(num_channels, num_channels)
-
-        self.new3 = conv3x3(num_channels, num_channels, stride=2)
-        self.new4 = conv3x3(num_channels, num_channels, stride=2)
-        self.new5 = conv3x3(num_channels, num_channels, stride=2)
-
-        self.conv_n2 = conv3x3(num_channels, num_channels)
-        self.conv_n3 = conv3x3(num_channels, num_channels)
-        self.conv_n4 = conv3x3(num_channels, num_channels)
-        self.conv_n5 = conv3x3(num_channels, num_channels)
-
+        num_layers = len(in_channels)
+        self.projs = nn.ModuleList(
+            [conv1x1(in_channels[i], num_channels) for i in range(num_layers)])
+        self.news = nn.ModuleList([
+            conv3x3(num_channels, num_channels, stride=2)
+            for _ in range(num_layers - 1)
+        ])
+        self.convs = nn.ModuleList(
+            [conv3x3(num_channels, num_channels) for _ in range(num_layers)])
         self.relu = nn.ReLU(inplace=True)
 
         if init_weights:
@@ -72,28 +63,24 @@ class PAN(nn.Module):
                              mode="nearest")
 
     def forward(self, feats):
-        c2, c3, c4, c5 = feats
+        projs, outs = [], []
+        last_feat = None
 
-        p5 = self.relu(self.proj5(c5))
-        p4 = self.relu(self.proj4(c4)) + self.upsample(p5, c4)
-        p3 = self.relu(self.proj3(c3)) + self.upsample(p4, c3)
-        p2 = self.relu(self.proj2(c2)) + self.upsample(p3, c2)
+        for feat, proj in zip(feats[::-1], self.projs):
+            if last_feat is None:
+                last_feat = self.relu(proj(feat))
+            else:
+                last_feat = self.relu(proj(feat)) + self.upsample(
+                    last_feat, feat)
+            projs.append(last_feat)
 
-        # p5 = self.relu(self.conv_p5(p5))
-        # p4 = self.relu(self.conv_p4(p4))
-        # p3 = self.relu(self.conv_p3(p3))
+        outs.append(self.relu(self.convs[0](last_feat)))
 
-        n2 = p2
-        n3 = p3 + self.relu(self.new3(n2))
-        n4 = p4 + self.relu(self.new4(n3))
-        n5 = p5 + self.relu(self.new5(n4))
+        for feat, new, conv in zip(projs[::-1][1:], self.news, self.convs[1:]):
+            last_feat = feat + self.relu(new(last_feat))
+            outs.append(self.relu(conv(last_feat)))
 
-        n2 = self.relu(self.conv_n2(n2))
-        n3 = self.relu(self.conv_n3(n3))
-        n4 = self.relu(self.conv_n4(n4))
-        n5 = self.relu(self.conv_n5(n5))
-
-        return [n2, n3, n4, n5]
+        return outs
 
 
 if __name__ == "__main__":
@@ -101,11 +88,12 @@ if __name__ == "__main__":
     import torch
 
     model = PAN([2048, 1024, 512, 256])
+    print(model)
 
     c5 = torch.rand(2, 2048, 7, 7)
     c4 = torch.rand(2, 1024, 14, 14)
     c3 = torch.rand(2, 512, 28, 28)
     c2 = torch.rand(2, 256, 56, 56)
 
-    out = model([c2, c3, c4, c5])
-    [print(stage_out.shape) for stage_out in out]
+    outs = model([c2, c3, c4, c5])
+    [print(stage_outs.shape) for stage_outs in outs]

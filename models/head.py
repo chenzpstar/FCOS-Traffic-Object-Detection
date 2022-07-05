@@ -117,6 +117,7 @@ if __name__ == "__main__":
     torch.manual_seed(0)
 
     model = FCOSHead(num_classes=3)
+    print(model)
 
     p7 = torch.rand(2, 256, 2, 2)
     p6 = torch.rand(2, 256, 4, 4)
@@ -124,5 +125,8 @@ if __name__ == "__main__":
     p4 = torch.rand(2, 256, 14, 14)
     p3 = torch.rand(2, 256, 28, 28)
 
-    out = model([p3, p4, p5, p6, p7])
-    [print(stage_out.shape) for branch_out in out for stage_out in branch_out]
+    outs = model([p3, p4, p5, p6, p7])
+    [
+        print(stage_outs.shape) for branch_outs in outs
+        for stage_outs in branch_outs
+    ]

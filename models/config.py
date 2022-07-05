@@ -11,6 +11,8 @@ class FCOSConfig():
     # backbone
     backbone = "resnet50"  # ["vgg16", "resnet50", "darknet19", "mobilenet", "shufflenet", "efficientnet"]
     pretrained = True
+    freeze_bn = False  # freeze bn's statistics
+    freeze_bn_affine = False  # freeze bn's params
 
     # neck
     neck = "fpn"  # ["fpn", "pan", "bifpn"]
@@ -33,7 +35,7 @@ class FCOSConfig():
     # loss
     cls_loss = "focal"  # ["bce", "focal"]
     reg_loss = "iou"  # ["smooth_l1", "iou", "giou", "diou", "ciou"]
-    use_ctr = True
+    use_ctrness = True
 
     # detect
     max_num_boxes = 1000  # 1000

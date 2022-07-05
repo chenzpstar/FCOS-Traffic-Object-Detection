@@ -147,7 +147,7 @@ def eval_metrics(pred_boxes,
     :param pred_labels: list of 1d array, shape[(m),(n)...], value is sparse label index
     :param gt_boxes: list of 2d array, shape[(a,(x1,y1,x2,y2)),(b,(x1,y1,x2,y2))...]
     :param gt_labels: list of 1d array, shape[(a),(b)...], value is sparse label index
-    :param num_classes: eg. 3, total number of classes, not including background which is equal to 0
+    :param num_classes: eg. 3, total number of classes, excluding background which is equal to 0
     :param iou_thr: eg. 0.5
     :return: a series of metrics for each cls
     """

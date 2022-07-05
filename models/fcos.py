@@ -50,6 +50,10 @@ class FCOS(nn.Module):
         elif self.cfg.backbone == "efficientnet":
             self.backbone = efficientnetv2_s(pretrained=self.cfg.pretrained)
             self.stage_channels = [256, 160, 64, 48]
+        else:
+            raise NotImplementedError(
+                "backbone only implemented ['vgg16', 'resnet50', 'darknet19', 'mobilenet', 'shufflenet', 'efficientnet']"
+            )
 
         # 2. neck
         if self.cfg.neck == "fpn":
@@ -62,6 +66,9 @@ class FCOS(nn.Module):
         elif self.cfg.neck == "bifpn":
             self.neck = BiFPN(in_channels=self.stage_channels,
                               num_channels=self.cfg.num_channels)
+        else:
+            raise NotImplementedError(
+                "neck only implemented ['fpn', 'pan', 'bifpn']")
 
         # 3. head
         self.head = FCOSHead(in_channels=self.cfg.num_channels,
@@ -71,6 +78,16 @@ class FCOS(nn.Module):
                              use_gn=self.cfg.use_gn,
                              ctr_on_reg=self.cfg.ctr_on_reg,
                              strides=self.cfg.strides)
+
+    def train(self, mode=True):
+        super(FCOS, self).train(mode)
+        if self.cfg.freeze_bn:
+            for m in self.backbone.modules():
+                if isinstance(m, nn.BatchNorm2d):
+                    m.eval()
+                    if self.cfg.freeze_bn_affine:
+                        m.weight.requires_grad = False
+                        m.bias.requires_grad = False
 
     def forward(self, imgs):
         backbone_feats = self.backbone(imgs)
@@ -118,12 +135,12 @@ if __name__ == "__main__":
     boxes = torch.rand(2, 3, 4)
 
     if flag == 1:
-        out = model(imgs, (labels, boxes))
-        [print(branch_out.item()) for branch_out in out]
+        outs = model(imgs, (labels, boxes))
+        [print(branch_outs.item()) for branch_outs in outs]
 
     if flag == 2:
-        out = model(imgs, mode="infer")
+        outs = model(imgs, mode="infer")
         [
-            print(batch_out.shape) for result_out in out
-            for batch_out in result_out
+            print(batch_outs.shape) for result_outs in outs
+            for batch_outs in result_outs
         ]

@@ -73,9 +73,10 @@ if __name__ == "__main__":
     print("loading model successfully")
 
     # 3. infer
-    t, fps = 0.0, 0.0
+    infer_time = 0.0
+    num_imgs = 1000
 
-    for img in tqdm(os.listdir(img_dir)[:1000]):
+    for img in tqdm(os.listdir(img_dir)[:num_imgs]):
         if torch.cuda.is_available():
             torch.cuda.synchronize()
         start_time = time.time()
@@ -95,7 +96,8 @@ if __name__ == "__main__":
         if torch.cuda.is_available():
             torch.cuda.synchronize()
         cost_time = time.time() - start_time
-        t = (t + cost_time) / 2.0
-        fps = (fps + 1.0 / cost_time) / 2.0
+        infer_time += cost_time
 
-    print("T: {} ms, FPS: {:.3f}".format(int(t * 1000), fps))
+    infer_time /= num_imgs
+    print("T: {:.3f} ms, FPS: {:.3f}".format(infer_time * 1000,
+                                             1.0 / infer_time))

@@ -22,7 +22,7 @@ class FCOSDetect(nn.Module):
         super(FCOSDetect, self).__init__()
         self.cfg = FCOSConfig if cfg is None else cfg
         self.strides = self.cfg.strides
-        self.use_ctr = self.cfg.use_ctr
+        self.use_ctrness = self.cfg.use_ctrness
         self.max_num_boxes = self.cfg.max_num_boxes
         self.score_thr = self.cfg.score_thr
         self.nms_iou_thr = self.cfg.nms_iou_thr
@@ -37,7 +37,7 @@ class FCOSDetect(nn.Module):
         ctr_preds = torch.sigmoid(ctr_logits)
 
         pred_scores, pred_labels = cls_preds.max(dim=-1)  # b(hw)c -> b(hw)
-        if self.use_ctr:
+        if self.use_ctrness:
             pred_scores = torch.sqrt(pred_scores * ctr_preds.squeeze_(dim=-1))
         pred_labels += 1
 

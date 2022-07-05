@@ -213,7 +213,7 @@ class FCOSLoss(nn.Module):
         self.cfg = FCOSConfig if cfg is None else cfg
         self.cls_loss = self.cfg.cls_loss
         self.reg_loss = self.cfg.reg_loss
-        self.use_ctr = self.cfg.use_ctr
+        self.use_ctrness = self.cfg.use_ctrness
 
     def forward(self, preds, targets):
         cls_logits, reg_preds, ctr_logits, coords = preds
@@ -239,7 +239,7 @@ class FCOSLoss(nn.Module):
         reg_loss = calc_reg_loss(reg_preds, reg_targets, pos_mask, num_pos,
                                  self.reg_loss).mean()
         ctr_loss = calc_ctr_loss(ctr_logits, ctr_targets, pos_mask,
-                                 num_pos).mean() if self.use_ctr else 0.0
+                                 num_pos).mean() if self.use_ctrness else 0.0
         total_loss = cls_loss + reg_loss + ctr_loss
 
         return total_loss, cls_loss, reg_loss, ctr_loss
@@ -275,8 +275,8 @@ if __name__ == "__main__":
             [torch.rand(2, 4, 1)] * 5,
         )
 
-        out = model(preds, targets)
-        [print(branch_out.item()) for branch_out in out]
+        outs = model(preds, targets)
+        [print(branch_outs.item()) for branch_outs in outs]
 
     if flag == 1:
         preds = torch.rand(2, 4, 3)
