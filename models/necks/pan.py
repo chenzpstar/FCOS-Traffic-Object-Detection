@@ -30,19 +30,19 @@ def conv1x1(in_channels, out_channels, stride=1, bias=True):
 class PAN(nn.Module):
     def __init__(self,
                  in_channels,
-                 num_channels=256,
+                 out_channels=256,
                  use_p5=True,
                  init_weights=True):
         super(PAN, self).__init__()
         num_layers = len(in_channels)
         self.projs = nn.ModuleList(
-            [conv1x1(in_channels[i], num_channels) for i in range(num_layers)])
+            [conv1x1(in_channels[i], out_channels) for i in range(num_layers)])
         self.news = nn.ModuleList([
-            conv3x3(num_channels, num_channels, stride=2)
+            conv3x3(out_channels, out_channels, stride=2)
             for _ in range(num_layers - 1)
         ])
         self.convs = nn.ModuleList(
-            [conv3x3(num_channels, num_channels) for _ in range(num_layers)])
+            [conv3x3(out_channels, out_channels) for _ in range(num_layers)])
         self.relu = nn.ReLU(inplace=True)
 
         if init_weights:
@@ -51,9 +51,7 @@ class PAN(nn.Module):
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_uniform_(m.weight,
-                                         mode='fan_out',
-                                         nonlinearity='relu')
+                nn.init.kaiming_uniform_(m.weight, a=0)
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
 
@@ -72,11 +70,11 @@ class PAN(nn.Module):
             else:
                 last_feat = self.relu(proj(feat)) + self.upsample(
                     last_feat, feat)
-            projs.append(last_feat)
+            projs.insert(0, last_feat)
 
         outs.append(self.relu(self.convs[0](last_feat)))
 
-        for feat, new, conv in zip(projs[::-1][1:], self.news, self.convs[1:]):
+        for feat, new, conv in zip(projs[1:], self.news, self.convs[1:]):
             last_feat = feat + self.relu(new(last_feat))
             outs.append(self.relu(conv(last_feat)))
 

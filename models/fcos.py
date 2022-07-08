@@ -58,14 +58,14 @@ class FCOS(nn.Module):
         # 2. neck
         if self.cfg.neck == "fpn":
             self.neck = FPN(in_channels=self.stage_channels,
-                            num_channels=self.cfg.num_channels,
+                            out_channels=self.cfg.num_channels,
                             use_p5=self.cfg.use_p5)
         elif self.cfg.neck == "pan":
             self.neck = PAN(in_channels=self.stage_channels,
-                            num_channels=self.cfg.num_channels)
+                            out_channels=self.cfg.num_channels)
         elif self.cfg.neck == "bifpn":
             self.neck = BiFPN(in_channels=self.stage_channels,
-                              num_channels=self.cfg.num_channels)
+                              out_channels=self.cfg.num_channels)
         else:
             raise NotImplementedError(
                 "neck only implemented ['fpn', 'pan', 'bifpn']")

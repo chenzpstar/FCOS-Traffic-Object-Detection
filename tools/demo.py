@@ -92,7 +92,8 @@ if __name__ == "__main__":
         if torch.cuda.is_available():
             torch.cuda.synchronize()
         cost_time = time.time() - start_time
-        print("cost time: {:.3f} ms".format(cost_time * 1000))
+        print("T: {:.3f} ms, FPS: {:.3f}".format(cost_time * 1000,
+                                                 1.0 / cost_time))
 
         scores = scores[0].cpu().numpy().astype(np.float32)
         labels = labels[0].cpu().numpy().astype(np.int64)

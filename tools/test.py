@@ -25,6 +25,7 @@ from eval import eval_model
 
 # 添加解析参数
 parser = argparse.ArgumentParser(description="Inference")
+parser.add_argument("--bs", default=None, type=int, help="batch size")
 parser.add_argument("--data_folder",
                     default="kitti",
                     type=str,
@@ -36,6 +37,7 @@ parser.add_argument("--ckpt_folder",
 args = parser.parse_args()
 
 # 修改配置参数
+cfg.valid_bs = args.bs if args.bs else cfg.valid_bs
 cfg.data_folder = args.data_folder if args.data_folder else cfg.data_folder
 cfg.ckpt_folder = args.ckpt_folder if args.ckpt_folder else cfg.ckpt_folder
 

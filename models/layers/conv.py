@@ -23,35 +23,20 @@ class Conv(nn.Module):
                  norm="bn",
                  act="relu"):
         super(Conv, self).__init__()
+        self.conv = nn.Conv2d(in_channels,
+                              out_channels,
+                              kernel_size,
+                              stride,
+                              padding,
+                              dilation,
+                              groups,
+                              bias=False if norm == "bn" else True)
+
         if norm is None:
-            self.conv = nn.Conv2d(in_channels,
-                                  out_channels,
-                                  kernel_size,
-                                  stride,
-                                  padding,
-                                  dilation,
-                                  groups,
-                                  bias=True)
             self.norm = None
         elif norm == "bn":
-            self.conv = nn.Conv2d(in_channels,
-                                  out_channels,
-                                  kernel_size,
-                                  stride,
-                                  padding,
-                                  dilation,
-                                  groups,
-                                  bias=False)
             self.norm = nn.BatchNorm2d(out_channels)
         elif norm == "gn":
-            self.conv = nn.Conv2d(in_channels,
-                                  out_channels,
-                                  kernel_size,
-                                  stride,
-                                  padding,
-                                  dilation,
-                                  groups,
-                                  bias=True)
             self.norm = nn.GroupNorm(32, out_channels)
         else:
             raise NotImplementedError(

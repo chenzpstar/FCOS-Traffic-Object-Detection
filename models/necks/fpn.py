@@ -30,22 +30,19 @@ def conv1x1(in_channels, out_channels, stride=1, bias=True):
 class FPN(nn.Module):
     def __init__(self,
                  in_channels,
-                 num_channels=256,
+                 out_channels=256,
                  use_p5=True,
                  init_weights=True):
         super(FPN, self).__init__()
-        num_layers = len(in_channels)
-        self.projs = nn.ModuleList([
-            conv1x1(in_channels[i], num_channels)
-            for i in range(num_layers - 1)
-        ])
-        self.convs = nn.ModuleList([
-            conv3x3(num_channels, num_channels) for _ in range(num_layers - 1)
-        ])
+        num_layers = len(in_channels) - 1
+        self.projs = nn.ModuleList(
+            [conv1x1(in_channels[i], out_channels) for i in range(num_layers)])
+        self.convs = nn.ModuleList(
+            [conv3x3(out_channels, out_channels) for _ in range(num_layers)])
 
-        in_channel = num_channels if use_p5 else in_channels[0]
-        self.conv6 = conv3x3(in_channel, num_channels, stride=2)
-        self.conv7 = conv3x3(num_channels, num_channels, stride=2)
+        in_channel = out_channels if use_p5 else in_channels[0]
+        self.conv6 = conv3x3(in_channel, out_channels, stride=2)
+        self.conv7 = conv3x3(out_channels, out_channels, stride=2)
         self.use_p5 = use_p5
 
         if init_weights:
@@ -54,9 +51,7 @@ class FPN(nn.Module):
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_uniform_(m.weight,
-                                         mode='fan_out',
-                                         nonlinearity='relu')
+                nn.init.kaiming_uniform_(m.weight, a=1)
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
 

@@ -7,6 +7,7 @@
 """
 
 import logging
+import math
 import os
 import random
 import sys
@@ -69,7 +70,7 @@ class Logger(object):
 
 def make_logger(cfg):
     """
-    在log_dir文件夹下以当前时间命名, 创建日志文件夹, 并创建logger用于记录信息
+    在log_dir下, 以当前时间命名, 创建日志文件夹, 并创建logger用于记录训练信息
     :param out_dir: str
     :return:
     """
@@ -88,25 +89,17 @@ def make_logger(cfg):
     return logger, log_dir
 
 
-def plot_curve(train_x,
-               train_y,
-               valid_x,
-               valid_y,
-               mode="loss",
-               kind="total",
-               out_dir=None):
+def plot_curve(plt_x, plt_y, mode="loss", kind="total", out_dir=None):
     """
-    绘制训练和验证集的loss曲线/acc曲线
-    :param train_x: epoch
-    :param train_y: 标量值
-    :param valid_x:
-    :param valid_y:
+    绘制训练和验证集的loss/acc曲线
+    :param plt_x: epoch
+    :param plt_y: 标量值
     :param mode: 'loss' or 'acc'
     :param out_dir:
     :return:
     """
-    plt.plot(train_x, train_y, label="Train")
-    plt.plot(valid_x, valid_y, label="Valid")
+    plt.plot(plt_x, plt_y["train"], label="Train")
+    plt.plot(plt_x, plt_y["valid"], label="Valid")
 
     plt.xlabel("epoch")
     plt.ylabel(mode)
@@ -145,11 +138,10 @@ class WarmupLR(_LRScheduler):
         See https://arxiv.org/abs/1706.02677 for more details.
 
         Args:
-            method (str): warmup method; either "constant" or "linear".
+            method (str): warmup method: "constant", "linear" or "cos".
             iter (int): iteration at which to calculate the warmup factor.
             warmup_iters (int): the number of warmup iterations.
-            warmup_factor (float): the base warmup factor (the meaning changes according
-                to the method used).
+            warmup_factor (float): the base warmup factor (the meaning changes according to the method used).
 
         Returns:
             float: the effective warmup factor at the given iteration.
@@ -161,6 +153,10 @@ class WarmupLR(_LRScheduler):
             return warmup_factor
         elif method == "linear":
             alpha = iter / warmup_iters
-            return warmup_factor * (1.0 - alpha) + alpha
+            return warmup_factor + (1.0 - warmup_factor) * alpha
+        elif method == "cos":
+            alpha = iter / warmup_iters
+            return warmup_factor + (1.0 - warmup_factor) * (
+                1.0 + math.cos(math.pi * (1.0 - alpha))) / 2.0
         else:
             raise ValueError("unknown warmup method: {}".format(method))

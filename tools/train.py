@@ -33,7 +33,7 @@ from eval import eval_model
 # 添加解析参数
 parser = argparse.ArgumentParser(description="Training")
 parser.add_argument("--lr", default=None, type=float, help="learning rate")
-parser.add_argument("--bs", default=None, type=int, help="train batch size")
+parser.add_argument("--bs", default=None, type=int, help="batch size")
 parser.add_argument("--max_epoch", default=None, type=int, help="max epoch")
 parser.add_argument("--data_folder",
                     default="kitti",
@@ -46,10 +46,10 @@ parser.add_argument("--ckpt_folder",
 args = parser.parse_args()
 
 # 修改配置参数
-cfg.lr_init = args.lr if args.lr else cfg.lr_init
+cfg.init_lr = args.lr if args.lr else cfg.init_lr
 cfg.train_bs = args.bs if args.bs else cfg.train_bs
+cfg.valid_bs = args.bs if args.bs else cfg.valid_bs
 cfg.max_epoch = args.max_epoch if args.max_epoch else cfg.max_epoch
-
 cfg.data_folder = args.data_folder if args.data_folder else cfg.data_folder
 cfg.ckpt_folder = args.ckpt_folder if args.ckpt_folder else cfg.ckpt_folder
 
@@ -98,7 +98,7 @@ def train_model(cfg,
                     nn.utils.clip_grad_norm_(model.parameters(), max_norm=5)
                 optimizer.step()
 
-            if epoch == 0:
+            if cfg.warmup and epoch == 0:
                 scheduler.step()
 
         elif mode == "valid":
@@ -218,7 +218,7 @@ if __name__ == "__main__":
     # 3. optimize
     optimizer = optim.SGD(
         filter(lambda p: p.requires_grad, model.parameters()),
-        lr=cfg.lr_init,
+        lr=cfg.init_lr,
         momentum=cfg.momentum,
         weight_decay=cfg.weight_decay,
     )
@@ -232,7 +232,7 @@ if __name__ == "__main__":
         scheduler = CosineAnnealingLR(
             optimizer,
             T_max=cfg.max_epoch - 1,
-            eta_min=cfg.lr_final,
+            eta_min=cfg.final_lr,
         )
     else:
         scheduler = MultiStepLR(
@@ -245,6 +245,7 @@ if __name__ == "__main__":
         optimizer,
         warmup_factor=cfg.warmup_factor,
         warmup_iters=len(train_loader),
+        warmup_method=cfg.warmup_method,
     ) if cfg.warmup else None
 
     scaler = GradScaler() if cfg.use_fp16 else None
@@ -315,36 +316,28 @@ if __name__ == "__main__":
         plt_x = np.arange(1, epoch + 2)
         plot_curve(
             plt_x,
-            total_loss_rec["train"],
-            plt_x,
-            total_loss_rec["valid"],
+            total_loss_rec,
             mode="loss",
             kind="total",
             out_dir=log_dir,
         )
         plot_curve(
             plt_x,
-            cls_loss_rec["train"],
-            plt_x,
-            cls_loss_rec["valid"],
+            cls_loss_rec,
             mode="loss",
             kind="classification",
             out_dir=log_dir,
         )
         plot_curve(
             plt_x,
-            reg_loss_rec["train"],
-            plt_x,
-            reg_loss_rec["valid"],
+            reg_loss_rec,
             mode="loss",
             kind="regression",
             out_dir=log_dir,
         )
         plot_curve(
             plt_x,
-            ctr_loss_rec["train"],
-            plt_x,
-            ctr_loss_rec["valid"],
+            ctr_loss_rec,
             mode="loss",
             kind="centerness",
             out_dir=log_dir,

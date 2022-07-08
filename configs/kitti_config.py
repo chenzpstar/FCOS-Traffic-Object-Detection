@@ -82,7 +82,7 @@ cfg.valid_bs = 4
 cfg.workers = 4
 
 # optimizer
-cfg.lr_init = 0.005  # 0.01
+cfg.init_lr = 0.005  # 0.01
 cfg.momentum = 0.9  # 0.9
 cfg.weight_decay = 5e-4  # 1e-4
 
@@ -92,13 +92,16 @@ cfg.milestones = [8, 11]
 cfg.max_epoch = 12
 
 cfg.exp_lr = False
-cfg.exp_factor = 0.66  # 0.66^11 = 0.01
+cfg.exp_factor = 0.658  # 0.658^11 = 0.01
 
 cfg.cos_lr = False
-cfg.lr_final = 5e-5
+cfg.final_lr = 5e-5
 
 cfg.warmup = True
-cfg.warmup_factor = 0.001
+cfg.warmup_factor = 0.01  # 0.001
+# cfg.warmup_method = "constant"  # ["constant", "linear", "cos"]
+cfg.warmup_method = "linear"
+# cfg.warmup_method = "cos"
 
 # other
 cfg.log_interval = 100
