@@ -72,14 +72,17 @@ class VGG(nn.Module):
 def make_layers(cfg, norm=False):
     stages = []
     in_channels = 3
+
     for u in cfg:
         layers = []
+
         for v in u:
             if v == 'M':
                 layers.append(nn.MaxPool2d(kernel_size=2, stride=2))
             else:
                 layers.extend(conv3x3(in_channels, v, norm=norm))
                 in_channels = v
+
         stages.append(nn.Sequential(*layers))
 
     return nn.Sequential(*stages)

@@ -94,6 +94,7 @@ class KITTIDataset(Dataset):
     def _get_data_info(self):
         img_info, anno_info = [], []
         img_dir = os.path.join(self.root_dir, self.set_name, "image_2")
+
         for img in os.listdir(img_dir):
             if img.endswith(".png"):
                 img_path = os.path.join(img_dir, img)
@@ -113,6 +114,7 @@ class KITTIDataset(Dataset):
 
     def _get_txt_anno(self, txt_path):
         labels, boxes = [], []
+
         with open(txt_path, 'r') as f:
             for line in f.readlines():
                 obj = line.rstrip().split(' ')
@@ -157,7 +159,7 @@ if __name__ == "__main__":
         boxes = boxes[0].data.numpy().astype(np.int64)
 
         for label, box in zip(labels, boxes):
-            color = list(map(lambda i: i * 255, colors[label - 1]))
+            color = tuple(map(lambda i: i * 255, colors[label - 1]))
             cls_name = train_set.labels_dict[label]
             cv2.rectangle(img, box[:2], box[2:], color, 1)
             cv2.rectangle(img, box[:2],

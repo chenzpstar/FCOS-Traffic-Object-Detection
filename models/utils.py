@@ -24,7 +24,7 @@ def decode_coords(feat, stride=1):
     x_shift = x_shift.reshape(-1)  # [h,w] -> [h*w]
     y_shift = y_shift.reshape(-1)  # [h,w] -> [h*w]
 
-    return torch.stack([x_shift, y_shift], dim=-1)
+    return torch.stack((x_shift, y_shift), dim=-1)
 
 
 def reshape_feats(feats):
@@ -42,7 +42,7 @@ def coords2offsets(coords, boxes):
     # xy2 - xy -> rb
     offsets_rb = boxes[..., 2:][:, None] - coords[None, :, None]
 
-    return torch.cat([offsets_lt, offsets_rb], dim=-1)
+    return torch.cat((offsets_lt, offsets_rb), dim=-1)
 
 
 def coords2centers(coords, boxes):
@@ -53,7 +53,7 @@ def coords2centers(coords, boxes):
     # cxy - xy -> rb
     ctr_offsets_rb = -ctr_offsets_lt
 
-    return torch.cat([ctr_offsets_lt, ctr_offsets_rb], dim=-1)
+    return torch.cat((ctr_offsets_lt, ctr_offsets_rb), dim=-1)
 
 
 def coords2boxes(coords, offsets, stride=None):
@@ -64,14 +64,14 @@ def coords2boxes(coords, offsets, stride=None):
     # xy + rb -> xy2
     boxes_xy2 = coords[None, :] + offsets[..., 2:]
 
-    return torch.cat([boxes_xy1, boxes_xy2], dim=-1)
+    return torch.cat((boxes_xy1, boxes_xy2), dim=-1)
 
 
 def decode_boxes(offsets, coords, strides=None):
     if strides is not None:
-        boxes = list(map(coords2boxes, coords, offsets, strides))
+        boxes = tuple(map(coords2boxes, coords, offsets, strides))
     else:
-        boxes = list(map(coords2boxes, coords, offsets))
+        boxes = tuple(map(coords2boxes, coords, offsets))
 
     return torch.cat(boxes, dim=1)
 
@@ -95,7 +95,7 @@ def box_iou(boxes1, boxes2):
 
     union = box_area(boxes1) + box_area(boxes2) - overlap
 
-    return overlap / union.clamp(min=1e-8)
+    return overlap / union.clamp(min=1e-7)
 
 
 def offset_area(offsets):
@@ -113,7 +113,7 @@ def offset_iou(offsets1, offsets2):
 
     union = offset_area(offsets1) + offset_area(offsets2) - overlap
 
-    return overlap / union.clamp(min=1e-8)
+    return overlap / union.clamp(min=1e-7)
 
 
 def clip_boxes(boxes, imgs):
@@ -124,7 +124,7 @@ def clip_boxes(boxes, imgs):
     return boxes
 
 
-def nms_boxes(boxes, scores, iou_thr=0.5, mode="iou"):
+def nms_boxes(boxes, scores, iou_thr=0.5, method="iou"):
     if boxes.shape[0] == 0:
         return torch.zeros(0, dtype=torch.long, device=boxes.device)
     assert boxes.shape[-1] == 4
@@ -146,7 +146,7 @@ def nms_boxes(boxes, scores, iou_thr=0.5, mode="iou"):
         top_boxes, other_boxes = boxes[i], boxes[order]
         iou = box_iou(top_boxes, other_boxes)
 
-        if mode == "diou":
+        if method == "diou":
             xy1_min = torch.min(top_boxes[..., :2], other_boxes[..., :2])
             xy2_max = torch.max(top_boxes[..., 2:], other_boxes[..., 2:])
             wh_max = (xy2_max - xy1_min).clamp_(min=0)
@@ -157,7 +157,7 @@ def nms_boxes(boxes, scores, iou_thr=0.5, mode="iou"):
             cwh = top_cxy - other_cxy
             p_dist = cwh[..., 0].pow(2) + cwh[..., 1].pow(2)
 
-            iou -= p_dist / c_dist.clamp(min=1e-8)
+            iou -= p_dist / c_dist.clamp(min=1e-7)
 
         idx = torch.where(iou <= iou_thr)[0]
         if idx.numel() == 0:

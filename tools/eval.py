@@ -25,7 +25,7 @@ def eval_model(model,
 
     # 1. 预测数据
     for imgs, labels, boxes in tqdm(data_loader):
-        imgs = imgs.to(device)
+        imgs = imgs.to(device, non_blocking=True)
 
         with torch.no_grad():
             outs = model(imgs, mode="infer")
@@ -41,27 +41,19 @@ def eval_model(model,
         pred_scores, pred_labels, pred_boxes)
 
     # 3. 评估指标
-    metrics = eval_metrics(
-        pred_boxes,
-        pred_scores,
-        pred_labels,
-        gt_boxes,
-        gt_labels,
-        num_classes,
-        iou_thr,
-        use_07_metric,
-    )
+    metrics = eval_metrics(pred_boxes, pred_scores, pred_labels, gt_boxes,
+                           gt_labels, num_classes, iou_thr, use_07_metric)
 
     return metrics
 
 
 def sort_by_score(scores, labels, boxes):
-    orders = list(map(lambda score: (-score).argsort(), scores))
-    sorted_scores = list(map(lambda score, order: score[order], scores,
-                             orders))
-    sorted_labels = list(map(lambda label, order: label[order], labels,
-                             orders))
-    sorted_boxes = list(map(lambda box, order: box[order], boxes, orders))
+    orders = tuple(map(lambda score: (-score).argsort(), scores))
+    sorted_scores = tuple(
+        map(lambda score, order: score[order], scores, orders))
+    sorted_labels = tuple(
+        map(lambda label, order: label[order], labels, orders))
+    sorted_boxes = tuple(map(lambda box, order: box[order], boxes, orders))
 
     return sorted_scores, sorted_labels, sorted_boxes
 
@@ -117,18 +109,18 @@ def _compute_ap(recall, precision, use_07_metric=False):
         # correct AP calculation
         # first append sentinel values at the end
         mrec = np.concatenate(([0.0], recall, [1.0]))
-        mpre = np.concatenate(([0.0], precision, [0.0]))
+        mprec = np.concatenate(([0.0], precision, [0.0]))
 
         # compute the precision envelope
-        for i in range(mpre.size - 1, 0, -1):
-            mpre[i - 1] = np.maximum(mpre[i - 1], mpre[i])
+        for i in range(mprec.size - 1, 0, -1):
+            mprec[i - 1] = np.maximum(mprec[i - 1], mprec[i])
 
         # to calculate area under PR curve, look for points
         # where X axis (recall) changes value
         i = np.where(mrec[1:] != mrec[:-1])[0]
 
-        # and sum (\Delta recall) * prec
-        ap = np.sum((mrec[i + 1] - mrec[i]) * mpre[i + 1])
+        # and sum (\Delta recall) * precision
+        ap = np.sum((mrec[i + 1] - mrec[i]) * mprec[i + 1])
 
     return ap
 
@@ -151,19 +143,20 @@ def eval_metrics(pred_boxes,
     :param iou_thr: eg. 0.5
     :return: a series of metrics for each cls
     """
-    recalls, precisions, f1s, aps = [], [], [], []
+    metric_rec = {"rec": [], "prec": [], "f1": [], "ap": []}
 
     for label in range(1, num_classes + 1):
         # get samples with specific label
-        pred_label_loc = list(map(lambda labels: labels == label, pred_labels))
-        pred_boxes_cls = list(
+        pred_label_loc = tuple(map(lambda labels: labels == label,
+                                   pred_labels))
+        pred_boxes_cls = tuple(
             map(lambda boxes, mask: boxes[mask], pred_boxes, pred_label_loc))
-        pred_scores_cls = list(
+        pred_scores_cls = tuple(
             map(lambda scores, mask: scores[mask], pred_scores,
                 pred_label_loc))
 
-        gt_label_loc = list(map(lambda labels: labels == label, gt_labels))
-        gt_boxes_cls = list(
+        gt_label_loc = tuple(map(lambda labels: labels == label, gt_labels))
+        gt_boxes_cls = tuple(
             map(lambda boxes, mask: boxes[mask], gt_boxes, gt_label_loc))
 
         fp = np.zeros((0, ))
@@ -190,14 +183,14 @@ def eval_metrics(pred_boxes,
 
                 sample_pred_box = np.expand_dims(sample_pred_box, axis=0)
                 iou = _compute_iou(sample_gt_boxes, sample_pred_box)
-                gt_idx = np.argmax(iou, axis=0)
-                max_iou = iou[gt_idx, 0]
+                max_iou_idx = np.argmax(iou, axis=0)
+                max_iou = iou[max_iou_idx, 0]
 
                 # one gt can only be assigned to one predicted bbox
-                if max_iou >= iou_thr and gt_idx not in assigned_gt_boxes:
+                if max_iou >= iou_thr and max_iou_idx not in assigned_gt_boxes:
                     fp = np.append(fp, 0)
                     tp = np.append(tp, 1)
-                    assigned_gt_boxes.append(gt_idx)
+                    assigned_gt_boxes.append(max_iou_idx)
                 else:
                     fp = np.append(fp, 1)
                     tp = np.append(tp, 0)
@@ -210,17 +203,16 @@ def eval_metrics(pred_boxes,
         fp = np.cumsum(fp)
         tp = np.cumsum(tp)
         # compute recall, precision and f1 score
-        recall = tp / np.maximum(total_gt_boxes, np.finfo(np.float32).eps)
-        precision = tp / np.maximum(tp + fp, np.finfo(np.float32).eps)
-        f1 = 2 * recall[-1] * precision[-1] / np.maximum(
-            recall[-1] + precision[-1],
-            np.finfo(np.float32).eps)
+        rec = tp / np.maximum(total_gt_boxes, np.finfo(np.float32).eps)
+        prec = tp / np.maximum(tp + fp, np.finfo(np.float32).eps)
+        f1 = 2 * rec[-1] * prec[-1] / np.maximum(rec[-1] + prec[-1],
+                                                 np.finfo(np.float32).eps)
         # compute average precision
-        ap = _compute_ap(recall, precision, use_07_metric)
+        ap = _compute_ap(rec, prec, use_07_metric)
 
-        recalls.append(recall[-1])
-        precisions.append(precision[-1])
-        f1s.append(f1)
-        aps.append(ap)
+        metric_rec["rec"].append(rec[-1])
+        metric_rec["prec"].append(prec[-1])
+        metric_rec["f1"].append(f1)
+        metric_rec["ap"].append(ap)
 
-    return recalls, precisions, f1s, aps
+    return metric_rec

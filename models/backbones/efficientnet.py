@@ -60,6 +60,7 @@ class MBConv(nn.Module):
 
         layers = []
         exp_channels = int(in_channels * t)
+
         if fused:
             if t != 1:
                 layers.extend([
@@ -94,6 +95,7 @@ class MBConv(nn.Module):
                 # pw-linear
                 conv1x1(exp_channels, out_channels, act=None),
             ])
+
         self.residual = nn.Sequential(*layers)
 
     def forward(self, x):

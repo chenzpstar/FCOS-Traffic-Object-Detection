@@ -82,6 +82,7 @@ class BDD100KDataset(Dataset):
 
     def _get_data_info(self):
         img_dir = os.path.join(self.root_dir, "images", "100k", self.set_name)
+
         for img in os.listdir(img_dir):
             if img.endswith(".jpg"):
                 img_path = os.path.join(img_dir, img)
@@ -89,10 +90,12 @@ class BDD100KDataset(Dataset):
                     ".jpg", ".json")
                 if os.path.isfile(anno_path):
                     self.data_info.append((img_path, anno_path))
+
         random.shuffle(self.data_info)
 
     def _get_json_anno(self, json_path):
         labels, boxes = [], []
+
         with open(json_path, 'r') as f:
             anno = json.load(f)
             try:
@@ -145,7 +148,7 @@ if __name__ == "__main__":
         boxes = boxes[0].data.numpy().astype(np.int64)
 
         for label, box in zip(labels, boxes):
-            color = list(map(lambda i: i * 255, colors[label - 1]))
+            color = tuple(map(lambda i: i * 255, colors[label - 1]))
             cls_name = train_set.labels_dict[label]
             cv2.rectangle(img, box[:2], box[2:], color, 1)
             cv2.rectangle(img, box[:2],

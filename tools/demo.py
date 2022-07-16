@@ -84,9 +84,10 @@ if __name__ == "__main__":
         img_norm = Normalize(cfg.mean, cfg.std)(img_rgb)
         img_chw = img_norm.transpose((2, 0, 1))  # hwc -> chw
         img_tensor = torch.from_numpy(img_chw).float()
-        img_tensor = img_tensor.unsqueeze_(dim=0).to(cfg.device)  # chw -> bchw
+        img_tensor.unsqueeze_(dim=0)  # chw -> bchw
 
         with torch.no_grad():
+            img_tensor = img_tensor.to(cfg.device, non_blocking=True)
             scores, labels, boxes = model(img_tensor, mode="infer")
 
         if torch.cuda.is_available():
@@ -100,7 +101,7 @@ if __name__ == "__main__":
         boxes = boxes[0].cpu().numpy().astype(np.int64)
 
         for score, label, box in zip(scores, labels, boxes):
-            color = list(map(lambda i: i * 255, colors[label - 1]))
+            color = tuple(map(lambda i: i * 255, colors[label - 1]))
             cls_name = dataset.labels_dict[label]
             cv2.rectangle(img_pad, box[:2], box[2:], color, 1)
             cv2.rectangle(img_pad, box[:2],

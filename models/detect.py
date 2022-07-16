@@ -26,7 +26,7 @@ class FCOSDetect(nn.Module):
         self.max_num_boxes = self.cfg.max_num_boxes
         self.score_thr = self.cfg.score_thr
         self.nms_iou_thr = self.cfg.nms_iou_thr
-        self.nms_mode = self.cfg.nms_mode
+        self.nms_method = self.cfg.nms_method
 
     def forward(self, preds, imgs):
         cls_logits, reg_preds, ctr_logits, coords = preds
@@ -70,20 +70,16 @@ class FCOSDetect(nn.Module):
             filter_boxes = topk_boxes[score_mask]
 
             # 3. 计算nms
-            nms_idx = self._batch_nms(
-                filter_boxes,
-                filter_scores,
-                filter_labels,
-                self.nms_iou_thr,
-                self.nms_mode,
-            )
+            nms_idx = self._batch_nms(filter_boxes, filter_scores,
+                                      filter_labels, self.nms_iou_thr,
+                                      self.nms_method)
             nms_scores.append(filter_scores[nms_idx])
             nms_labels.append(filter_labels[nms_idx])
             nms_boxes.append(filter_boxes[nms_idx])
 
         return nms_scores, nms_labels, nms_boxes
 
-    def _batch_nms(self, boxes, scores, labels, iou_thr=0.5, mode="iou"):
+    def _batch_nms(self, boxes, scores, labels, iou_thr=0.5, method="iou"):
         # Strategy: in order to perform NMS independently per class,
         # we add an offset to all the boxes. The offset is dependent
         # only on the class idx, and is large enough so that boxes
@@ -96,7 +92,7 @@ class FCOSDetect(nn.Module):
         offsets = labels.to(boxes) * (max_coord - min_coord + 1)
         new_boxes = boxes.clone() + offsets[:, None]
 
-        return nms_boxes(new_boxes, scores, iou_thr, mode)
+        return nms_boxes(new_boxes, scores, iou_thr, method)
 
 
 if __name__ == "__main__":

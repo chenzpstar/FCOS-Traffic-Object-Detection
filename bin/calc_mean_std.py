@@ -14,7 +14,7 @@ def calc_mean_std(data_loader):
     img_mean_sigma, img_std_sigma = 0.0, 0.0
 
     for data in tqdm(data_loader):
-        img = data[0].cuda()
+        img = data[0].to("cuda:0", non_blocking=True)
         num_channels = img.shape[1]  # bchw
         img /= 255.0
         img = img.permute(0, 2, 3, 1).reshape(
@@ -75,6 +75,7 @@ if __name__ == '__main__':
         shuffle=False,
         num_workers=4,
         collate_fn=Collate(),
+        pin_memory=True,
     )
     valid_loader = DataLoader(
         valid_set,
@@ -82,6 +83,7 @@ if __name__ == '__main__':
         shuffle=False,
         num_workers=4,
         collate_fn=Collate(),
+        pin_memory=True,
     )
 
     train_mean, train_std = calc_mean_std(train_loader)

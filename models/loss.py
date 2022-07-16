@@ -32,16 +32,24 @@ def bce_loss(logits, targets, reduction="sum"):
         return loss.sum()
     elif reduction == "mean":
         return loss.mean()
+    else:
+        return loss
 
-    return loss
 
-
-def focal_loss(logits, targets, alpha=0.25, gamma=2.0, reduction="sum"):
+def focal_loss(logits,
+               targets,
+               method="fl",
+               alpha=0.25,
+               gamma=2.0,
+               reduction="sum"):
     probs = torch.sigmoid(logits)
     loss = bce_loss(logits, targets, reduction=None)
 
-    probs_t = probs * targets + (1.0 - probs) * (1.0 - targets)
-    loss *= (1.0 - probs_t).pow(gamma)
+    if method == "fl":
+        probs_t = probs * targets + (1.0 - probs) * (1.0 - targets)
+        loss *= (1.0 - probs_t).pow(gamma)
+    elif method == "qfl":
+        loss *= torch.abs(targets - probs).pow(gamma)
 
     alpha_t = alpha * targets + (1.0 - alpha) * (1.0 - targets)
     loss *= alpha_t
@@ -50,8 +58,8 @@ def focal_loss(logits, targets, alpha=0.25, gamma=2.0, reduction="sum"):
         return loss.sum()
     elif reduction == "mean":
         return loss.mean()
-
-    return loss
+    else:
+        return loss
 
 
 def smooth_l1_loss(preds, targets, reduction="sum"):
@@ -62,11 +70,11 @@ def smooth_l1_loss(preds, targets, reduction="sum"):
         return loss.sum()
     elif reduction == "mean":
         return loss.mean()
+    else:
+        return loss
 
-    return loss
 
-
-def offset_iou_loss(preds, targets, mode="iou", reduction="sum", eps=1e-8):
+def offset_iou_loss(preds, targets, method="iou", reduction="sum", eps=1e-7):
     # [l,t,r,b]
     lt_min = torch.min(preds[..., :2], targets[..., :2])
     rb_min = torch.min(preds[..., 2:], targets[..., 2:])
@@ -76,7 +84,7 @@ def offset_iou_loss(preds, targets, mode="iou", reduction="sum", eps=1e-8):
     union = offset_area(preds) + offset_area(targets) - overlap
     iou = overlap / union.clamp(min=eps)
 
-    if mode == "giou":
+    if method == "giou":
         lt_max = torch.max(preds[..., :2], targets[..., :2])
         rb_max = torch.max(preds[..., 2:], targets[..., 2:])
         wh_max = (lt_max + rb_max).clamp_(min=0)
@@ -90,11 +98,11 @@ def offset_iou_loss(preds, targets, mode="iou", reduction="sum", eps=1e-8):
         return loss.sum()
     elif reduction == "mean":
         return loss.mean()
+    else:
+        return loss
 
-    return loss
 
-
-def box_iou_loss(preds, targets, mode="iou", reduction="sum", eps=1e-8):
+def box_iou_loss(preds, targets, method="iou", reduction="sum", eps=1e-7):
     # [x1,y1,x2,y2]
     xy1_max = torch.max(preds[..., :2], targets[..., :2])
     xy2_min = torch.min(preds[..., 2:], targets[..., 2:])
@@ -104,12 +112,12 @@ def box_iou_loss(preds, targets, mode="iou", reduction="sum", eps=1e-8):
     union = box_area(preds) + box_area(targets) - overlap
     iou = overlap / union.clamp(min=eps)
 
-    if mode in ["giou", "diou", "ciou"]:
+    if method in ["giou", "diou", "ciou"]:
         xy1_min = torch.min(preds[..., :2], targets[..., :2])
         xy2_max = torch.max(preds[..., 2:], targets[..., 2:])
         wh_max = (xy2_max - xy1_min).clamp_(min=0)
 
-        if mode == "giou":
+        if method == "giou":
             C_area = wh_max[..., 0] * wh_max[..., 1]
 
             iou -= (C_area - union) / C_area.clamp(min=eps)
@@ -123,7 +131,7 @@ def box_iou_loss(preds, targets, mode="iou", reduction="sum", eps=1e-8):
 
             iou -= p_dist / c_dist.clamp(min=eps)
 
-            if mode == "ciou":
+            if method == "ciou":
                 v = (4 / pi**2) * (torch.atan(box_ratio(targets)) -
                                    torch.atan(box_ratio(preds))).pow(2)
                 with torch.no_grad():
@@ -137,51 +145,56 @@ def box_iou_loss(preds, targets, mode="iou", reduction="sum", eps=1e-8):
         return loss.sum()
     elif reduction == "mean":
         return loss.mean()
+    else:
+        return loss
 
-    return loss
 
-
-def calc_cls_loss(logits, targets, num_pos, mode="focal"):
+def calc_cls_loss(logits, targets, num_pos, method="fl", smooth_eps=0.1):
     # logits: [b,h*w,c]
     # targets: [b,h*w,1]
-    num_classes = logits.shape[-1]
-    label = torch.arange(1, num_classes + 1, device=targets.device)
     assert logits.shape[:2] == targets.shape[:2]
 
     loss = []
+    num_classes = logits.shape[-1]
+    label = torch.arange(1, num_classes + 1, device=targets.device)
+
     for logit, target in zip(logits, targets):
-        target = (target == label).float()  # one-hot
+        target = (label == target).float()  # one-hot
+        if 0 < smooth_eps <= 1:
+            target.clamp_(min=smooth_eps / (num_classes - 1),
+                          max=1.0 - smooth_eps)  # label smoothing
         assert logit.shape == target.shape
 
-        if mode == "bce":
+        if method == "bce":
             loss.append(bce_loss(logit, target))
-        elif mode == "focal":
-            loss.append(focal_loss(logit, target))
+        elif method in ["fl", "qfl"]:
+            loss.append(focal_loss(logit, target, method))
         else:
             raise NotImplementedError(
-                "cls loss only implemented ['bce', 'focal']")
+                "cls loss only implemented ['bce', 'fl', 'qfl']")
 
     return torch.stack(loss, dim=0) / num_pos
 
 
-def calc_reg_loss(preds, targets, pos_masks, num_pos, mode="iou"):
+def calc_reg_loss(preds, targets, pos_masks, num_pos, method="iou"):
     # preds: [b,h*w,4]
     # targets: [b,h*w,4]
     # pos_masks: [b,h*w]
     assert preds.shape == targets.shape
 
     loss = []
+
     for pred, target, pos_mask in zip(preds, targets, pos_masks):
         pos_pred = pred[pos_mask]
         pos_target = target[pos_mask]
         assert pos_pred.shape == pos_target.shape
 
-        if mode == "smooth_l1":
+        if method == "smooth_l1":
             loss.append(smooth_l1_loss(pos_pred, pos_target))
-        elif mode in ["iou", "giou"]:
-            loss.append(offset_iou_loss(pos_pred, pos_target, mode))
-        elif mode in ["diou", "ciou"]:
-            loss.append(box_iou_loss(pos_pred, pos_target, mode))
+        elif method in ["iou", "giou"]:
+            loss.append(offset_iou_loss(pos_pred, pos_target, method))
+        elif method in ["diou", "ciou"]:
+            loss.append(box_iou_loss(pos_pred, pos_target, method))
         else:
             raise NotImplementedError(
                 "reg loss only implemented ['smooth_l1', 'iou', 'giou', 'diou', 'ciou]"
@@ -197,6 +210,7 @@ def calc_ctr_loss(logits, targets, pos_masks, num_pos):
     assert logits.shape == targets.shape
 
     loss = []
+
     for logit, target, pos_mask in zip(logits, targets, pos_masks):
         pos_logit = logit[pos_mask]
         pos_target = target[pos_mask]
@@ -214,6 +228,8 @@ class FCOSLoss(nn.Module):
         self.cls_loss = self.cfg.cls_loss
         self.reg_loss = self.cfg.reg_loss
         self.use_ctrness = self.cfg.use_ctrness
+        self.label_smoothing = self.cfg.label_smoothing
+        self.smooth_eps = self.cfg.smooth_eps if self.label_smoothing else 0.0
 
     def forward(self, preds, targets):
         cls_logits, reg_preds, ctr_logits, coords = preds
@@ -235,7 +251,7 @@ class FCOSLoss(nn.Module):
         num_pos = pos_mask.float().sum(dim=-1).clamp_(min=1)  # b(hw) -> b
 
         cls_loss = calc_cls_loss(cls_logits, cls_targets, num_pos,
-                                 self.cls_loss).mean()
+                                 self.cls_loss, self.smooth_eps).mean()
         reg_loss = calc_reg_loss(reg_preds, reg_targets, pos_mask, num_pos,
                                  self.reg_loss).mean()
         ctr_loss = calc_ctr_loss(ctr_logits, ctr_targets, pos_mask,

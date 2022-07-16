@@ -35,6 +35,7 @@ cfg.backbone = "resnet50"
 # cfg.backbone = "mobilenet"
 # cfg.backbone = "shufflenet"
 # cfg.backbone = "efficientnet"
+
 cfg.pretrained = True
 cfg.freeze_bn = False  # freeze bn's statistics
 cfg.freeze_bn_affine = False  # freeze bn's params
@@ -43,6 +44,7 @@ cfg.freeze_bn_affine = False  # freeze bn's params
 cfg.neck = "fpn"  # ["fpn", "pan", "bifpn"]
 # cfg.neck = "pan"
 # cfg.neck = "bifpn"
+
 cfg.num_channels = 256  # 256
 cfg.use_p5 = True
 
@@ -56,25 +58,32 @@ cfg.ctr_on_reg = True
 # target
 cfg.strides = [8, 16, 32, 64, 128]
 cfg.bounds = [[-1, 64], [64, 128], [128, 256], [256, 512], [512, 1e6]]
-cfg.use_ctr_sampling = True
-cfg.ctr_ratio = 1.5  # 1.5
+
+cfg.ctr_sampling = True
+cfg.sample_radius = 1.5  # 1.5
 
 # loss
-# cfg.cls_loss = "bce"  # ["bce", "focal"]
-cfg.cls_loss = "focal"
+# cfg.cls_loss = "bce"  # ["bce", "fl", "qfl"]
+cfg.cls_loss = "fl"
+# cfg.cls_loss = "qfl"
+
 # cfg.reg_loss = "smooth_l1"  # ["smooth_l1", "iou", "giou", "diou", "ciou"]
 cfg.reg_loss = "iou"
 # cfg.reg_loss = "giou"
 # cfg.reg_loss = "diou"
 # cfg.reg_loss = "ciou"
+
 cfg.use_ctrness = True
+
+cfg.label_smoothing = False
+cfg.smooth_eps = 0.001  # 0.1
 
 # detect
 cfg.max_num_boxes = 150  # 1000
 cfg.score_thr = 0.05  # 0.05
 cfg.nms_iou_thr = 0.5  # 0.6
-cfg.nms_mode = "iou"  # ["iou", "diou"]
-# cfg.nms_mode = "diou"
+cfg.nms_method = "iou"  # ["iou", "diou"]
+# cfg.nms_method = "diou"
 
 # dataloader
 cfg.train_bs = 4
@@ -82,29 +91,43 @@ cfg.valid_bs = 4
 cfg.workers = 4
 
 # optimizer
+cfg.optimizer = "sgd"  # ["sgd", "adam"]
+# cfg.optimizer = "adam"
+
 cfg.init_lr = 0.005  # 0.01
 cfg.momentum = 0.9  # 0.9
 cfg.weight_decay = 5e-4  # 1e-4
+cfg.no_decay = False
 
 # scheduler
-cfg.factor = 0.1
+cfg.scheduler = "mstep"  # ["mstep", "exp", "cos"]
+# cfg.scheduler = "exp"
+# cfg.scheduler = "cos"
+
 cfg.milestones = [8, 11]
-cfg.max_epoch = 12
-
-cfg.exp_lr = False
-cfg.exp_factor = 0.658  # 0.658^11 = 0.01
-
-cfg.cos_lr = False
+cfg.decay_factor = 0.1
+cfg.decay_rate = 0.01
 cfg.final_lr = 5e-5
 
 cfg.warmup = True
 cfg.warmup_factor = 0.01  # 0.001
+cfg.warmup_epochs = 1
 # cfg.warmup_method = "constant"  # ["constant", "linear", "cos"]
 cfg.warmup_method = "linear"
 # cfg.warmup_method = "cos"
 
-# other
-cfg.log_interval = 100
 cfg.use_fp16 = False
+
+# train
+cfg.num_epochs = 12
+cfg.log_interval = 100
+
+cfg.mixup = False
+cfg.mixup_alpha = 1.5  # 1.5
+
 cfg.clip_grad = False
+cfg.max_grad_norm = 5  # 5
+
+# eval
+cfg.map_iou_thr = 0.5  # 0.5
 cfg.use_07_metric = False

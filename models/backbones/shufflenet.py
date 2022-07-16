@@ -35,17 +35,6 @@ model_urls = {
 }
 
 
-def channel_split(x, split):
-    """split a tensor into two pieces along channel dimension
-    Args:
-        x: input tensor
-        split (int): channel size for each pieces
-    """
-    assert x.shape[1] == split * 2
-
-    return torch.split(x, split, dim=1)
-
-
 def channel_shuffle(x, groups):
     """channel shuffle operation
     Args:
@@ -71,6 +60,7 @@ class ShuffleUnit(nn.Module):
 
         shortcut, residual = [], []
         split_channels = int(out_channels / 2)
+
         if stride != 1 or in_channels != out_channels:
             shortcut.extend([
                 # dw-linear
@@ -97,15 +87,16 @@ class ShuffleUnit(nn.Module):
             # pw
             conv1x1(split_channels, split_channels),
         ])
+
         self.shortcut = nn.Sequential(*shortcut)
         self.residual = nn.Sequential(*residual)
 
     def forward(self, x):
         if self.stride == 1 and self.in_channels == self.out_channels:
-            x1, x2 = channel_split(x, int(self.in_channels / 2))
-            out = torch.cat([self.shortcut(x1), self.residual(x2)], dim=1)
+            x1, x2 = x.chunk(2, dim=1)
+            out = torch.cat((x1, self.residual(x2)), dim=1)
         else:
-            out = torch.cat([self.shortcut(x), self.residual(x)], dim=1)
+            out = torch.cat((self.shortcut(x), self.residual(x)), dim=1)
 
         return channel_shuffle(out, 2)
 

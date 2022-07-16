@@ -20,9 +20,9 @@ class Collate():
         pad_labels = []
         pad_boxes = []
 
-        num_h = list(map(lambda img: int(img.shape[1]), imgs))
-        num_w = list(map(lambda img: int(img.shape[2]), imgs))
-        num_boxes = list(map(lambda boxes: int(boxes.shape[0]), boxes))
+        num_h = tuple(map(lambda img: int(img.shape[1]), imgs))
+        num_w = tuple(map(lambda img: int(img.shape[2]), imgs))
+        num_boxes = tuple(map(lambda boxes: int(boxes.shape[0]), boxes))
 
         max_h = np.array(num_h).max()
         max_w = np.array(num_w).max()

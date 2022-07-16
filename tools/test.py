@@ -75,6 +75,7 @@ if __name__ == "__main__":
         shuffle=False,
         num_workers=cfg.workers,
         collate_fn=Collate(),
+        pin_memory=True,
     )
     print("test loader has {} iters".format(len(test_loader)))
 
@@ -93,24 +94,19 @@ if __name__ == "__main__":
     # 3. test
     for thr in [0.5, 0.75]:
         # 评估指标
-        recalls, precisions, f1s, aps = eval_model(
-            model,
-            test_loader,
-            num_classes=cfg.num_classes,
-            iou_thr=thr,
-            use_07_metric=cfg.use_07_metric,
-            device=cfg.device,
-        )
+        metrics = eval_model(model, test_loader, cfg.num_classes, thr,
+                             cfg.use_07_metric, cfg.device)
 
         # 计算mAP
-        mAP = np.mean(aps)
+        mAP = np.mean(metrics["ap"])
 
         # 输出结果
         with open(out_path, "a") as f:
             for label in range(cfg.num_classes):
                 print(
-                    "class: {}, recall: {:.3%}, precision: {:.3%}, f1: {:.3%}, ap: {:.3%}"
-                    .format(test_set.labels_dict[label + 1], recalls[label],
-                            precisions[label], f1s[label], aps[label]),
+                    "class: {}, rec: {:.3%}, prec: {:.3%}, f1: {:.3%}, ap: {:.3%}"
+                    .format(test_set.labels_dict[label + 1],
+                            metrics["rec"][label], metrics["prec"][label],
+                            metrics["f1"][label], metrics["ap"][label]),
                     file=f)
             print("mAP@{}: {:.3%}".format(thr, mAP), file=f)

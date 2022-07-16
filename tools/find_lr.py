@@ -17,7 +17,6 @@ sys.path.append(os.path.join(BASE_DIR, ".."))
 import matplotlib.pyplot as plt
 import numpy as np
 import torch.nn as nn
-import torch.optim as optim
 # from configs.bdd100k_config import cfg
 from configs.kitti_config import cfg
 from data import BDD100KDataset, Collate, KITTIDataset
@@ -26,7 +25,7 @@ from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from common import setup_seed
+from common import build_optimizer, mixup, setup_seed
 
 # 添加解析参数
 parser = argparse.ArgumentParser(description="Training")
@@ -50,44 +49,52 @@ def find_lr(cfg,
             init_lr=1e-8,
             final_lr=10.0,
             beta=0.98,
-            mode="exp"):
+            method="exp"):
     lr = init_lr
     optimizer.param_groups[0]["lr"] = lr
     num_iters = len(data_loader) - 1
 
-    if mode == "exp":
+    if method == "exp":
         gamma = (final_lr / init_lr)**(1 / num_iters)
-    elif mode == "linear":
+    elif method == "linear":
         gamma = (final_lr - init_lr) / num_iters
 
     lr_rec, loss_rec = [], []
     avg_loss, best_loss = 0.0, 0.0
 
     for i, (imgs, labels, boxes) in tqdm(enumerate(data_loader)):
-        imgs = imgs.to(cfg.device)
-        labels = labels.to(cfg.device)
-        boxes = boxes.to(cfg.device)
+        imgs = imgs.to(cfg.device, non_blocking=True)
+        labels = labels.to(cfg.device, non_blocking=True)
+        boxes = boxes.to(cfg.device, non_blocking=True)
+
+        if cfg.mixup:
+            imgs, labels, boxes = mixup(imgs, labels, boxes, cfg.mixup_alpha,
+                                        cfg.device)
 
         optimizer.zero_grad()
 
         if cfg.use_fp16:
             with autocast():
                 losses = model(imgs, (labels, boxes))
+
             scaler.scale(losses[0]).backward()
             if cfg.clip_grad:
                 scaler.unscale_(optimizer)
-                nn.utils.clip_grad_norm_(model.parameters(), max_norm=5)
+                nn.utils.clip_grad_norm_(model.parameters(), cfg.max_grad_norm)
+
             scaler.step(optimizer)
             scaler.update()
         else:
             losses = model(imgs, (labels, boxes))
+
             losses[0].backward()
             if cfg.clip_grad:
-                nn.utils.clip_grad_norm_(model.parameters(), max_norm=5)
+                nn.utils.clip_grad_norm_(model.parameters(), cfg.max_grad_norm)
+
             optimizer.step()
 
-        avg_loss = beta * avg_loss + (1 - beta) * losses[0].item()
-        smooth_loss = avg_loss / (1 - beta**(i + 1))
+        avg_loss = beta * avg_loss + (1.0 - beta) * losses[0].item()
+        smooth_loss = avg_loss / (1.0 - beta**(i + 1))
 
         lr_rec.append(lr)
         loss_rec.append(smooth_loss)
@@ -97,9 +104,9 @@ def find_lr(cfg,
         if smooth_loss < best_loss or i == 0:
             best_loss = smooth_loss
 
-        if mode == "exp":
+        if method == "exp":
             lr *= gamma
-        elif mode == "linear":
+        elif method == "linear":
             lr += gamma
         optimizer.param_groups[0]['lr'] = lr
 
@@ -150,27 +157,12 @@ if __name__ == "__main__":
     print("loading model successfully")
 
     # 3. optimize
-    optimizer = optim.SGD(
-        filter(lambda p: p.requires_grad, model.parameters()),
-        lr=cfg.init_lr,
-        momentum=cfg.momentum,
-        weight_decay=cfg.weight_decay,
-    )
+    optimizer = build_optimizer(cfg, model, cfg.optimizer)
 
     scaler = GradScaler() if cfg.use_fp16 else None
 
     # 4. loop
-    lr_rec, loss_rec = find_lr(
-        cfg,
-        model,
-        train_loader,
-        optimizer=optimizer,
-        scaler=scaler,
-        init_lr=1e-8,
-        final_lr=10,
-        beta=0.98,
-        mode="exp",
-    )
+    lr_rec, loss_rec = find_lr(cfg, model, train_loader, optimizer, scaler)
 
     min_grad_idx = np.argmin(np.gradient(np.array(loss_rec)))
     suggest_lr = lr_rec[min_grad_idx]

@@ -184,7 +184,7 @@ class Rotate:
                     rot_ymin, rot_xmin = rot_pt.min(dim=0)[0]
                     rot_ymax, rot_xmax = rot_pt.max(dim=0)[0]
                     rot_boxes[i] = torch.stack(
-                        [rot_ymin, rot_xmin, rot_ymax, rot_xmax], dim=0)
+                        (rot_ymin, rot_xmin, rot_ymax, rot_xmax), dim=0)
 
                 boxes[..., [0, 1]] = rot_boxes[..., [1, 0]]
                 boxes[..., [2, 3]] = rot_boxes[..., [3, 2]]
@@ -275,7 +275,7 @@ if __name__ == "__main__":
         boxes = boxes[0].data.numpy().astype(np.int64)
 
         for label, box in zip(labels, boxes):
-            color = list(map(lambda i: i * 255, colors[label - 1]))
+            color = tuple(map(lambda i: i * 255, colors[label - 1]))
             cls_name = train_set.labels_dict[label]
             cv2.rectangle(img, box[:2], box[2:], color, 1)
             cv2.rectangle(img, box[:2],

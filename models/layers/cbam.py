@@ -18,24 +18,20 @@ except:
 
 class ChannelGate(nn.Module):
     def __init__(self,
-                 gate_channels,
+                 channels,
                  reduction_ratio=16,
                  pool_types=['avg', 'max']):
         super(ChannelGate, self).__init__()
-        self.fc = nn.Sequential(
-            nn.Conv2d(gate_channels,
-                      gate_channels // reduction_ratio,
-                      kernel_size=1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(gate_channels // reduction_ratio,
-                      gate_channels,
-                      kernel_size=1),
-        )
         self.pool_types = pool_types
+        self.fc = nn.Sequential(
+            nn.Conv2d(channels, channels // reduction_ratio, kernel_size=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(channels // reduction_ratio, channels, kernel_size=1),
+        )
 
     def forward(self, x):
         h, w = x.shape[-2:]  # bchw
-        channel_att = 0
+        channel_att = 0.0
 
         for type in self.pool_types:
             if type == 'avg':
@@ -50,9 +46,8 @@ class ChannelGate(nn.Module):
 class SpatialGate(nn.Module):
     def __init__(self, pool_types=['avg', 'max']):
         super(SpatialGate, self).__init__()
-        in_channels = len(pool_types)
-        self.conv = conv7x7(in_channels, 1, act=None)
         self.pool_types = pool_types
+        self.conv = conv7x7(len(pool_types), 1, act=None)
 
     def forward(self, x):
         spatial_att = []
@@ -71,13 +66,12 @@ class SpatialGate(nn.Module):
 
 class CBAM(nn.Module):
     def __init__(self,
-                 gate_channels,
+                 channels,
                  reduction_ratio=16,
                  pool_types=['avg', 'max'],
                  no_spatial=False):
         super(CBAM, self).__init__()
-        self.ChannelGate = ChannelGate(gate_channels, reduction_ratio,
-                                       pool_types)
+        self.ChannelGate = ChannelGate(channels, reduction_ratio, pool_types)
         if not no_spatial:
             self.SpatialGate = SpatialGate(pool_types)
         self.no_spatial = no_spatial

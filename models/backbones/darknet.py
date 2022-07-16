@@ -67,8 +67,10 @@ class DarkNet(nn.Module):
 def make_layers(cfg, flag=True):
     stages = []
     in_channels = 3
+
     for u in cfg:
         layers = []
+
         for v in u:
             if v == 'M':
                 layers.append(nn.MaxPool2d(kernel_size=2, stride=2))
@@ -76,6 +78,7 @@ def make_layers(cfg, flag=True):
                 layers.extend(conv(in_channels, v, flag=flag))
                 in_channels = v
             flag = not flag
+
         stages.append(nn.Sequential(*layers))
 
     return nn.Sequential(*stages)

@@ -19,7 +19,9 @@ sys.path.append(os.path.join(BASE_DIR, ".."))
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from torch.optim.lr_scheduler import _LRScheduler
+import torch.optim as optim
+from torch.optim.lr_scheduler import (CosineAnnealingLR, ExponentialLR,
+                                      MultiStepLR, _LRScheduler)
 
 
 def setup_seed(seed=0):
@@ -31,6 +33,83 @@ def setup_seed(seed=0):
         torch.cuda.manual_seed_all(seed)
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
+
+
+def build_optimizer(cfg, model, method="sgd"):
+    no_decay = ['bias', 'norm.weight'] if cfg.no_decay else []
+    decay_params = (p for n, p in model.named_parameters()
+                    if not any(nd in n for nd in no_decay))
+    no_decay_params = (p for n, p in model.named_parameters()
+                       if any(nd in n for nd in no_decay))
+    param_groups = [
+        {
+            'params': filter(lambda p: p.requires_grad, decay_params),
+            'weight_decay': cfg.weight_decay
+        },
+        {
+            'params': filter(lambda p: p.requires_grad, no_decay_params),
+            'weight_decay': 0.0
+        },
+    ]
+
+    if method == "sgd":
+        optimizer = optim.SGD(
+            param_groups,
+            lr=cfg.init_lr,
+            momentum=cfg.momentum,
+        )
+    elif method == "adam":
+        optimizer = optim.Adam(
+            param_groups,
+            lr=cfg.init_lr,
+        )
+    else:
+        raise ValueError("unknown optimizer method: {}".format(method))
+
+    return optimizer
+
+
+def build_scheduler(cfg, optimizer, data_loader, method="mstep", mode="epoch"):
+    if mode == "epoch":
+        num_iters = 1
+    elif mode == "iter":
+        num_iters = len(data_loader)
+    decay_iters = (cfg.num_epochs - cfg.warmup_epochs) * num_iters
+
+    if method == "mstep":
+        scheduler = MultiStepLR(
+            optimizer,
+            milestones=list(
+                map(lambda x: (x - cfg.warmup_epochs) * num_iters,
+                    cfg.milestones)),
+            gamma=cfg.decay_factor,
+        )
+    elif method == "exp":
+        scheduler = ExponentialLR(
+            optimizer,
+            gamma=cfg.decay_rate**(1 / (decay_iters)),
+        )
+    elif method == "cos":
+        scheduler = CosineAnnealingLR(
+            optimizer,
+            T_max=decay_iters,
+            eta_min=cfg.final_lr,
+        )
+    else:
+        raise ValueError("unknown scheduler method: {}".format(method))
+
+    return scheduler
+
+
+def mixup(imgs, labels, boxes, alpha=1.5, device="cpu"):
+    lam = np.random.beta(alpha, alpha) if alpha > 0 else 1.0
+    idx = torch.randperm(imgs.shape[0]).to(device, non_blocking=True)
+
+    mix_imgs = lam * imgs + (1.0 - lam) * imgs[idx, :]
+    mix_labels = torch.cat((labels, labels[idx, :]), dim=1)
+    mix_boxes = torch.cat((boxes, boxes[idx, :]), dim=1)
+
+    return mix_imgs, mix_labels, mix_boxes
 
 
 class Logger(object):
@@ -46,20 +125,18 @@ class Logger(object):
     def init_logger(self):
         logger = logging.getLogger(self.log_name)
         logger.setLevel(logging.INFO)
+        log_formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
         # 配置文件Handler
         file_handler = logging.FileHandler(self.log_path, "w")
         file_handler.setLevel(logging.INFO)
-        file_formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-        file_handler.setFormatter(file_formatter)
+        file_handler.setFormatter(log_formatter)
 
         # 配置屏幕Handler
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.INFO)
-        # console_formatter = logging.Formatter(
-        #     '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        # console_handler.setFormatter(console_formatter)
+        # console_handler.setFormatter(log_formatter)
 
         # 添加handler
         logger.addHandler(file_handler)

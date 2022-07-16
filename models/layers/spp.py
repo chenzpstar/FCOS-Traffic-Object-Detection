@@ -51,4 +51,4 @@ class SPPF(nn.Module):
         y2 = self.maxpool(y1)
         y3 = self.maxpool(y2)
 
-        return self.proj(torch.cat([x, y1, y2, y3], dim=1))
+        return self.proj(torch.cat((x, y1, y2, y3), dim=1))

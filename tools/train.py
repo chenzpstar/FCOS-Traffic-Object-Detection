@@ -17,24 +17,22 @@ sys.path.append(os.path.join(BASE_DIR, ".."))
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
 # from configs.bdd100k_config import cfg
 from configs.kitti_config import cfg
 from data import BDD100KDataset, Collate, KITTIDataset
 from models import FCOSDetector
 from torch.cuda.amp import GradScaler, autocast
-from torch.optim.lr_scheduler import (CosineAnnealingLR, ExponentialLR,
-                                      MultiStepLR)
 from torch.utils.data import DataLoader
 
-from common import WarmupLR, make_logger, plot_curve, setup_seed
+from common import (WarmupLR, build_optimizer, build_scheduler, make_logger,
+                    mixup, plot_curve, setup_seed)
 from eval import eval_model
 
 # 添加解析参数
 parser = argparse.ArgumentParser(description="Training")
 parser.add_argument("--lr", default=None, type=float, help="learning rate")
 parser.add_argument("--bs", default=None, type=int, help="batch size")
-parser.add_argument("--max_epoch", default=None, type=int, help="max epoch")
+parser.add_argument("--epoch", default=None, type=int, help="num epochs")
 parser.add_argument("--data_folder",
                     default="kitti",
                     type=str,
@@ -49,7 +47,7 @@ args = parser.parse_args()
 cfg.init_lr = args.lr if args.lr else cfg.init_lr
 cfg.train_bs = args.bs if args.bs else cfg.train_bs
 cfg.valid_bs = args.bs if args.bs else cfg.valid_bs
-cfg.max_epoch = args.max_epoch if args.max_epoch else cfg.max_epoch
+cfg.num_epochs = args.epoch if args.epoch else cfg.num_epochs
 cfg.data_folder = args.data_folder if args.data_folder else cfg.data_folder
 cfg.ckpt_folder = args.ckpt_folder if args.ckpt_folder else cfg.ckpt_folder
 
@@ -59,45 +57,61 @@ def train_model(cfg,
                 data_loader,
                 epoch,
                 logger,
+                mode="train",
                 optimizer=None,
                 scheduler=None,
-                scaler=None,
-                mode="train"):
-    total_loss_sigma = []
-    cls_loss_sigma = []
-    reg_loss_sigma = []
-    ctr_loss_sigma = []
+                scaler=None):
+    loss_rec = {"total": [], "cls": [], "reg": [], "ctr": []}
+    num_iters = len(data_loader)
 
     for i, (imgs, labels, boxes) in enumerate(data_loader):
-        imgs = imgs.to(cfg.device)
-        labels = labels.to(cfg.device)
-        boxes = boxes.to(cfg.device)
+        imgs = imgs.to(cfg.device, non_blocking=True)
+        labels = labels.to(cfg.device, non_blocking=True)
+        boxes = boxes.to(cfg.device, non_blocking=True)
+
+        if cfg.mixup:
+            imgs, labels, boxes = mixup(imgs, labels, boxes, cfg.mixup_alpha,
+                                        cfg.device)
 
         if torch.cuda.is_available():
             torch.cuda.synchronize()
         start_time = time.time()
 
         if mode == "train":
+            # 0. clear grad
             optimizer.zero_grad()
 
             if cfg.use_fp16:
+                # 1. forward
                 with autocast():
                     total_loss, cls_loss, reg_loss, ctr_loss = model(
                         imgs, (labels, boxes))
+
+                # 2. backward
                 scaler.scale(total_loss).backward()
                 if cfg.clip_grad:
                     scaler.unscale_(optimizer)
-                    nn.utils.clip_grad_norm_(model.parameters(), max_norm=5)
+                    nn.utils.clip_grad_norm_(model.parameters(),
+                                             cfg.max_grad_norm)
+
+                # 3. update weights
                 scaler.step(optimizer)
                 scaler.update()
             else:
+                # 1. forward
                 total_loss, cls_loss, reg_loss, ctr_loss = model(
                     imgs, (labels, boxes))
+
+                # 2. backward
                 total_loss.backward()
                 if cfg.clip_grad:
-                    nn.utils.clip_grad_norm_(model.parameters(), max_norm=5)
+                    nn.utils.clip_grad_norm_(model.parameters(),
+                                             cfg.max_grad_norm)
+
+                # 3. update weights
                 optimizer.step()
 
+            # 4.update lr
             if cfg.warmup and epoch == 0:
                 scheduler.step()
 
@@ -110,24 +124,25 @@ def train_model(cfg,
             torch.cuda.synchronize()
         cost_time = int((time.time() - start_time) * 1000)
 
-        # 统计loss
-        total_loss_sigma.append(total_loss.item())
-        cls_loss_sigma.append(cls_loss.item())
-        reg_loss_sigma.append(reg_loss.item())
-        ctr_loss_sigma.append(ctr_loss.item())
-
+        # 记录训练信息
         if (i + 1) % cfg.log_interval == 0:
             logger.info(
                 "{}: epoch: [{:0>2}/{:0>2}], iter: [{:0>3}/{:0>3}], total loss: {:.4f}, cls loss: {:.4f}, reg loss: {:.4f}, ctr loss: {:.4f}, cost time: {} ms"
-                .format(mode.title(), epoch + 1, cfg.max_epoch, i + 1,
-                        len(data_loader), total_loss.item(), cls_loss.item(),
+                .format(mode.title(), epoch + 1, cfg.num_epochs, i + 1,
+                        num_iters, total_loss.item(), cls_loss.item(),
                         reg_loss.item(), ctr_loss.item(), cost_time))
 
+        # 记录loss信息
+        loss_rec["total"].append(total_loss.item())
+        loss_rec["cls"].append(cls_loss.item())
+        loss_rec["reg"].append(reg_loss.item())
+        loss_rec["ctr"].append(ctr_loss.item())
+
     return (
-        np.mean(total_loss_sigma),
-        np.mean(cls_loss_sigma),
-        np.mean(reg_loss_sigma),
-        np.mean(ctr_loss_sigma),
+        np.mean(loss_rec["total"]),
+        np.mean(loss_rec["cls"]),
+        np.mean(loss_rec["reg"]),
+        np.mean(loss_rec["ctr"]),
     )
 
 
@@ -213,33 +228,13 @@ if __name__ == "__main__":
             logger.info(
                 "please check your path to checkpoint: {}".format(ckpt_path))
     model.to(cfg.device)
+    model.train()
     logger.info("loading model successfully")
 
     # 3. optimize
-    optimizer = optim.SGD(
-        filter(lambda p: p.requires_grad, model.parameters()),
-        lr=cfg.init_lr,
-        momentum=cfg.momentum,
-        weight_decay=cfg.weight_decay,
-    )
+    optimizer = build_optimizer(cfg, model, cfg.optimizer)
 
-    if cfg.exp_lr:
-        scheduler = ExponentialLR(
-            optimizer,
-            gamma=cfg.exp_factor,
-        )
-    elif cfg.cos_lr:
-        scheduler = CosineAnnealingLR(
-            optimizer,
-            T_max=cfg.max_epoch - 1,
-            eta_min=cfg.final_lr,
-        )
-    else:
-        scheduler = MultiStepLR(
-            optimizer,
-            milestones=cfg.milestones,
-            gamma=cfg.factor,
-        )
+    scheduler = build_scheduler(cfg, optimizer, train_loader, cfg.scheduler)
 
     warmup_scheduler = WarmupLR(
         optimizer,
@@ -262,45 +257,27 @@ if __name__ == "__main__":
     ctr_loss_rec = {"train": [], "valid": []}
     best_epoch, best_mAP = 0, 0.0
 
-    num_epochs = cfg.max_epoch
-    for epoch in range(num_epochs):
+    for epoch in range(cfg.num_epochs):
         # 1. train
         model.train()
         train_total_loss, train_cls_loss, train_reg_loss, train_ctr_loss = train_model(
-            cfg,
-            model,
-            train_loader,
-            epoch,
-            logger,
-            optimizer=optimizer,
-            scheduler=warmup_scheduler,
-            scaler=scaler,
-            mode="train",
-        )
+            cfg, model, train_loader, epoch, logger, "train", optimizer,
+            warmup_scheduler, scaler)
 
         # 2. valid
         model.eval()
         valid_total_loss, valid_cls_loss, valid_reg_loss, valid_ctr_loss = train_model(
-            cfg,
-            model,
-            valid_loader,
-            epoch,
-            logger,
-            mode="valid",
-        )
+            cfg, model, valid_loader, epoch, logger, "valid")
 
         # 记录训练信息
         logger.info(
             "Epoch: [{:0>2}/{:0>2}], lr: {}\n"
             "Train: total loss: {:.4f}, cls loss: {:.4f}, reg loss: {:.4f}, ctr loss: {:.4f}\n"
             "Valid: total loss: {:.4f}, cls loss: {:.4f}, reg loss: {:.4f}, ctr loss: {:.4f}\n"
-            .format(epoch + 1, num_epochs, optimizer.param_groups[0]["lr"],
+            .format(epoch + 1, cfg.num_epochs, optimizer.param_groups[0]["lr"],
                     train_total_loss, train_cls_loss, train_reg_loss,
                     train_ctr_loss, valid_total_loss, valid_cls_loss,
                     valid_reg_loss, valid_ctr_loss))
-
-        # 3. update lr
-        scheduler.step()
 
         # 记录loss信息
         total_loss_rec["train"].append(train_total_loss)
@@ -314,48 +291,23 @@ if __name__ == "__main__":
 
         # 绘制loss曲线
         plt_x = np.arange(1, epoch + 2)
-        plot_curve(
-            plt_x,
-            total_loss_rec,
-            mode="loss",
-            kind="total",
-            out_dir=log_dir,
-        )
-        plot_curve(
-            plt_x,
-            cls_loss_rec,
-            mode="loss",
-            kind="classification",
-            out_dir=log_dir,
-        )
-        plot_curve(
-            plt_x,
-            reg_loss_rec,
-            mode="loss",
-            kind="regression",
-            out_dir=log_dir,
-        )
-        plot_curve(
-            plt_x,
-            ctr_loss_rec,
-            mode="loss",
-            kind="centerness",
-            out_dir=log_dir,
-        )
+        plot_curve(plt_x, total_loss_rec, "loss", "total", log_dir)
+        plot_curve(plt_x, cls_loss_rec, "loss", "classification", log_dir)
+        plot_curve(plt_x, reg_loss_rec, "loss", "regression", log_dir)
+        plot_curve(plt_x, ctr_loss_rec, "loss", "centerness", log_dir)
+
+        # 3. update lr
+        scheduler.step()
 
         # 4. eval
         if epoch >= cfg.milestones[0]:
             # 评估指标
-            metrics = eval_model(
-                model,
-                valid_loader,
-                num_classes=cfg.num_classes,
-                use_07_metric=cfg.use_07_metric,
-                device=cfg.device,
-            )
+            metrics = eval_model(model, valid_loader, cfg.num_classes,
+                                 cfg.map_iou_thr, cfg.use_07_metric,
+                                 cfg.device)
 
             # 计算mAP
-            mAP = np.mean(metrics[-1])
+            mAP = np.mean(metrics["ap"])
             logger.info("mAP: {:.3%}".format(mAP))
 
             # 保存模型

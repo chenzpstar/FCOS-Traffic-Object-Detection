@@ -42,9 +42,6 @@ cfg.ckpt_folder = args.ckpt_folder if args.ckpt_folder else cfg.ckpt_folder
 
 if __name__ == "__main__":
     # 0. config
-    cmap = plt.get_cmap("rainbow")
-    colors = list(map(cmap, np.linspace(0, 1, 10)))
-
     data_dir = os.path.join(BASE_DIR, "..", "..", "datasets", cfg.data_folder)
     assert os.path.exists(data_dir)
 
@@ -88,9 +85,10 @@ if __name__ == "__main__":
         img_norm = Normalize(cfg.mean, cfg.std)(img_rgb)
         img_chw = img_norm.transpose((2, 0, 1))  # hwc -> chw
         img_tensor = torch.from_numpy(img_chw).float()
-        img_tensor = img_tensor.unsqueeze_(dim=0).to(cfg.device)  # chw -> bchw
+        img_tensor.unsqueeze_(dim=0)  # chw -> bchw
 
         with torch.no_grad():
+            img_tensor = img_tensor.to(cfg.device, non_blocking=True)
             scores, labels, boxes = model(img_tensor, mode="infer")
 
         if torch.cuda.is_available():

@@ -93,7 +93,8 @@ class FCOSHead(nn.Module):
             else:
                 ctr_logits.append(self.ctr_logits(reg_conv_out))
 
-            coords.append(decode_coords(feat, stride).to(feat.device))
+            coords.append(
+                decode_coords(feat, stride).to(feat.device, non_blocking=True))
 
         cls_logits = reshape_feats(cls_logits)  # bchw -> b(hw)c
         reg_preds = reshape_feats(reg_preds)  # bchw -> b(hw)c

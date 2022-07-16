@@ -23,8 +23,8 @@ class FCOSTarget(nn.Module):
         self.cfg = FCOSConfig if cfg is None else cfg
         self.strides = self.cfg.strides
         self.bounds = self.cfg.bounds
-        self.use_ctr_sampling = self.cfg.use_ctr_sampling
-        self.ctr_ratio = self.cfg.ctr_ratio
+        self.ctr_sampling = self.cfg.ctr_sampling
+        self.sample_radius = self.cfg.sample_radius
         assert len(self.strides) == len(self.bounds)
 
     def forward(self, labels, boxes, coords):
@@ -55,17 +55,18 @@ class FCOSTarget(nn.Module):
         max_offsets = offsets.max(dim=-1)[0]
         boxes_mask = min_offsets > 0
         stage_mask = (max_offsets > bound[0]) & (max_offsets <= bound[1])
-        pos_mask = boxes_mask & stage_mask
 
         # 2. 计算每个坐标到所有标注框中心的偏移量
-        if self.use_ctr_sampling:
+        if self.ctr_sampling:
             ctr_offsets = coords2centers(coords, boxes)
             assert ctr_offsets.shape == (batch_size, num_points, num_boxes, 4)
 
-            ctr_radius = stride * self.ctr_ratio
+            ctr_radius = stride * self.sample_radius
             max_ctr_offsets = ctr_offsets.max(dim=-1)[0]
             ctr_mask = max_ctr_offsets < ctr_radius
-            pos_mask = pos_mask & ctr_mask
+            pos_mask = boxes_mask & stage_mask & ctr_mask
+        else:
+            pos_mask = boxes_mask & stage_mask
         assert pos_mask.shape == (batch_size, num_points, num_boxes)
 
         # 3. 计算所有标注框面积
@@ -95,7 +96,7 @@ class FCOSTarget(nn.Module):
         max_tb = torch.max(reg_targets[..., 1], reg_targets[..., 3])
         ctr_targets = torch.sqrt(
             (min_lr * min_tb) /
-            (max_lr * max_tb).clamp_(min=1e-8)).unsqueeze_(dim=-1)
+            (max_lr * max_tb).clamp_(min=1e-7)).unsqueeze_(dim=-1)
         assert ctr_targets.shape == (batch_size, num_points, 1)
 
         # 7. 处理负样本

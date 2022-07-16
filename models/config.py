@@ -29,16 +29,18 @@ class FCOSConfig():
     # target
     strides = [8, 16, 32, 64, 128]
     bounds = [[-1, 64], [64, 128], [128, 256], [256, 512], [512, 1e6]]
-    use_ctr_sampling = True
-    ctr_ratio = 1.5  # 1.5
+    ctr_sampling = True
+    sample_radius = 1.5  # 1.5
 
     # loss
-    cls_loss = "focal"  # ["bce", "focal"]
+    cls_loss = "fl"  # ["bce", "fl", "qfl"]
     reg_loss = "iou"  # ["smooth_l1", "iou", "giou", "diou", "ciou"]
     use_ctrness = True
+    label_smoothing = False
+    smooth_eps = 0.001  # 0.1
 
     # detect
     max_num_boxes = 1000  # 1000
     score_thr = 0.05  # 0.05
     nms_iou_thr = 0.6  # 0.6
-    nms_mode = "iou"  # ["iou", "diou"]
+    nms_method = "iou"  # ["iou", "diou"]
