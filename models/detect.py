@@ -58,7 +58,7 @@ class FCOSDetect(nn.Module):
         nms_boxes = []
 
         for i in range(batch_size):
-            # 1. 挑选topk
+            # 1. 挑选 topk
             topk_scores = scores[i][topk_idx[i]]
             topk_labels = labels[i][topk_idx[i]]
             topk_boxes = boxes[i][topk_idx[i]]
@@ -69,7 +69,7 @@ class FCOSDetect(nn.Module):
             filter_labels = topk_labels[score_mask]
             filter_boxes = topk_boxes[score_mask]
 
-            # 3. 计算nms
+            # 3. 计算 nms
             nms_idx = self._batch_nms(filter_boxes, filter_scores,
                                       filter_labels, self.nms_iou_thr,
                                       self.nms_method)

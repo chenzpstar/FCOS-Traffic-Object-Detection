@@ -21,6 +21,8 @@ __all__ = ['MobileNetV2', 'mobilenetv2']
 
 model_urls = {
     'mobilenetv2':
+    'https://download.pytorch.org/models/mobilenet_v2-b0353104.pth',
+    'mobilenetv2_v2':
     'https://download.pytorch.org/models/mobilenet_v2-7ebf99e0.pth',
 }
 
@@ -104,19 +106,24 @@ class MobileNetV2(nn.Module):
                 nn.init.zeros_(m.bias)
 
 
-def mobilenetv2(pretrained=False):
+def _mobilenetv2(pretrained=False):
     if pretrained:
         model = MobileNetV2(init_weights=False)
-        model_weights = model_zoo.load_url(model_urls['mobilenetv2'])
-        state_dict = {
-            k: v
-            for k, v in zip(model.state_dict(), model_weights.values())
-        }
-        model.load_state_dict(state_dict)
+        model_weights = model_zoo.load_url(model_urls['mobilenetv2_v2'])
+        model_dict = dict(
+            zip(model.state_dict().keys(), model_weights.values()))
+        model.load_state_dict(model_dict)
     else:
         model = MobileNetV2()
 
     return model
+
+
+def mobilenetv2(pretrained=False):
+    backbone = _mobilenetv2(pretrained)
+    out_channels = [320, 96, 32, 24]
+
+    return backbone, out_channels
 
 
 if __name__ == "__main__":
@@ -124,7 +131,7 @@ if __name__ == "__main__":
     import torch
     from torchsummary import summary
 
-    model = mobilenetv2()
+    model = mobilenetv2()[0]
     summary(model, (3, 224, 224), 2, device="cpu")
 
     x = torch.rand(2, 3, 224, 224)

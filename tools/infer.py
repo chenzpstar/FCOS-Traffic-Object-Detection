@@ -45,8 +45,8 @@ if __name__ == "__main__":
     data_dir = os.path.join(BASE_DIR, "..", "..", "datasets", cfg.data_folder)
     assert os.path.exists(data_dir)
 
-    ckpt_dir = os.path.join(BASE_DIR, "..", "..", "results")
-    ckpt_path = os.path.join(ckpt_dir, cfg.ckpt_folder, "checkpoint_best.pth")
+    ckpt_dir = os.path.join(BASE_DIR, "..", "..", "results", cfg.ckpt_folder)
+    ckpt_path = os.path.join(ckpt_dir, "checkpoint_best.pth")
     assert os.path.exists(ckpt_path)
 
     # 1. dataset
@@ -58,14 +58,10 @@ if __name__ == "__main__":
         dataset = BDD100KDataset
 
     # 2. model
-    model = FCOSDetector(cfg)
-    model_weights = torch.load(ckpt_path, map_location=torch.device("cpu"))
-    state_dict = {
-        k: v
-        for k, v in zip(model.state_dict(), model_weights.values())
-    }
-    model.load_state_dict(state_dict)
-    model.to(cfg.device)
+    model = FCOSDetector(cfg).to(cfg.device)
+    model_weights = torch.load(ckpt_path, map_location=cfg.device)
+    model_dict = dict(zip(model.state_dict().keys(), model_weights.values()))
+    model.load_state_dict(model_dict)
     model.eval()
     print("loading model successfully")
 

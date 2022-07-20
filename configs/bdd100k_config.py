@@ -29,9 +29,10 @@ cfg.base_tf = BaseTransform(cfg.size, cfg.mean, cfg.std)
 cfg.aug_tf = AugTransform(cfg.size, cfg.mean, cfg.std)
 
 # backbone
-# cfg.backbone = "vgg16"  # ["vgg16", "resnet50", "darknet19", "mobilenet", "shufflenet", "efficientnet"]
+# cfg.backbone = "vgg16"  # ["vgg16", "resnet50", "darknet19", "darknet53", "mobilenet", "shufflenet", "efficientnet"]
 cfg.backbone = "resnet50"
 # cfg.backbone = "darknet19"
+# cfg.backbone = "darknet53"
 # cfg.backbone = "mobilenet"
 # cfg.backbone = "shufflenet"
 # cfg.backbone = "efficientnet"
@@ -39,6 +40,7 @@ cfg.backbone = "resnet50"
 cfg.pretrained = True
 cfg.freeze_bn = False  # freeze bn's statistics
 cfg.freeze_bn_affine = False  # freeze bn's params
+cfg.freeze_backbone = False
 
 # neck
 cfg.neck = "fpn"  # ["fpn", "pan", "bifpn"]
@@ -97,6 +99,7 @@ cfg.optimizer = "sgd"  # ["sgd", "adam"]
 cfg.init_lr = 0.005  # 0.01
 cfg.momentum = 0.9  # 0.9
 cfg.weight_decay = 5e-4  # 1e-4
+
 cfg.no_decay = False
 
 # scheduler
@@ -109,13 +112,16 @@ cfg.decay_factor = 0.1
 cfg.decay_rate = 0.01
 cfg.final_lr = 5e-5
 
+cfg.step_per_iter = False
+
 cfg.warmup = True
+cfg.warmup_epochs = 1 if cfg.warmup else 0
 cfg.warmup_factor = 0.01  # 0.001
-cfg.warmup_epochs = 1
 # cfg.warmup_method = "constant"  # ["constant", "linear", "cos"]
 cfg.warmup_method = "linear"
 # cfg.warmup_method = "cos"
 
+# scaler
 cfg.use_fp16 = False
 
 # train

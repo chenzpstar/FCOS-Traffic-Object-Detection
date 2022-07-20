@@ -17,8 +17,6 @@ from torch.utils.data import Dataset
 
 class KITTIDataset(Dataset):
     """
-    KITTI dataset
-
     - kitti
         - training
             - image_2
@@ -35,10 +33,7 @@ class KITTIDataset(Dataset):
     classes_list = ["background", "car", "pedestrian", "cyclist"]
     num_classes = len(classes_list)
 
-    classes_dict = {name: idx
-                    for idx, name in enumerate(classes_list)}  # {name: idx}
-    labels_dict = {idx: name
-                   for idx, name in enumerate(classes_list)}  # {idx: name}
+    classes_dict = dict(zip(classes_list, range(num_classes)))  # {name: idx}
 
     def __init__(self,
                  root_dir,
@@ -107,10 +102,10 @@ class KITTIDataset(Dataset):
         if self.split:
             train_img_path, valid_img_path, train_anno_path, valid_anno_path = train_test_split(
                 img_info, anno_info, test_size=0.2, random_state=0)
-            self.train_data_info = [*zip(train_img_path, train_anno_path)]
-            self.valid_data_info = [*zip(valid_img_path, valid_anno_path)]
+            self.train_data_info = list(zip(train_img_path, train_anno_path))
+            self.valid_data_info = list(zip(valid_img_path, valid_anno_path))
         else:
-            self.data_info = [*zip(img_info, anno_info)]
+            self.data_info = list(zip(img_info, anno_info))
 
     def _get_txt_anno(self, txt_path):
         labels, boxes = [], []
@@ -160,7 +155,7 @@ if __name__ == "__main__":
 
         for label, box in zip(labels, boxes):
             color = tuple(map(lambda i: i * 255, colors[label - 1]))
-            cls_name = train_set.labels_dict[label]
+            cls_name = train_set.classes_list[label]
             cv2.rectangle(img, box[:2], box[2:], color, 1)
             cv2.rectangle(img, box[:2],
                           (box[0] + len(cls_name) * 10 + 2, box[1] - 20),

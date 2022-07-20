@@ -122,7 +122,6 @@ if __name__ == "__main__":
     assert os.path.exists(data_dir)
 
     # 1. dataset
-    # 构建Dataset
     if cfg.data_folder == "kitti":
         train_set = KITTIDataset(
             data_dir,
@@ -139,7 +138,6 @@ if __name__ == "__main__":
         )
     print("train set has {} imgs".format(len(train_set)))
 
-    # 构建DataLoder
     train_loader = DataLoader(
         train_set,
         batch_size=cfg.train_bs,
@@ -151,13 +149,13 @@ if __name__ == "__main__":
     print("train loader has {} iters".format(len(train_loader)))
 
     # 2. model
-    model = FCOSDetector(cfg)
-    model.to(cfg.device)
+    model = FCOSDetector(cfg).to(cfg.device)
     model.train()
     print("loading model successfully")
 
     # 3. optimize
-    optimizer = build_optimizer(cfg, model, cfg.optimizer)
+    no_decay = ['bias', 'norm.weight'] if cfg.no_decay else []
+    optimizer = build_optimizer(cfg, model, cfg.optimizer, no_decay)
 
     scaler = GradScaler() if cfg.use_fp16 else None
 

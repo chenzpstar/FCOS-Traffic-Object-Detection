@@ -18,8 +18,6 @@ from torch.utils.data import Dataset
 
 class BDD100KDataset(Dataset):
     """
-    BDD100K dataset
-
     - bdd100k
         - images
             - 100k
@@ -40,10 +38,7 @@ class BDD100KDataset(Dataset):
     classes_list = ["background", "car", "pedestrian", "rider"]
     num_classes = len(classes_list)
 
-    classes_dict = {name: idx
-                    for idx, name in enumerate(classes_list)}  # {name: idx}
-    labels_dict = {idx: name
-                   for idx, name in enumerate(classes_list)}  # {idx: name}
+    classes_dict = dict(zip(classes_list, range(num_classes)))  # {name: idx}
 
     def __init__(self, root_dir, set_name, transform=None):
         super(BDD100KDataset, self).__init__()
@@ -149,7 +144,7 @@ if __name__ == "__main__":
 
         for label, box in zip(labels, boxes):
             color = tuple(map(lambda i: i * 255, colors[label - 1]))
-            cls_name = train_set.labels_dict[label]
+            cls_name = train_set.classes_list[label]
             cv2.rectangle(img, box[:2], box[2:], color, 1)
             cv2.rectangle(img, box[:2],
                           (box[0] + len(cls_name) * 10 + 2, box[1] - 20),

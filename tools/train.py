@@ -60,6 +60,7 @@ def train_model(cfg,
                 mode="train",
                 optimizer=None,
                 scheduler=None,
+                warmup_scheduler=None,
                 scaler=None):
     loss_rec = {"total": [], "cls": [], "reg": [], "ctr": []}
     num_iters = len(data_loader)
@@ -112,7 +113,9 @@ def train_model(cfg,
                 optimizer.step()
 
             # 4.update lr
-            if cfg.warmup and epoch == 0:
+            if epoch < cfg.warmup_epochs:
+                warmup_scheduler.step()
+            elif cfg.step_per_iter:
                 scheduler.step()
 
         elif mode == "valid":
@@ -156,14 +159,14 @@ if __name__ == "__main__":
 
     if cfg.ckpt_folder is not None:
         ckpt_dir = os.path.join(cfg.ckpt_root_dir, cfg.ckpt_folder)
-        ckpt_path = os.path.join(ckpt_dir, "checkpoint_12.pth")
+        ckpt_path = os.path.join(ckpt_dir, "checkpoint_best.pth")
         assert os.path.exists(ckpt_path)
 
-    # 创建logger
+    # 创建 Logger
     logger, log_dir = make_logger(cfg)
 
     # 1. dataset
-    # 构建Dataset
+    # 构建 Dataset
     if cfg.data_folder == "kitti":
         train_set = KITTIDataset(
             data_dir,
@@ -193,7 +196,7 @@ if __name__ == "__main__":
     logger.info("train set has {} imgs".format(len(train_set)))
     logger.info("valid set has {} imgs".format(len(valid_set)))
 
-    # 构建DataLoder
+    # 构建 DataLoder
     train_loader = DataLoader(
         train_set,
         batch_size=cfg.train_bs,
@@ -214,35 +217,33 @@ if __name__ == "__main__":
     logger.info("valid loader has {} iters".format(len(valid_loader)))
 
     # 2. model
-    model = FCOSDetector(cfg)
+    model = FCOSDetector(cfg).to(cfg.device)
     if cfg.ckpt_folder is not None:
-        if os.path.exists(ckpt_path):
-            model_weights = torch.load(ckpt_path, map_location="cpu")
-            state_dict = {
-                k: v
-                for k, v in zip(model.state_dict(), model_weights.values())
-            }
-            model.load_state_dict(state_dict)
-            logger.info("loading checkpoint successfully")
-        else:
-            logger.info(
-                "please check your path to checkpoint: {}".format(ckpt_path))
-    model.to(cfg.device)
+        model_weights = torch.load(ckpt_path, map_location=cfg.device)
+        model_dict = dict(
+            zip(model.state_dict().keys(), model_weights.values()))
+        model.load_state_dict(model_dict)
+        logger.info("loading checkpoint successfully")
     model.train()
     logger.info("loading model successfully")
 
     # 3. optimize
-    optimizer = build_optimizer(cfg, model, cfg.optimizer)
+    # 构建 Optimizer
+    no_decay = ['bias', 'norm.weight'] if cfg.no_decay else []
+    optimizer = build_optimizer(cfg, model, cfg.optimizer, no_decay)
 
-    scheduler = build_scheduler(cfg, optimizer, train_loader, cfg.scheduler)
+    # 构建 Scheduler
+    num_iters = len(train_loader) if cfg.step_per_iter else 1
+    scheduler = build_scheduler(cfg, optimizer, cfg.scheduler, num_iters)
 
     warmup_scheduler = WarmupLR(
         optimizer,
         warmup_factor=cfg.warmup_factor,
-        warmup_iters=len(train_loader),
+        warmup_iters=cfg.warmup_epochs * len(train_loader),
         warmup_method=cfg.warmup_method,
     ) if cfg.warmup else None
 
+    # 构建 GradScaler
     scaler = GradScaler() if cfg.use_fp16 else None
 
     # 4. loop
@@ -262,7 +263,7 @@ if __name__ == "__main__":
         model.train()
         train_total_loss, train_cls_loss, train_reg_loss, train_ctr_loss = train_model(
             cfg, model, train_loader, epoch, logger, "train", optimizer,
-            warmup_scheduler, scaler)
+            scheduler, warmup_scheduler, scaler)
 
         # 2. valid
         model.eval()
@@ -297,7 +298,8 @@ if __name__ == "__main__":
         plot_curve(plt_x, ctr_loss_rec, "loss", "centerness", log_dir)
 
         # 3. update lr
-        scheduler.step()
+        if epoch >= cfg.warmup_epochs and not cfg.step_per_iter:
+            scheduler.step()
 
         # 4. eval
         if epoch >= cfg.milestones[0]:
@@ -306,7 +308,7 @@ if __name__ == "__main__":
                                  cfg.map_iou_thr, cfg.use_07_metric,
                                  cfg.device)
 
-            # 计算mAP
+            # 计算 mAP
             mAP = np.mean(metrics["ap"])
             logger.info("mAP: {:.3%}".format(mAP))
 

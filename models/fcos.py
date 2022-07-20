@@ -26,58 +26,61 @@ except:
     from target import FCOSTarget
 
 
+def build_backbone(name, pretrained=False):
+    if name == "vgg16":
+        backbone, stage_channels = vgg16_bn(pretrained)
+    elif name == "resnet50":
+        backbone, stage_channels = resnet50(pretrained)
+    elif name == "darknet19":
+        backbone, stage_channels = darknet19(pretrained)
+    elif name == "darknet53":
+        backbone, stage_channels = darknet53(pretrained)
+    elif name == "mobilenet":
+        backbone, stage_channels = mobilenetv2(pretrained)
+    elif name == "shufflenet":
+        backbone, stage_channels = shufflenetv2_x1_0(pretrained)
+    elif name == "efficientnet":
+        backbone, stage_channels = efficientnetv2_s(pretrained)
+    else:
+        raise NotImplementedError(
+            "backbone only implemented ['vgg16', 'resnet50', 'darknet19', 'darknet53', 'mobilenet', 'shufflenet', 'efficientnet']"
+        )
+
+    return backbone, stage_channels
+
+
+def build_neck(name, in_channels, out_channels, use_p5):
+    if name == "fpn":
+        neck = FPN(in_channels, out_channels, use_p5)
+    elif name == "pan":
+        neck = PAN(in_channels, out_channels)
+    elif name == "bifpn":
+        neck = BiFPN(in_channels, out_channels)
+    else:
+        raise NotImplementedError(
+            "neck only implemented ['fpn', 'pan', 'bifpn']")
+
+    return neck
+
+
 class FCOS(nn.Module):
     def __init__(self, cfg=None):
         super(FCOS, self).__init__()
         self.cfg = FCOSConfig if cfg is None else cfg
 
         # 1. backbone
-        if self.cfg.backbone == "vgg16":
-            self.backbone = vgg16_bn(pretrained=self.cfg.pretrained)
-            self.stage_channels = [512, 512, 256, 128]
-        elif self.cfg.backbone == "resnet50":
-            self.backbone = resnet50(pretrained=self.cfg.pretrained)
-            self.stage_channels = [2048, 1024, 512, 256]
-        elif self.cfg.backbone == "darknet19":
-            self.backbone = darknet19(pretrained=self.cfg.pretrained)
-            self.stage_channels = [1024, 512, 256, 128]
-        elif self.cfg.backbone == "mobilenet":
-            self.backbone = mobilenetv2(pretrained=self.cfg.pretrained)
-            self.stage_channels = [320, 96, 32, 24]
-        elif self.cfg.backbone == "shufflenet":
-            self.backbone = shufflenetv2_x1_0(pretrained=self.cfg.pretrained)
-            self.stage_channels = [464, 232, 116, 24]
-        elif self.cfg.backbone == "efficientnet":
-            self.backbone = efficientnetv2_s(pretrained=self.cfg.pretrained)
-            self.stage_channels = [256, 160, 64, 48]
-        else:
-            raise NotImplementedError(
-                "backbone only implemented ['vgg16', 'resnet50', 'darknet19', 'mobilenet', 'shufflenet', 'efficientnet']"
-            )
+        self.backbone, self.stage_channels = build_backbone(
+            self.cfg.backbone, self.cfg.pretrained)
 
         # 2. neck
-        if self.cfg.neck == "fpn":
-            self.neck = FPN(in_channels=self.stage_channels,
-                            out_channels=self.cfg.num_channels,
-                            use_p5=self.cfg.use_p5)
-        elif self.cfg.neck == "pan":
-            self.neck = PAN(in_channels=self.stage_channels,
-                            out_channels=self.cfg.num_channels)
-        elif self.cfg.neck == "bifpn":
-            self.neck = BiFPN(in_channels=self.stage_channels,
-                              out_channels=self.cfg.num_channels)
-        else:
-            raise NotImplementedError(
-                "neck only implemented ['fpn', 'pan', 'bifpn']")
+        self.neck = build_neck(self.cfg.neck, self.stage_channels,
+                               self.cfg.num_channels, self.cfg.use_p5)
 
         # 3. head
-        self.head = FCOSHead(in_channels=self.cfg.num_channels,
-                             num_convs=self.cfg.num_convs,
-                             num_classes=self.cfg.num_classes,
-                             prior=self.cfg.prior,
-                             use_gn=self.cfg.use_gn,
-                             ctr_on_reg=self.cfg.ctr_on_reg,
-                             strides=self.cfg.strides)
+        self.head = FCOSHead(self.cfg.num_channels, self.cfg.num_convs,
+                             self.cfg.num_classes, self.cfg.prior,
+                             self.cfg.use_gn, self.cfg.ctr_on_reg,
+                             self.cfg.strides)
 
     def train(self, mode=True):
         super(FCOS, self).train(mode)
@@ -86,8 +89,14 @@ class FCOS(nn.Module):
                 if isinstance(m, nn.BatchNorm2d):
                     m.eval()
                     if self.cfg.freeze_bn_affine:
-                        m.weight.requires_grad = False
-                        m.bias.requires_grad = False
+                        for param in m.parameters():
+                            param.requires_grad = False
+
+        if self.cfg.freeze_backbone:
+            for m in self.backbone.modules():
+                m.eval()
+                for param in m.parameters():
+                    param.requires_grad = False
 
     def forward(self, imgs):
         backbone_feats = self.backbone(imgs)

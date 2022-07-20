@@ -258,10 +258,19 @@ if __name__ == "__main__":
     mean = [0.485, 0.456, 0.406]
     std = [0.229, 0.224, 0.225]
 
-    data_dir = os.path.join(BASE_DIR, "..", "data", "samples", "kitti")
-    train_set = KITTIDataset(data_dir,
-                             "training",
-                             transform=AugTransform(size, mean, std))
+    data_folder = "kitti"
+    # data_folder = "bdd100k"
+
+    data_dir = os.path.join(BASE_DIR, "..", "data", "samples", data_folder)
+
+    if data_folder == "kitti":
+        train_set = KITTIDataset(data_dir,
+                                 "training",
+                                 transform=AugTransform(size, mean, std))
+    elif data_folder == "bdd100k":
+        train_set = BDD100KDataset(data_dir,
+                                   "train",
+                                   transform=AugTransform(size, mean, std))
     train_loader = DataLoader(train_set)
 
     for (img, labels, boxes) in train_loader:
@@ -276,7 +285,7 @@ if __name__ == "__main__":
 
         for label, box in zip(labels, boxes):
             color = tuple(map(lambda i: i * 255, colors[label - 1]))
-            cls_name = train_set.labels_dict[label]
+            cls_name = train_set.classes_list[label]
             cv2.rectangle(img, box[:2], box[2:], color, 1)
             cv2.rectangle(img, box[:2],
                           (box[0] + len(cls_name) * 10 + 2, box[1] - 20),

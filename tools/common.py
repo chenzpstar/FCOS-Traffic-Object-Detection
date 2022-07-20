@@ -35,8 +35,18 @@ def setup_seed(seed=0):
         torch.backends.cudnn.deterministic = True
 
 
-def build_optimizer(cfg, model, method="sgd"):
-    no_decay = ['bias', 'norm.weight'] if cfg.no_decay else []
+def mixup(imgs, labels, boxes, alpha=1.5, device="cpu"):
+    lam = np.random.beta(alpha, alpha) if alpha > 0 else 1.0
+    idx = torch.randperm(imgs.shape[0]).to(device, non_blocking=True)
+
+    mix_imgs = lam * imgs + (1.0 - lam) * imgs[idx, :]
+    mix_labels = torch.cat((labels, labels[idx, :]), dim=1)
+    mix_boxes = torch.cat((boxes, boxes[idx, :]), dim=1)
+
+    return mix_imgs, mix_labels, mix_boxes
+
+
+def build_optimizer(cfg, model, method="sgd", no_decay=[]):
     decay_params = (p for n, p in model.named_parameters()
                     if not any(nd in n for nd in no_decay))
     no_decay_params = (p for n, p in model.named_parameters()
@@ -69,12 +79,8 @@ def build_optimizer(cfg, model, method="sgd"):
     return optimizer
 
 
-def build_scheduler(cfg, optimizer, data_loader, method="mstep", mode="epoch"):
-    if mode == "epoch":
-        num_iters = 1
-    elif mode == "iter":
-        num_iters = len(data_loader)
-    decay_iters = (cfg.num_epochs - cfg.warmup_epochs) * num_iters
+def build_scheduler(cfg, optimizer, method="mstep", num_iters=1):
+    decay_iters = (cfg.num_epochs - cfg.warmup_epochs) * num_iters - 1
 
     if method == "mstep":
         scheduler = MultiStepLR(
@@ -101,17 +107,6 @@ def build_scheduler(cfg, optimizer, data_loader, method="mstep", mode="epoch"):
     return scheduler
 
 
-def mixup(imgs, labels, boxes, alpha=1.5, device="cpu"):
-    lam = np.random.beta(alpha, alpha) if alpha > 0 else 1.0
-    idx = torch.randperm(imgs.shape[0]).to(device, non_blocking=True)
-
-    mix_imgs = lam * imgs + (1.0 - lam) * imgs[idx, :]
-    mix_labels = torch.cat((labels, labels[idx, :]), dim=1)
-    mix_boxes = torch.cat((boxes, boxes[idx, :]), dim=1)
-
-    return mix_imgs, mix_labels, mix_boxes
-
-
 class Logger(object):
     def __init__(self, log_path):
         log_name = os.path.basename(log_path)
@@ -128,17 +123,17 @@ class Logger(object):
         log_formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
-        # 配置文件Handler
+        # 配置文件 Handler
         file_handler = logging.FileHandler(self.log_path, "w")
         file_handler.setLevel(logging.INFO)
         file_handler.setFormatter(log_formatter)
 
-        # 配置屏幕Handler
+        # 配置屏幕 Handler
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.INFO)
         # console_handler.setFormatter(log_formatter)
 
-        # 添加handler
+        # 添加 handler
         logger.addHandler(file_handler)
         logger.addHandler(console_handler)
 
@@ -153,7 +148,7 @@ def make_logger(cfg):
     """
     now_time = datetime.now()
     time_str = datetime.strftime(now_time, "%Y-%m-%d_%H-%M")
-    folder_name = "{}_{}e_{}".format(cfg.data_folder, cfg.max_epoch, time_str)
+    folder_name = "{}_{}e_{}".format(cfg.data_folder, cfg.num_epochs, time_str)
     log_dir = os.path.join(cfg.ckpt_root_dir, folder_name)
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)

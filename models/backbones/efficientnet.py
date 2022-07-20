@@ -169,11 +169,9 @@ def _efficientnetv2(out_channels, repeat, name, pretrained=False):
     if pretrained:
         model = EfficientNetV2(out_channels, repeat, init_weights=False)
         model_weights = model_zoo.load_url(model_urls[name])
-        state_dict = {
-            k: v
-            for k, v in zip(model.state_dict(), model_weights.values())
-        }
-        model.load_state_dict(state_dict)
+        model_dict = dict(
+            zip(model.state_dict().keys(), model_weights.values()))
+        model.load_state_dict(model_dict)
     else:
         model = EfficientNetV2(out_channels, repeat)
 
@@ -181,20 +179,30 @@ def _efficientnetv2(out_channels, repeat, name, pretrained=False):
 
 
 def efficientnetv2_s(pretrained=False):
-    return _efficientnetv2([24, 48, 64, 128, 160, 256], [2, 4, 4, 6, 9, 15],
-                           'efficientnetv2_s', pretrained)
+    backbone = _efficientnetv2([24, 48, 64, 128, 160, 256],
+                               [2, 4, 4, 6, 9, 15], 'efficientnetv2_s',
+                               pretrained)
+    out_channels = [256, 160, 64, 48]
+
+    return backbone, out_channels
 
 
 def efficientnetv2_m(pretrained=False):
-    return _efficientnetv2([24, 48, 80, 160, 176, 304, 512],
-                           [3, 5, 5, 7, 14, 18, 5], 'efficientnetv2_m',
-                           pretrained)
+    backbone = _efficientnetv2([24, 48, 80, 160, 176, 304, 512],
+                               [3, 5, 5, 7, 14, 18, 5], 'efficientnetv2_m',
+                               pretrained)
+    out_channels = [512, 176, 80, 48]
+
+    return backbone, out_channels
 
 
 def efficientnetv2_l(pretrained=False):
-    return _efficientnetv2([32, 64, 96, 192, 224, 384, 640],
-                           [4, 7, 7, 10, 19, 25, 7], 'efficientnetv2_l',
-                           pretrained)
+    backbone = _efficientnetv2([32, 64, 96, 192, 224, 384, 640],
+                               [4, 7, 7, 10, 19, 25, 7], 'efficientnetv2_l',
+                               pretrained)
+    out_channels = [640, 224, 96, 64]
+
+    return backbone, out_channels
 
 
 if __name__ == '__main__':
@@ -202,7 +210,7 @@ if __name__ == '__main__':
     import torch
     from torchsummary import summary
 
-    model = efficientnetv2_s()
+    model = efficientnetv2_s()[0]
     summary(model, (3, 224, 224), 2, device="cpu")
 
     x = torch.rand(2, 3, 224, 224)

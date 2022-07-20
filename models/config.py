@@ -7,12 +7,13 @@
 """
 
 
-class FCOSConfig():
+class FCOSConfig(object):
     # backbone
-    backbone = "resnet50"  # ["vgg16", "resnet50", "darknet19", "mobilenet", "shufflenet", "efficientnet"]
+    backbone = "resnet50"  # ["vgg16", "resnet50", "darknet19", "darknet53", "mobilenet", "shufflenet", "efficientnet"]
     pretrained = True
     freeze_bn = False  # freeze bn's statistics
     freeze_bn_affine = False  # freeze bn's params
+    freeze_backbone = False
 
     # neck
     neck = "fpn"  # ["fpn", "pan", "bifpn"]
@@ -44,3 +45,9 @@ class FCOSConfig():
     score_thr = 0.05  # 0.05
     nms_iou_thr = 0.6  # 0.6
     nms_method = "iou"  # ["iou", "diou"]
+
+
+if __name__ == "__main__":
+
+    cfg = FCOSConfig
+    print(cfg.backbone, cfg.neck, cfg.cls_loss, cfg.reg_loss)

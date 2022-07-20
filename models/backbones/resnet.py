@@ -24,9 +24,14 @@ __all__ = [
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-f37072fd.pth',
     'resnet34': 'https://download.pytorch.org/models/resnet34-b627a593.pth',
-    'resnet50': 'https://download.pytorch.org/models/resnet50-11ad3fa6.pth',
-    'resnet101': 'https://download.pytorch.org/models/resnet101-cd907fc2.pth',
-    'resnet152': 'https://download.pytorch.org/models/resnet152-f82ba261.pth',
+    'resnet50': 'https://download.pytorch.org/models/resnet50-0676ba61.pth',
+    'resnet50_v2': 'https://download.pytorch.org/models/resnet50-11ad3fa6.pth',
+    'resnet101': 'https://download.pytorch.org/models/resnet101-63fe2227.pth',
+    'resnet101_v2':
+    'https://download.pytorch.org/models/resnet101-cd907fc2.pth',
+    'resnet152': 'https://download.pytorch.org/models/resnet152-394f9c45.pth',
+    'resnet152_v2':
+    'https://download.pytorch.org/models/resnet152-f82ba261.pth',
 }
 
 
@@ -110,9 +115,9 @@ class ResNet(nn.Module):
         if zero_init_residual:
             for m in self.modules():
                 if isinstance(m, Bottleneck):
-                    nn.init.zeros_(m.bn3.weight)
+                    nn.init.zeros_(m.conv3.norm.weight)
                 elif isinstance(m, BasicBlock):
-                    nn.init.zeros_(m.bn2.weight)
+                    nn.init.zeros_(m.conv2.norm.weight)
 
     def forward(self, x):
         c1 = self.conv1(x)
@@ -155,11 +160,14 @@ def _resnet(block, layers, name, pretrained=False):
     if pretrained:
         model = ResNet(block, layers, init_weights=False)
         model_weights = model_zoo.load_url(model_urls[name])
-        state_dict = {
-            k: v
-            for k, v in zip(model.state_dict(), model_weights.values())
-        }
-        model.load_state_dict(state_dict)
+        if not any('num_batches_tracked' in k for k in model_weights.keys()):
+            model_keys = (k for k in model.state_dict().keys()
+                          if 'num_batches_tracked' not in k)
+            model_dict = dict(zip(model_keys, model_weights.values()))
+        else:
+            model_dict = dict(
+                zip(model.state_dict().keys(), model_weights.values()))
+        model.load_state_dict(model_dict)
     else:
         model = ResNet(block, layers)
 
@@ -167,23 +175,38 @@ def _resnet(block, layers, name, pretrained=False):
 
 
 def resnet18(pretrained=False):
-    return _resnet(BasicBlock, [2, 2, 2, 2], 'resnet18', pretrained)
+    backbone = _resnet(BasicBlock, [2, 2, 2, 2], 'resnet18', pretrained)
+    out_channels = [512, 256, 128, 64]
+
+    return backbone, out_channels
 
 
 def resnet34(pretrained=False):
-    return _resnet(BasicBlock, [3, 4, 6, 3], 'resnet34', pretrained)
+    backbone = _resnet(BasicBlock, [3, 4, 6, 3], 'resnet34', pretrained)
+    out_channels = [512, 256, 128, 64]
+
+    return backbone, out_channels
 
 
 def resnet50(pretrained=False):
-    return _resnet(Bottleneck, [3, 4, 6, 3], 'resnet50', pretrained)
+    backbone = _resnet(Bottleneck, [3, 4, 6, 3], 'resnet50_v2', pretrained)
+    out_channels = [2048, 1024, 512, 256]
+
+    return backbone, out_channels
 
 
 def resnet101(pretrained=False):
-    return _resnet(Bottleneck, [3, 4, 23, 3], 'resnet101', pretrained)
+    backbone = _resnet(Bottleneck, [3, 4, 23, 3], 'resnet101_v2', pretrained)
+    out_channels = [2048, 1024, 512, 256]
+
+    return backbone, out_channels
 
 
 def resnet152(pretrained=False):
-    return _resnet(Bottleneck, [3, 8, 36, 3], 'resnet152', pretrained)
+    backbone = _resnet(Bottleneck, [3, 8, 36, 3], 'resnet152_v2', pretrained)
+    out_channels = [2048, 1024, 512, 256]
+
+    return backbone, out_channels
 
 
 if __name__ == "__main__":
@@ -191,7 +214,7 @@ if __name__ == "__main__":
     import torch
     from torchsummary import summary
 
-    model = resnet50()
+    model = resnet50()[0]
     summary(model, (3, 224, 224), 2, device="cpu")
 
     x = torch.rand(2, 3, 224, 224)

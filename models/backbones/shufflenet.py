@@ -147,13 +147,14 @@ def _shufflenetv2(out_channels, name, pretrained=False):
     if pretrained:
         model = ShuffleNetV2(out_channels, init_weights=False)
         model_weights = model_zoo.load_url(model_urls[name])
-        state_dict = {
-            k: v
-            for k, v in model.state_dict().items()
-            if 'num_batches_tracked' not in k
-        }
-        state_dict = {k: v for k, v in zip(state_dict, model_weights.values())}
-        model.load_state_dict(state_dict)
+        if not any('num_batches_tracked' in k for k in model_weights.keys()):
+            model_keys = (k for k in model.state_dict().keys()
+                          if 'num_batches_tracked' not in k)
+            model_dict = dict(zip(model_keys, model_weights.values()))
+        else:
+            model_dict = dict(
+                zip(model.state_dict().keys(), model_weights.values()))
+        model.load_state_dict(model_dict)
     else:
         model = ShuffleNetV2(out_channels)
 
@@ -161,22 +162,35 @@ def _shufflenetv2(out_channels, name, pretrained=False):
 
 
 def shufflenetv2_x0_5(pretrained=False):
-    return _shufflenetv2([48, 96, 192, 1024], 'shufflenetv2_x0_5', pretrained)
+    backbone = _shufflenetv2([48, 96, 192, 1024], 'shufflenetv2_x0_5',
+                             pretrained)
+    out_channels = [192, 96, 48, 24]
+
+    return backbone, out_channels
 
 
 def shufflenetv2_x1_0(pretrained=False):
-    return _shufflenetv2([116, 232, 464, 1024], 'shufflenetv2_x1_0',
-                         pretrained)
+    backbone = _shufflenetv2([116, 232, 464, 1024], 'shufflenetv2_x1_0',
+                             pretrained)
+    out_channels = [464, 232, 116, 24]
+
+    return backbone, out_channels
 
 
 def shufflenetv2_x1_5(pretrained=False):
-    return _shufflenetv2([176, 352, 704, 1024], 'shufflenetv2_x1_5',
-                         pretrained)
+    backbone = _shufflenetv2([176, 352, 704, 1024], 'shufflenetv2_x1_5',
+                             pretrained)
+    out_channels = [704, 352, 176, 24]
+
+    return backbone, out_channels
 
 
 def shufflenetv2_x2_0(pretrained=False):
-    return _shufflenetv2([244, 488, 976, 2048], 'shufflenetv2_x2_0',
-                         pretrained)
+    backbone = _shufflenetv2([244, 488, 976, 2048], 'shufflenetv2_x2_0',
+                             pretrained)
+    out_channels = [976, 488, 244, 24]
+
+    return backbone, out_channels
 
 
 if __name__ == "__main__":
@@ -184,7 +198,7 @@ if __name__ == "__main__":
     import torch
     from torchsummary import summary
 
-    model = shufflenetv2_x1_0()
+    model = shufflenetv2_x1_0()[0]
     summary(model, (3, 224, 224), 2, device="cpu")
 
     x = torch.rand(2, 3, 224, 224)

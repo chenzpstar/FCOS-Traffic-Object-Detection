@@ -6,7 +6,6 @@
 # @brief      : 数据打包
 """
 
-import numpy as np
 import torch
 import torch.nn.functional as F
 
@@ -20,32 +19,26 @@ class Collate():
         pad_labels = []
         pad_boxes = []
 
-        num_h = tuple(map(lambda img: int(img.shape[1]), imgs))
-        num_w = tuple(map(lambda img: int(img.shape[2]), imgs))
-        num_boxes = tuple(map(lambda boxes: int(boxes.shape[0]), boxes))
-
-        max_h = np.array(num_h).max()
-        max_w = np.array(num_w).max()
-        max_num_boxes = np.array(num_boxes).max()
+        max_height = max(tuple(map(lambda img: img.shape[1], imgs)))
+        max_width = max(tuple(map(lambda img: img.shape[2], imgs)))
+        max_num_boxes = max(tuple(map(lambda boxes: boxes.shape[0], boxes)))
 
         for img, label, box in zip(imgs, labels, boxes):
             pad_imgs.append(
-                F.pad(img, (0, int(max_w - img.shape[2]), 0,
-                            int(max_h - img.shape[1])),
+                F.pad(img, (0, max_width - img.shape[2], 0,
+                            max_height - img.shape[1]),
                       value=0.0))
 
             pad_labels.append(
                 F.pad(label, (0, max_num_boxes - label.shape[0]), value=-1))
 
-            if box.shape[0] != 0:
-                pad_boxes.append(
-                    F.pad(box, (0, 0, 0, max_num_boxes - box.shape[0]),
-                          value=-1))
-            else:
+            if box.shape[0] == 0:
                 box.unsqueeze_(dim=0)
-                pad_boxes.append(
-                    F.pad(box, (0, 4, 0, max_num_boxes - box.shape[0]),
-                          value=-1))
+
+            pad_boxes.append(
+                F.pad(box,
+                      (0, 4 - box.shape[1], 0, max_num_boxes - box.shape[0]),
+                      value=-1))
 
         return (
             torch.stack(pad_imgs, dim=0),
@@ -72,10 +65,19 @@ if __name__ == "__main__":
     mean = [0.485, 0.456, 0.406]
     std = [0.229, 0.224, 0.225]
 
-    data_dir = os.path.join(BASE_DIR, "..", "data", "samples", "kitti")
-    train_set = KITTIDataset(data_dir,
-                             "training",
-                             transform=BaseTransform(size, mean, std))
+    data_folder = "kitti"
+    # data_folder = "bdd100k"
+
+    data_dir = os.path.join(BASE_DIR, "..", "data", "samples", data_folder)
+
+    if data_folder == "kitti":
+        train_set = KITTIDataset(data_dir,
+                                 "training",
+                                 transform=BaseTransform(size, mean, std))
+    elif data_folder == "bdd100k":
+        train_set = BDD100KDataset(data_dir,
+                                   "train",
+                                   transform=BaseTransform(size, mean, std))
     train_loader = DataLoader(train_set, batch_size=4, collate_fn=Collate())
 
     imgs, labels, boxes = next(iter(train_loader))

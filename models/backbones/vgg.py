@@ -20,7 +20,7 @@ model_urls = {
 }
 
 
-def conv3x3(in_channels, out_channels, stride=1, norm=False):
+def conv(in_channels, out_channels, stride=1, norm=False):
     layers = [
         nn.Conv2d(in_channels,
                   out_channels,
@@ -80,7 +80,7 @@ def make_layers(cfg, norm=False):
             if v == 'M':
                 layers.append(nn.MaxPool2d(kernel_size=2, stride=2))
             else:
-                layers.extend(conv3x3(in_channels, v, norm=norm))
+                layers.extend(conv(in_channels, v, norm=norm))
                 in_channels = v
 
         stages.append(nn.Sequential(*layers))
@@ -100,13 +100,10 @@ def _vgg(cfg, norm, name, pretrained=False):
     if pretrained:
         model = VGG(make_layers(cfgs[cfg], norm), init_weights=False)
         model_weights = model_zoo.load_url(model_urls[name])
-        state_dict = {
-            k: v
-            for k, v in model.state_dict().items()
-            if 'num_batches_tracked' not in k
-        }
-        state_dict = {k: v for k, v in zip(state_dict, model_weights.values())}
-        model.load_state_dict(state_dict)
+        model_keys = (k for k in model.state_dict().keys()
+                      if 'num_batches_tracked' not in k)
+        model_dict = dict(zip(model_keys, model_weights.values()))
+        model.load_state_dict(model_dict)
     else:
         model = VGG(make_layers(cfgs[cfg], norm))
 
@@ -114,19 +111,31 @@ def _vgg(cfg, norm, name, pretrained=False):
 
 
 def vgg16(pretrained=False):
-    return _vgg('D', False, 'vgg16', pretrained)
+    backbone = _vgg('D', False, 'vgg16', pretrained)
+    out_channels = [512, 512, 256, 128]
+
+    return backbone, out_channels
 
 
 def vgg16_bn(pretrained=False):
-    return _vgg('D', True, 'vgg16_bn', pretrained)
+    backbone = _vgg('D', True, 'vgg16_bn', pretrained)
+    out_channels = [512, 512, 256, 128]
+
+    return backbone, out_channels
 
 
 def vgg19(pretrained=False):
-    return _vgg('E', False, 'vgg19', pretrained)
+    backbone = _vgg('E', False, 'vgg19', pretrained)
+    out_channels = [512, 512, 256, 128]
+
+    return backbone, out_channels
 
 
 def vgg19_bn(pretrained=False):
-    return _vgg('E', True, 'vgg19_bn', pretrained)
+    backbone = _vgg('E', True, 'vgg19_bn', pretrained)
+    out_channels = [512, 512, 256, 128]
+
+    return backbone, out_channels
 
 
 if __name__ == "__main__":
@@ -134,7 +143,7 @@ if __name__ == "__main__":
     import torch
     from torchsummary import summary
 
-    model = vgg16_bn()
+    model = vgg16_bn()[0]
     summary(model, (3, 224, 224), 2, device="cpu")
 
     x = torch.rand(2, 3, 224, 224)
