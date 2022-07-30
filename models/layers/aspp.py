@@ -38,5 +38,5 @@ class ASPP(nn.Module):
         conv_feat = self.conv(x)
 
         return self.proj(
-            torch.cat([pool_feat, conv_feat] + [a(x) for a in self.atrous],
+            torch.cat((pool_feat, conv_feat) + (a(x) for a in self.atrous),
                       dim=1))

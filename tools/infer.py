@@ -15,8 +15,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(BASE_DIR, ".."))
 
 import cv2
-import matplotlib.pyplot as plt
-import numpy as np
 import torch
 # from configs.bdd100k_config import cfg
 from configs.kitti_config import cfg

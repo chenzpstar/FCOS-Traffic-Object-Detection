@@ -179,28 +179,28 @@ def _efficientnetv2(out_channels, repeat, name, pretrained=False):
 
 
 def efficientnetv2_s(pretrained=False):
-    backbone = _efficientnetv2([24, 48, 64, 128, 160, 256],
-                               [2, 4, 4, 6, 9, 15], 'efficientnetv2_s',
+    backbone = _efficientnetv2((24, 48, 64, 128, 160, 256),
+                               (2, 4, 4, 6, 9, 15), 'efficientnetv2_s',
                                pretrained)
-    out_channels = [256, 160, 64, 48]
+    out_channels = (256, 160, 64, 48)
 
     return backbone, out_channels
 
 
 def efficientnetv2_m(pretrained=False):
-    backbone = _efficientnetv2([24, 48, 80, 160, 176, 304, 512],
-                               [3, 5, 5, 7, 14, 18, 5], 'efficientnetv2_m',
+    backbone = _efficientnetv2((24, 48, 80, 160, 176, 304, 512),
+                               (3, 5, 5, 7, 14, 18, 5), 'efficientnetv2_m',
                                pretrained)
-    out_channels = [512, 176, 80, 48]
+    out_channels = (512, 176, 80, 48)
 
     return backbone, out_channels
 
 
 def efficientnetv2_l(pretrained=False):
-    backbone = _efficientnetv2([32, 64, 96, 192, 224, 384, 640],
-                               [4, 7, 7, 10, 19, 25, 7], 'efficientnetv2_l',
+    backbone = _efficientnetv2((32, 64, 96, 192, 224, 384, 640),
+                               (4, 7, 7, 10, 19, 25, 7), 'efficientnetv2_l',
                                pretrained)
-    out_channels = [640, 224, 96, 64]
+    out_channels = (640, 224, 96, 64)
 
     return backbone, out_channels
 

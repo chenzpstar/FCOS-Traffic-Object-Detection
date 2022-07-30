@@ -20,7 +20,7 @@ class ChannelGate(nn.Module):
     def __init__(self,
                  channels,
                  reduction_ratio=16,
-                 pool_types=['avg', 'max']):
+                 pool_types=("avg", "max")):
         super(ChannelGate, self).__init__()
         self.pool_types = pool_types
         self.fc = nn.Sequential(
@@ -44,7 +44,7 @@ class ChannelGate(nn.Module):
 
 
 class SpatialGate(nn.Module):
-    def __init__(self, pool_types=['avg', 'max']):
+    def __init__(self, pool_types=("avg", "max")):
         super(SpatialGate, self).__init__()
         self.pool_types = pool_types
         self.conv = conv7x7(len(pool_types), 1, act=None)
@@ -68,7 +68,7 @@ class CBAM(nn.Module):
     def __init__(self,
                  channels,
                  reduction_ratio=16,
-                 pool_types=['avg', 'max'],
+                 pool_types=("avg", "max"),
                  no_spatial=False):
         super(CBAM, self).__init__()
         self.ChannelGate = ChannelGate(channels, reduction_ratio, pool_types)

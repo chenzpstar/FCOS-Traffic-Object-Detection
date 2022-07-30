@@ -21,9 +21,9 @@ cfg.ckpt_root_dir = os.path.join(BASE_DIR, "..", "..", "results")
 cfg.ckpt_folder = None
 
 # transform
-cfg.size = [800, 1333]  # [800, 1333]
-cfg.mean = [0.367, 0.386, 0.374]  # [0.485, 0.456, 0.406]
-cfg.std = [0.316, 0.321, 0.326]  # [0.229, 0.224, 0.225]
+cfg.size = (800, 1333)  # (800, 1333)
+cfg.mean = (0.367, 0.386, 0.374)  # (0.485, 0.456, 0.406)
+cfg.std = (0.316, 0.321, 0.326)  # (0.229, 0.224, 0.225)
 
 cfg.base_tf = BaseTransform(cfg.size, cfg.mean, cfg.std)
 cfg.aug_tf = AugTransform(cfg.size, cfg.mean, cfg.std)
@@ -58,8 +58,8 @@ cfg.use_gn = True
 cfg.ctr_on_reg = True
 
 # target
-cfg.strides = [8, 16, 32, 64, 128]
-cfg.bounds = [[-1, 64], [64, 128], [128, 256], [256, 512], [512, 1e6]]
+cfg.strides = (8, 16, 32, 64, 128)
+cfg.bounds = ((-1, 64), (64, 128), (128, 256), (256, 512), (512, 1e6))
 
 cfg.ctr_sampling = True
 cfg.sample_radius = 1.5  # 1.5
@@ -107,7 +107,7 @@ cfg.scheduler = "mstep"  # ["mstep", "exp", "cos"]
 # cfg.scheduler = "exp"
 # cfg.scheduler = "cos"
 
-cfg.milestones = [8, 11]
+cfg.milestones = (8, 11)
 cfg.decay_factor = 0.1
 cfg.decay_rate = 0.01
 cfg.final_lr = 5e-5
@@ -126,6 +126,7 @@ cfg.use_fp16 = False
 
 # train
 cfg.num_epochs = 12
+cfg.accumulation_steps = 1
 cfg.log_interval = 100
 
 cfg.mixup = False

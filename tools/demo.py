@@ -42,7 +42,7 @@ cfg.ckpt_folder = args.ckpt_folder if args.ckpt_folder else cfg.ckpt_folder
 if __name__ == "__main__":
     # 0. config
     cmap = plt.get_cmap("rainbow")
-    colors = list(map(cmap, np.linspace(0, 1, 10)))
+    colors = tuple(map(cmap, np.linspace(0, 1, 10)))
 
     data_dir = os.path.join(BASE_DIR, "..", "..", "datasets", cfg.data_folder)
     assert os.path.exists(data_dir)

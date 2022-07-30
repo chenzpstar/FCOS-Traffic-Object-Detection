@@ -39,39 +39,40 @@ def mixup(imgs, labels, boxes, alpha=1.5, device="cpu"):
     lam = np.random.beta(alpha, alpha) if alpha > 0 else 1.0
     idx = torch.randperm(imgs.shape[0]).to(device, non_blocking=True)
 
-    mix_imgs = lam * imgs + (1.0 - lam) * imgs[idx, :]
-    mix_labels = torch.cat((labels, labels[idx, :]), dim=1)
-    mix_boxes = torch.cat((boxes, boxes[idx, :]), dim=1)
+    mixed_imgs = lam * imgs + (1.0 - lam) * imgs[idx, :]
+    concat_labels = torch.cat((labels, labels[idx, :]), dim=1)
+    concat_boxes = torch.cat((boxes, boxes[idx, :]), dim=1)
 
-    return mix_imgs, mix_labels, mix_boxes
+    return mixed_imgs, concat_labels, concat_boxes
 
 
-def build_optimizer(cfg, model, method="sgd", no_decay=[]):
+def build_optimizer(cfg, model, method="sgd", no_decay=("bias")):
     decay_params = (p for n, p in model.named_parameters()
                     if not any(nd in n for nd in no_decay))
     no_decay_params = (p for n, p in model.named_parameters()
                        if any(nd in n for nd in no_decay))
-    param_groups = [
+    param_groups = (
         {
             'params': filter(lambda p: p.requires_grad, decay_params),
-            'weight_decay': cfg.weight_decay
         },
         {
             'params': filter(lambda p: p.requires_grad, no_decay_params),
-            'weight_decay': 0.0
+            'weight_decay': 0.0,
         },
-    ]
+    )
 
     if method == "sgd":
         optimizer = optim.SGD(
             param_groups,
             lr=cfg.init_lr,
             momentum=cfg.momentum,
+            weight_decay=cfg.weight_decay,
         )
     elif method == "adam":
         optimizer = optim.Adam(
             param_groups,
             lr=cfg.init_lr,
+            weight_decay=cfg.weight_decay,
         )
     else:
         raise ValueError("unknown optimizer method: {}".format(method))
@@ -79,26 +80,26 @@ def build_optimizer(cfg, model, method="sgd", no_decay=[]):
     return optimizer
 
 
-def build_scheduler(cfg, optimizer, method="mstep", num_iters=1):
-    decay_iters = (cfg.num_epochs - cfg.warmup_epochs) * num_iters - 1
+def build_scheduler(cfg, optimizer, method="mstep", num_steps=1):
+    decay_steps = (cfg.num_epochs - cfg.warmup_epochs) * num_steps - 1
 
     if method == "mstep":
         scheduler = MultiStepLR(
             optimizer,
             milestones=list(
-                map(lambda x: (x - cfg.warmup_epochs) * num_iters,
+                map(lambda x: (x - cfg.warmup_epochs) * num_steps,
                     cfg.milestones)),
             gamma=cfg.decay_factor,
         )
     elif method == "exp":
         scheduler = ExponentialLR(
             optimizer,
-            gamma=cfg.decay_rate**(1 / (decay_iters)),
+            gamma=cfg.decay_rate**(1 / (decay_steps)),
         )
     elif method == "cos":
         scheduler = CosineAnnealingLR(
             optimizer,
-            T_max=decay_iters,
+            T_max=decay_steps,
             eta_min=cfg.final_lr,
         )
     else:
@@ -161,7 +162,7 @@ def make_logger(cfg):
     return logger, log_dir
 
 
-def plot_curve(plt_x, plt_y, mode="loss", kind="total", out_dir=None):
+def plot_curve(plt_x, plt_y, mode="loss", name="total", out_dir=None):
     """
     绘制训练和验证集的loss/acc曲线
     :param plt_x: epoch
@@ -179,8 +180,8 @@ def plot_curve(plt_x, plt_y, mode="loss", kind="total", out_dir=None):
     location = "upper right" if mode == "loss" else "upper left"
     plt.legend(loc=location)
 
-    plt.title(" ".join([kind, mode]).title())
-    plt.savefig(os.path.join(out_dir, "_".join([kind, mode]) + ".png"))
+    plt.title(" ".join((name, mode)).title())
+    plt.savefig(os.path.join(out_dir, "_".join((name, mode)) + ".png"))
     plt.close()
 
 

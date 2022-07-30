@@ -7,6 +7,7 @@
 """
 
 import os
+import random
 
 import cv2
 import numpy as np
@@ -106,6 +107,7 @@ class KITTIDataset(Dataset):
             self.valid_data_info = list(zip(valid_img_path, valid_anno_path))
         else:
             self.data_info = list(zip(img_info, anno_info))
+            random.shuffle(self.data_info)
 
     def _get_txt_anno(self, txt_path):
         labels, boxes = [], []
@@ -114,15 +116,15 @@ class KITTIDataset(Dataset):
             for line in f.readlines():
                 obj = line.rstrip().split(' ')
                 name = obj[0].lower()
-                if name in ["car", "van", "truck", "tram"]:
+                if name in ("car", "van", "truck", "tram"):
                     labels.append(self.classes_dict["car"])
-                elif name in ["pedestrian", "person_sitting"]:
+                elif name in ("pedestrian", "person_sitting"):
                     labels.append(self.classes_dict["pedestrian"])
                 elif name == "cyclist":
                     labels.append(self.classes_dict[name])
                 else:
                     continue
-                boxes.append(list(map(float, obj[4:8])))
+                boxes.append(tuple(map(float, obj[4:8])))
 
         return np.array(labels), np.array(boxes)
 
@@ -139,7 +141,7 @@ if __name__ == "__main__":
     from torch.utils.data import DataLoader
 
     cmap = plt.get_cmap("rainbow")
-    colors = list(map(cmap, np.linspace(0, 1, 10)))
+    colors = tuple(map(cmap, np.linspace(0, 1, 10)))
 
     data_dir = os.path.join(BASE_DIR, "..", "data", "samples", "kitti")
     train_set = KITTIDataset(data_dir, "training", mode="train", split=True)

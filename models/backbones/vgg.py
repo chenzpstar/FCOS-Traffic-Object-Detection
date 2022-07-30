@@ -89,10 +89,10 @@ def make_layers(cfg, norm=False):
 
 
 cfgs = {
-    'D': [[64, 64], ['M', 128, 128], ['M', 256, 256, 256],
-          ['M', 512, 512, 512], ['M', 512, 512, 512]],
-    'E': [[64, 64], ['M', 128, 128], ['M', 256, 256, 256, 256],
-          ['M', 512, 512, 512, 512], ['M', 512, 512, 512, 512]],
+    'D': ((64, 64), ('M', 128, 128), ('M', 256, 256, 256),
+          ('M', 512, 512, 512), ('M', 512, 512, 512)),
+    'E': ((64, 64), ('M', 128, 128), ('M', 256, 256, 256, 256),
+          ('M', 512, 512, 512, 512), ('M', 512, 512, 512, 512)),
 }
 
 
@@ -112,28 +112,28 @@ def _vgg(cfg, norm, name, pretrained=False):
 
 def vgg16(pretrained=False):
     backbone = _vgg('D', False, 'vgg16', pretrained)
-    out_channels = [512, 512, 256, 128]
+    out_channels = (512, 512, 256, 128)
 
     return backbone, out_channels
 
 
 def vgg16_bn(pretrained=False):
     backbone = _vgg('D', True, 'vgg16_bn', pretrained)
-    out_channels = [512, 512, 256, 128]
+    out_channels = (512, 512, 256, 128)
 
     return backbone, out_channels
 
 
 def vgg19(pretrained=False):
     backbone = _vgg('E', False, 'vgg19', pretrained)
-    out_channels = [512, 512, 256, 128]
+    out_channels = (512, 512, 256, 128)
 
     return backbone, out_channels
 
 
 def vgg19_bn(pretrained=False):
     backbone = _vgg('E', True, 'vgg19_bn', pretrained)
-    out_channels = [512, 512, 256, 128]
+    out_channels = (512, 512, 256, 128)
 
     return backbone, out_channels
 

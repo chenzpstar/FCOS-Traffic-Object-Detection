@@ -100,18 +100,18 @@ class BDD100KDataset(Dataset):
             else:
                 for obj in objs:
                     name = obj["category"]
-                    if name in ["car", "bus", "truck", "motor", "train"]:
+                    if name in ("car", "bus", "truck", "motor", "train"):
                         labels.append(self.classes_dict["car"])
-                    elif name in ["pedestrian", "rider"]:
+                    elif name in ("pedestrian", "rider"):
                         labels.append(self.classes_dict[name])
                     else:
                         continue
-                    boxes.append([
+                    boxes.append((
                         obj["box2d"]["x1"],
                         obj["box2d"]["y1"],
                         obj["box2d"]["x2"],
                         obj["box2d"]["y2"],
-                    ])
+                    ))
 
         return np.array(labels), np.array(boxes)
 
@@ -128,7 +128,7 @@ if __name__ == "__main__":
     from torch.utils.data import DataLoader
 
     cmap = plt.get_cmap("rainbow")
-    colors = list(map(cmap, np.linspace(0, 1, 10)))
+    colors = tuple(map(cmap, np.linspace(0, 1, 10)))
 
     data_dir = os.path.join(BASE_DIR, "..", "data", "samples", "bdd100k")
     train_set = BDD100KDataset(data_dir, "train")

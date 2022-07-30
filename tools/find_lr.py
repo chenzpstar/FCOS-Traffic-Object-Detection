@@ -70,28 +70,35 @@ def find_lr(cfg,
         if cfg.mixup:
             imgs, labels, boxes = mixup(imgs, labels, boxes, cfg.mixup_alpha,
                                         cfg.device)
-
-        optimizer.zero_grad()
-
+        
+        if (i + 1) % cfg.accumulation_steps == 0:
+            optimizer.zero_grad(set_to_none=True)
+        
         if cfg.use_fp16:
             with autocast():
-                losses = model(imgs, (labels, boxes))
+                losses = tuple(
+                    map(lambda loss: loss / cfg.accumulation_steps,
+                        model(imgs, (labels, boxes))))
 
             scaler.scale(losses[0]).backward()
             if cfg.clip_grad:
                 scaler.unscale_(optimizer)
                 nn.utils.clip_grad_norm_(model.parameters(), cfg.max_grad_norm)
 
-            scaler.step(optimizer)
-            scaler.update()
+            if (i + 1) % cfg.accumulation_steps == 0:
+                scaler.step(optimizer)
+                scaler.update()
         else:
-            losses = model(imgs, (labels, boxes))
+            losses = tuple(
+                map(lambda loss: loss / cfg.accumulation_steps,
+                    model(imgs, (labels, boxes))))
 
             losses[0].backward()
             if cfg.clip_grad:
                 nn.utils.clip_grad_norm_(model.parameters(), cfg.max_grad_norm)
 
-            optimizer.step()
+            if (i + 1) % cfg.accumulation_steps == 0:
+                optimizer.step()
 
         avg_loss = beta * avg_loss + (1.0 - beta) * losses[0].item()
         smooth_loss = avg_loss / (1.0 - beta**(i + 1))
@@ -154,25 +161,21 @@ if __name__ == "__main__":
     print("loading model successfully")
 
     # 3. optimize
-    no_decay = ['bias', 'norm.weight'] if cfg.no_decay else []
+    no_decay = ("bias", "norm") if cfg.no_decay else ()
     optimizer = build_optimizer(cfg, model, cfg.optimizer, no_decay)
 
     scaler = GradScaler() if cfg.use_fp16 else None
 
     # 4. loop
-    lr_rec, loss_rec = find_lr(cfg, model, train_loader, optimizer, scaler)
+    lr, loss = find_lr(cfg, model, train_loader, optimizer, scaler)
 
-    min_grad_idx = np.argmin(np.gradient(np.array(loss_rec)))
-    suggest_lr = lr_rec[min_grad_idx]
+    min_grad_idx = np.argmin(np.gradient(np.array(loss)))
+    suggested_lr = lr[min_grad_idx]
+    print("suggested lr: {:.3e}".format(suggested_lr))
 
-    plt.plot(lr_rec[10:-5], loss_rec[10:-5])
-    plt.scatter(lr_rec[min_grad_idx],
-                loss_rec[min_grad_idx],
-                s=50,
-                c="r",
-                marker="o")
-    plt.xscale("log")
+    plt.semilogx(lr[10:-5], loss[10:-5])
+    plt.scatter(lr[min_grad_idx], loss[min_grad_idx], s=50, c="r", marker="o")
     plt.xlabel("lr")
     plt.ylabel("loss")
-    plt.title("suggest lr: {:.3e}".format(suggest_lr))
+    plt.title("Suggested LR: {:.3e}".format(suggested_lr))
     plt.show()

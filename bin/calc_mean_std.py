@@ -11,20 +11,20 @@ from tqdm import tqdm
 
 
 def calc_mean_std(data_loader):
-    img_mean_sigma, img_std_sigma = 0.0, 0.0
+    img_mean_sigma, img_mean_square_sigma = 0.0, 0.0
 
     for data in tqdm(data_loader):
         img = data[0].to("cuda:0", non_blocking=True)
-        num_channels = img.shape[1]  # bchw
         img /= 255.0
+        num_channels = img.shape[1]  # bchw
         img = img.permute(0, 2, 3, 1).reshape(
             (-1, num_channels))  # bchw -> (bhw)c
         img_mean_sigma += img.mean(dim=0)
-        img_std_sigma += img.pow(2).mean(dim=0)
+        img_mean_square_sigma += img.pow(2).mean(dim=0)
 
-    num_batches = len(data_loader)
-    img_mean = img_mean_sigma / num_batches
-    img_std = torch.sqrt((img_std_sigma / num_batches - img_mean.pow(2)))
+    num_iters = len(data_loader)
+    img_mean = img_mean_sigma / num_iters
+    img_std = torch.sqrt((img_mean_square_sigma / num_iters - img_mean.pow(2)))
 
     return img_mean, img_std
 

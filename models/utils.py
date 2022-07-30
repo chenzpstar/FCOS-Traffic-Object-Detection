@@ -29,7 +29,7 @@ def decode_coords(feat, stride=1):
 
 def reshape_feats(feats):
     b, c = feats[0].shape[:2]  # bchw
-    out = list(
+    out = tuple(
         map(lambda feat: feat.permute(0, 2, 3, 1).reshape((b, -1, c)),
             feats))  # bchw -> b(hw)c
 

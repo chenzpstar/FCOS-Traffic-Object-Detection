@@ -75,7 +75,7 @@ class DarkNet(nn.Module):
         if not self.shortcut:
             layers = [
                 nn.MaxPool2d(kernel_size=2, stride=2),
-                conv3x3(self.in_channels, num_channels * block.expansion)
+                conv3x3(self.in_channels, num_channels * block.expansion),
             ]
         else:
             layers = [
@@ -116,17 +116,17 @@ def _darknet(block, layers, shortcut, name, pretrained=False):
 
 
 def darknet19(pretrained=False):
-    backbone = _darknet(BasicBlock, [0, 1, 1, 2, 2], False, "darknet19",
+    backbone = _darknet(BasicBlock, (0, 1, 1, 2, 2), False, 'darknet19',
                         pretrained)
-    out_channels = [1024, 512, 256, 128]
+    out_channels = (1024, 512, 256, 128)
 
     return backbone, out_channels
 
 
 def darknet53(pretrained=False):
-    backbone = _darknet(BasicBlock, [1, 2, 8, 8, 4], True, "darknet53",
+    backbone = _darknet(BasicBlock, (1, 2, 8, 8, 4), True, 'darknet53',
                         pretrained)
-    out_channels = [1024, 512, 256, 128]
+    out_channels = (1024, 512, 256, 128)
 
     return backbone, out_channels
 

@@ -85,7 +85,7 @@ if __name__ == "__main__":
 
     import torch
 
-    model = PAN([2048, 1024, 512, 256])
+    model = PAN((2048, 1024, 512, 256))
     print(model)
 
     c5 = torch.rand(2, 2048, 7, 7)
@@ -93,5 +93,5 @@ if __name__ == "__main__":
     c3 = torch.rand(2, 512, 28, 28)
     c2 = torch.rand(2, 256, 56, 56)
 
-    outs = model([c2, c3, c4, c5])
+    outs = model((c2, c3, c4, c5))
     [print(stage_outs.shape) for stage_outs in outs]

@@ -108,8 +108,8 @@ def _compute_ap(recall, precision, use_07_metric=False):
     else:
         # correct AP calculation
         # first append sentinel values at the end
-        mrec = np.concatenate(([0.0], recall, [1.0]))
-        mprec = np.concatenate(([0.0], precision, [0.0]))
+        mrec = np.concatenate(((0.0), recall, (1.0)))
+        mprec = np.concatenate(((0.0), precision, (0.0)))
 
         # compute the precision envelope
         for i in range(mprec.size - 1, 0, -1):

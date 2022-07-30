@@ -88,7 +88,7 @@ if __name__ == "__main__":
     print("loading model successfully")
 
     # 3. test
-    for thr in [0.5, 0.75]:
+    for thr in (0.5, 0.75):
         # 评估指标
         metrics = eval_model(model, test_loader, cfg.num_classes, thr,
                              cfg.use_07_metric, cfg.device)

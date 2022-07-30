@@ -28,8 +28,8 @@ class FCOSConfig(object):
     ctr_on_reg = True
 
     # target
-    strides = [8, 16, 32, 64, 128]
-    bounds = [[-1, 64], [64, 128], [128, 256], [256, 512], [512, 1e6]]
+    strides = (8, 16, 32, 64, 128)
+    bounds = ((-1, 64), (64, 128), (128, 256), (256, 512), (512, 1e6))
     ctr_sampling = True
     sample_radius = 1.5  # 1.5
 

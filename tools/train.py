@@ -79,14 +79,12 @@ def train_model(cfg,
         start_time = time.time()
 
         if mode == "train":
-            # 0. clear grad
-            optimizer.zero_grad()
-
             if cfg.use_fp16:
                 # 1. forward
                 with autocast():
-                    total_loss, cls_loss, reg_loss, ctr_loss = model(
-                        imgs, (labels, boxes))
+                    total_loss, cls_loss, reg_loss, ctr_loss = tuple(
+                        map(lambda loss: loss / cfg.accumulation_steps,
+                            model(imgs, (labels, boxes))))
 
                 # 2. backward
                 scaler.scale(total_loss).backward()
@@ -96,12 +94,14 @@ def train_model(cfg,
                                              cfg.max_grad_norm)
 
                 # 3. update weights
-                scaler.step(optimizer)
-                scaler.update()
+                if (i + 1) % cfg.accumulation_steps == 0:
+                    scaler.step(optimizer)
+                    scaler.update()
             else:
                 # 1. forward
-                total_loss, cls_loss, reg_loss, ctr_loss = model(
-                    imgs, (labels, boxes))
+                total_loss, cls_loss, reg_loss, ctr_loss = tuple(
+                    map(lambda loss: loss / cfg.accumulation_steps,
+                        model(imgs, (labels, boxes))))
 
                 # 2. backward
                 total_loss.backward()
@@ -110,18 +110,24 @@ def train_model(cfg,
                                              cfg.max_grad_norm)
 
                 # 3. update weights
-                optimizer.step()
+                if (i + 1) % cfg.accumulation_steps == 0:
+                    optimizer.step()
 
-            # 4.update lr
-            if epoch < cfg.warmup_epochs:
-                warmup_scheduler.step()
-            elif cfg.step_per_iter:
-                scheduler.step()
+            if (i + 1) % cfg.accumulation_steps == 0:
+                # 4.reset grads
+                optimizer.zero_grad(set_to_none=True)
+
+                # 5.update lr
+                if epoch < cfg.warmup_epochs * cfg.accumulation_steps:
+                    warmup_scheduler.step()
+                elif cfg.step_per_iter:
+                    scheduler.step()
 
         elif mode == "valid":
             with torch.no_grad():
-                total_loss, cls_loss, reg_loss, ctr_loss = model(
-                    imgs, (labels, boxes))
+                total_loss, cls_loss, reg_loss, ctr_loss = tuple(
+                    map(lambda loss: loss / cfg.accumulation_steps,
+                        model(imgs, (labels, boxes))))
 
         if torch.cuda.is_available():
             torch.cuda.synchronize()
@@ -141,12 +147,9 @@ def train_model(cfg,
         loss_rec["reg"].append(reg_loss.item())
         loss_rec["ctr"].append(ctr_loss.item())
 
-    return (
-        np.mean(loss_rec["total"]),
-        np.mean(loss_rec["cls"]),
-        np.mean(loss_rec["reg"]),
-        np.mean(loss_rec["ctr"]),
-    )
+    return tuple(
+        map(lambda loss: np.mean(loss) * cfg.accumulation_steps,
+            loss_rec.values()))
 
 
 if __name__ == "__main__":
@@ -229,17 +232,18 @@ if __name__ == "__main__":
 
     # 3. optimize
     # 构建 Optimizer
-    no_decay = ['bias', 'norm.weight'] if cfg.no_decay else []
+    no_decay = ("bias", "norm") if cfg.no_decay else ()
     optimizer = build_optimizer(cfg, model, cfg.optimizer, no_decay)
 
     # 构建 Scheduler
-    num_iters = len(train_loader) if cfg.step_per_iter else 1
-    scheduler = build_scheduler(cfg, optimizer, cfg.scheduler, num_iters)
+    num_iters = len(train_loader)
+    num_steps = num_iters if cfg.step_per_iter else 1
+    scheduler = build_scheduler(cfg, optimizer, cfg.scheduler, num_steps)
 
     warmup_scheduler = WarmupLR(
         optimizer,
         warmup_factor=cfg.warmup_factor,
-        warmup_iters=cfg.warmup_epochs * len(train_loader),
+        warmup_iters=cfg.warmup_epochs * num_iters,
         warmup_method=cfg.warmup_method,
     ) if cfg.warmup else None
 
@@ -256,11 +260,14 @@ if __name__ == "__main__":
     cls_loss_rec = {"train": [], "valid": []}
     reg_loss_rec = {"train": [], "valid": []}
     ctr_loss_rec = {"train": [], "valid": []}
+
+    num_epochs = cfg.num_epochs * cfg.accumulation_steps
     best_epoch, best_mAP = 0, 0.0
 
-    for epoch in range(cfg.num_epochs):
+    for epoch in range(num_epochs):
         # 1. train
         model.train()
+        optimizer.zero_grad(set_to_none=True)
         train_total_loss, train_cls_loss, train_reg_loss, train_ctr_loss = train_model(
             cfg, model, train_loader, epoch, logger, "train", optimizer,
             scheduler, warmup_scheduler, scaler)
@@ -275,7 +282,7 @@ if __name__ == "__main__":
             "Epoch: [{:0>2}/{:0>2}], lr: {}\n"
             "Train: total loss: {:.4f}, cls loss: {:.4f}, reg loss: {:.4f}, ctr loss: {:.4f}\n"
             "Valid: total loss: {:.4f}, cls loss: {:.4f}, reg loss: {:.4f}, ctr loss: {:.4f}\n"
-            .format(epoch + 1, cfg.num_epochs, optimizer.param_groups[0]["lr"],
+            .format(epoch + 1, num_epochs, optimizer.param_groups[0]["lr"],
                     train_total_loss, train_cls_loss, train_reg_loss,
                     train_ctr_loss, valid_total_loss, valid_cls_loss,
                     valid_reg_loss, valid_ctr_loss))
@@ -297,27 +304,29 @@ if __name__ == "__main__":
         plot_curve(plt_x, reg_loss_rec, "loss", "regression", log_dir)
         plot_curve(plt_x, ctr_loss_rec, "loss", "centerness", log_dir)
 
-        # 3. update lr
-        if epoch >= cfg.warmup_epochs and not cfg.step_per_iter:
-            scheduler.step()
+        if (epoch + 1) % cfg.accumulation_steps == 0:
+            # 3. update lr
+            if (epoch >= cfg.warmup_epochs * cfg.accumulation_steps) and (
+                    not cfg.step_per_iter):
+                scheduler.step()
 
-        # 4. eval
-        if epoch >= cfg.milestones[0]:
-            # 评估指标
-            metrics = eval_model(model, valid_loader, cfg.num_classes,
-                                 cfg.map_iou_thr, cfg.use_07_metric,
-                                 cfg.device)
+            # 4. eval
+            if epoch >= cfg.milestones[0] * cfg.accumulation_steps:
+                # 评估指标
+                metrics = eval_model(model, valid_loader, cfg.num_classes,
+                                     cfg.map_iou_thr, cfg.use_07_metric,
+                                     cfg.device)
 
-            # 计算 mAP
-            mAP = np.mean(metrics["ap"])
-            logger.info("mAP: {:.3%}".format(mAP))
+                # 计算 mAP
+                mAP = np.mean(metrics["ap"])
+                logger.info("mAP: {:.3%}\n".format(mAP))
 
-            # 保存模型
-            if mAP > best_mAP:
-                best_epoch, best_mAP = epoch + 1, mAP
-                ckpt_path = os.path.join(log_dir, "checkpoint_best.pth")
-                torch.save(model.state_dict(), ckpt_path)
-                logger.info("saving the best checkpoint successfully\n")
+                # 保存模型
+                if mAP > best_mAP:
+                    best_epoch, best_mAP = epoch + 1, mAP
+                    ckpt_path = os.path.join(log_dir, "checkpoint_best.pth")
+                    torch.save(model.state_dict(), ckpt_path)
+                    logger.info("saving the best checkpoint successfully\n")
 
     ckpt_path = os.path.join(log_dir, "checkpoint_last.pth")
     torch.save(model.state_dict(), ckpt_path)

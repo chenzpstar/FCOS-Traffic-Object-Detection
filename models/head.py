@@ -126,7 +126,7 @@ if __name__ == "__main__":
     p4 = torch.rand(2, 256, 14, 14)
     p3 = torch.rand(2, 256, 28, 28)
 
-    outs = model([p3, p4, p5, p6, p7])
+    outs = model((p3, p4, p5, p6, p7))
     [
         print(stage_outs.shape) for branch_outs in outs
         for stage_outs in branch_outs

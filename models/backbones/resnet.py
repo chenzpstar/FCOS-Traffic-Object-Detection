@@ -175,36 +175,36 @@ def _resnet(block, layers, name, pretrained=False):
 
 
 def resnet18(pretrained=False):
-    backbone = _resnet(BasicBlock, [2, 2, 2, 2], 'resnet18', pretrained)
-    out_channels = [512, 256, 128, 64]
+    backbone = _resnet(BasicBlock, (2, 2, 2, 2), 'resnet18', pretrained)
+    out_channels = (512, 256, 128, 64)
 
     return backbone, out_channels
 
 
 def resnet34(pretrained=False):
-    backbone = _resnet(BasicBlock, [3, 4, 6, 3], 'resnet34', pretrained)
-    out_channels = [512, 256, 128, 64]
+    backbone = _resnet(BasicBlock, (3, 4, 6, 3), 'resnet34', pretrained)
+    out_channels = (512, 256, 128, 64)
 
     return backbone, out_channels
 
 
 def resnet50(pretrained=False):
-    backbone = _resnet(Bottleneck, [3, 4, 6, 3], 'resnet50_v2', pretrained)
-    out_channels = [2048, 1024, 512, 256]
+    backbone = _resnet(Bottleneck, (3, 4, 6, 3), 'resnet50_v2', pretrained)
+    out_channels = (2048, 1024, 512, 256)
 
     return backbone, out_channels
 
 
 def resnet101(pretrained=False):
-    backbone = _resnet(Bottleneck, [3, 4, 23, 3], 'resnet101_v2', pretrained)
-    out_channels = [2048, 1024, 512, 256]
+    backbone = _resnet(Bottleneck, (3, 4, 23, 3), 'resnet101_v2', pretrained)
+    out_channels = (2048, 1024, 512, 256)
 
     return backbone, out_channels
 
 
 def resnet152(pretrained=False):
-    backbone = _resnet(Bottleneck, [3, 8, 36, 3], 'resnet152_v2', pretrained)
-    out_channels = [2048, 1024, 512, 256]
+    backbone = _resnet(Bottleneck, (3, 8, 36, 3), 'resnet152_v2', pretrained)
+    out_channels = (2048, 1024, 512, 256)
 
     return backbone, out_channels
 

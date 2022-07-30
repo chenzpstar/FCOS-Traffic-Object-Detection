@@ -21,8 +21,8 @@ __all__ = [
 ]
 
 
-class Normalize:
-    def __init__(self, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
+class Normalize(object):
+    def __init__(self, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
         self.mean = np.array(mean, dtype=np.float32)
         self.std = np.array(std, dtype=np.float32)
 
@@ -35,7 +35,7 @@ class Normalize:
         return norm_img, boxes
 
 
-class Colorjitter:
+class Colorjitter(object):
     def __init__(self,
                  brightness=0.1,
                  contrast=0.1,
@@ -60,8 +60,8 @@ class Colorjitter:
             return img, boxes
 
 
-class Resize:
-    def __init__(self, size=[800, 1333]):
+class Resize(object):
+    def __init__(self, size=(800, 1333)):
         self.size = size
         self.min_size = min(size)
         self.max_size = max(size)
@@ -93,7 +93,7 @@ class Resize:
         return pad_img, boxes
 
 
-class Flip:
+class Flip(object):
     def __init__(self, p=0.5):
         self.prob = p
 
@@ -110,7 +110,7 @@ class Flip:
             return img, boxes
 
 
-class Translate:
+class Translate(object):
     def __init__(self, x=10, y=10, p=0.5):
         self.dx = x
         self.dy = y
@@ -145,7 +145,7 @@ class Translate:
             return img, boxes
 
 
-class Rotate:
+class Rotate(object):
     def __init__(self, degree=10, p=0.5):
         self.degree = degree
         self.prob = p
@@ -197,7 +197,7 @@ class Rotate:
             return img, boxes
 
 
-class Compose:
+class Compose(object):
     def __init__(self, transforms):
         self.transforms = transforms
 
@@ -208,30 +208,28 @@ class Compose:
         return img, boxes
 
 
-class BaseTransform:
+class BaseTransform(object):
     def __init__(self, size, mean, std):
         self.size = size
         self.mean = mean
         self.std = std
-        self.transforms = Compose([
+        self.transforms = Compose((
             Resize(size),
             Normalize(mean, std),
-        ])
+        ))
 
     def __call__(self, img, boxes):
         return self.transforms(img, boxes)
 
 
-class AugTransform:
+class AugTransform(BaseTransform):
     def __init__(self, size, mean, std):
-        self.size = size
-        self.mean = mean
-        self.std = std
-        self.transforms = Compose([
+        super(AugTransform, self).__init__(size, mean, std)
+        self.transforms = Compose((
             Resize(size),
             Flip(),
             Normalize(mean, std),
-        ])
+        ))
 
     def __call__(self, img, boxes):
         return self.transforms(img, boxes)
@@ -252,11 +250,11 @@ if __name__ == "__main__":
     from kitti import KITTIDataset
 
     cmap = plt.get_cmap("rainbow")
-    colors = list(map(cmap, np.linspace(0, 1, 10)))
+    colors = tuple(map(cmap, np.linspace(0, 1, 10)))
 
-    size = [600, 1000]
-    mean = [0.485, 0.456, 0.406]
-    std = [0.229, 0.224, 0.225]
+    size = (600, 1000)
+    mean = (0.485, 0.456, 0.406)
+    std = (0.229, 0.224, 0.225)
 
     data_folder = "kitti"
     # data_folder = "bdd100k"

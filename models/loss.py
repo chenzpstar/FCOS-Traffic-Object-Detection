@@ -112,7 +112,7 @@ def box_iou_loss(preds, targets, method="iou", reduction="sum", eps=1e-7):
     union = box_area(preds) + box_area(targets) - overlap
     iou = overlap / union.clamp(min=eps)
 
-    if method in ["giou", "diou", "ciou"]:
+    if method in ("giou", "diou", "ciou"):
         xy1_min = torch.min(preds[..., :2], targets[..., :2])
         xy2_max = torch.max(preds[..., 2:], targets[..., 2:])
         wh_max = (xy2_max - xy1_min).clamp_(min=0)
@@ -167,7 +167,7 @@ def calc_cls_loss(logits, targets, num_pos, method="fl", smooth_eps=0.1):
 
         if method == "bce":
             loss.append(bce_loss(logit, target))
-        elif method in ["fl", "qfl"]:
+        elif method in ("fl", "qfl"):
             loss.append(focal_loss(logit, target, method))
         else:
             raise NotImplementedError(
@@ -191,9 +191,9 @@ def calc_reg_loss(preds, targets, pos_masks, num_pos, method="iou"):
 
         if method == "smooth_l1":
             loss.append(smooth_l1_loss(pos_pred, pos_target))
-        elif method in ["iou", "giou"]:
+        elif method in ("iou", "giou"):
             loss.append(offset_iou_loss(pos_pred, pos_target, method))
-        elif method in ["diou", "ciou"]:
+        elif method in ("diou", "ciou"):
             loss.append(box_iou_loss(pos_pred, pos_target, method))
         else:
             raise NotImplementedError(
@@ -240,7 +240,7 @@ class FCOSLoss(nn.Module):
         cls_targets = torch.cat(cls_targets, dim=1)
         ctr_targets = torch.cat(ctr_targets, dim=1)
 
-        if self.reg_loss in ["diou", "ciou"]:
+        if self.reg_loss in ("diou", "ciou"):
             reg_preds = decode_boxes(reg_preds, coords)
             reg_targets = decode_boxes(reg_targets, coords)
         else:

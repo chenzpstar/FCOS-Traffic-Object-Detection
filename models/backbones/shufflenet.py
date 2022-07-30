@@ -162,33 +162,33 @@ def _shufflenetv2(out_channels, name, pretrained=False):
 
 
 def shufflenetv2_x0_5(pretrained=False):
-    backbone = _shufflenetv2([48, 96, 192, 1024], 'shufflenetv2_x0_5',
+    backbone = _shufflenetv2((48, 96, 192, 1024), 'shufflenetv2_x0_5',
                              pretrained)
-    out_channels = [192, 96, 48, 24]
+    out_channels = (192, 96, 48, 24)
 
     return backbone, out_channels
 
 
 def shufflenetv2_x1_0(pretrained=False):
-    backbone = _shufflenetv2([116, 232, 464, 1024], 'shufflenetv2_x1_0',
+    backbone = _shufflenetv2((116, 232, 464, 1024), 'shufflenetv2_x1_0',
                              pretrained)
-    out_channels = [464, 232, 116, 24]
+    out_channels = (464, 232, 116, 24)
 
     return backbone, out_channels
 
 
 def shufflenetv2_x1_5(pretrained=False):
-    backbone = _shufflenetv2([176, 352, 704, 1024], 'shufflenetv2_x1_5',
+    backbone = _shufflenetv2((176, 352, 704, 1024), 'shufflenetv2_x1_5',
                              pretrained)
-    out_channels = [704, 352, 176, 24]
+    out_channels = (704, 352, 176, 24)
 
     return backbone, out_channels
 
 
 def shufflenetv2_x2_0(pretrained=False):
-    backbone = _shufflenetv2([244, 488, 976, 2048], 'shufflenetv2_x2_0',
+    backbone = _shufflenetv2((244, 488, 976, 2048), 'shufflenetv2_x2_0',
                              pretrained)
-    out_channels = [976, 488, 244, 24]
+    out_channels = (976, 488, 244, 24)
 
     return backbone, out_channels
 

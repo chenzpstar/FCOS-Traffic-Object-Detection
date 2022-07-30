@@ -10,7 +10,7 @@ import torch
 import torch.nn.functional as F
 
 
-class Collate():
+class Collate(object):
     def __call__(self, data):
         imgs, labels, boxes = zip(*data)
         assert len(imgs) == len(labels) == len(boxes)
@@ -61,9 +61,9 @@ if __name__ == "__main__":
     from kitti import KITTIDataset
     from transform import BaseTransform
 
-    size = [800, 1333]
-    mean = [0.485, 0.456, 0.406]
-    std = [0.229, 0.224, 0.225]
+    size = (800, 1333)
+    mean = (0.485, 0.456, 0.406)
+    std = (0.229, 0.224, 0.225)
 
     data_folder = "kitti"
     # data_folder = "bdd100k"

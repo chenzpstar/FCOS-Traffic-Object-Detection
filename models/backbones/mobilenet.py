@@ -121,7 +121,7 @@ def _mobilenetv2(pretrained=False):
 
 def mobilenetv2(pretrained=False):
     backbone = _mobilenetv2(pretrained)
-    out_channels = [320, 96, 32, 24]
+    out_channels = (320, 96, 32, 24)
 
     return backbone, out_channels
 

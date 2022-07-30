@@ -30,7 +30,7 @@ class SPP(nn.Module):
     def forward(self, x):
         x = self.conv(x)
 
-        return self.proj(torch.cat([x] + [m(x) for m in self.maxpool], dim=1))
+        return self.proj(torch.cat((x) + (m(x) for m in self.maxpool), dim=1))
 
 
 class SPPF(nn.Module):
