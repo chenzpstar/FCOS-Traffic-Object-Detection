@@ -52,7 +52,7 @@ if __name__ == "__main__":
 
     out_path = os.path.join(ckpt_dir, "eval.txt")
 
-    # 1. dataset
+    # 1. data
     if cfg.data_folder == "kitti":
         test_set = KITTIDataset(
             data_dir,

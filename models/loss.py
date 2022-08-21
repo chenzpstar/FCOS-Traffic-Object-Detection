@@ -19,6 +19,8 @@ except:
     from config import FCOSConfig
     from utils import box_area, box_ratio, decode_boxes, offset_area
 
+eps = 1e-7
+
 
 def bce_loss(logits, targets, reduction="sum"):
     # probs = torch.sigmoid(logits)
@@ -74,7 +76,7 @@ def smooth_l1_loss(preds, targets, reduction="sum"):
         return loss
 
 
-def offset_iou_loss(preds, targets, method="iou", reduction="sum", eps=1e-7):
+def offset_iou_loss(preds, targets, method="iou", reduction="sum"):
     # [l,t,r,b]
     lt_min = torch.min(preds[..., :2], targets[..., :2])
     rb_min = torch.min(preds[..., 2:], targets[..., 2:])
@@ -102,7 +104,7 @@ def offset_iou_loss(preds, targets, method="iou", reduction="sum", eps=1e-7):
         return loss
 
 
-def box_iou_loss(preds, targets, method="iou", reduction="sum", eps=1e-7):
+def box_iou_loss(preds, targets, method="iou", reduction="sum"):
     # [x1,y1,x2,y2]
     xy1_max = torch.max(preds[..., :2], targets[..., :2])
     xy2_min = torch.min(preds[..., 2:], targets[..., 2:])
@@ -256,9 +258,8 @@ class FCOSLoss(nn.Module):
                                  self.reg_loss).mean()
         ctr_loss = calc_ctr_loss(ctr_logits, ctr_targets, pos_mask,
                                  num_pos).mean() if self.use_ctrness else 0.0
-        total_loss = cls_loss + reg_loss + ctr_loss
 
-        return total_loss, cls_loss, reg_loss, ctr_loss
+        return cls_loss, reg_loss, ctr_loss
 
 
 if __name__ == "__main__":

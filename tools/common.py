@@ -24,15 +24,15 @@ from torch.optim.lr_scheduler import (CosineAnnealingLR, ExponentialLR,
                                       MultiStepLR, _LRScheduler)
 
 
-def setup_seed(seed=0):
+def setup_seed(seed=0, benchmark=False, deterministic=True):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
-        torch.backends.cudnn.benchmark = False
-        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = benchmark
+        torch.backends.cudnn.deterministic = deterministic
 
 
 def mixup(imgs, labels, boxes, alpha=1.5, device="cpu"):
@@ -204,8 +204,8 @@ class WarmupLR(_LRScheduler):
             self.warmup_factor)
         return [base_lr * warmup_factor for base_lr in self.base_lrs]
 
-    def _get_warmup_factor_at_iter(self, method, iter, warmup_iters,
-                                   warmup_factor):
+    @staticmethod
+    def _get_warmup_factor_at_iter(method, iter, warmup_iters, warmup_factor):
         """
         Return the learning rate warmup factor at a specific iteration.
         See https://arxiv.org/abs/1706.02677 for more details.

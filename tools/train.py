@@ -82,9 +82,10 @@ def train_model(cfg,
             if cfg.use_fp16:
                 # 1. forward
                 with autocast():
-                    total_loss, cls_loss, reg_loss, ctr_loss = tuple(
-                        map(lambda loss: loss / cfg.accumulation_steps,
+                    cls_loss, reg_loss, ctr_loss = tuple(
+                        map(lambda loss: loss / cfg.acc_steps,
                             model(imgs, (labels, boxes))))
+                    total_loss = cls_loss + reg_loss + ctr_loss
 
                 # 2. backward
                 scaler.scale(total_loss).backward()
@@ -94,14 +95,15 @@ def train_model(cfg,
                                              cfg.max_grad_norm)
 
                 # 3. update weights
-                if (i + 1) % cfg.accumulation_steps == 0:
+                if (i + 1) % cfg.acc_steps == 0:
                     scaler.step(optimizer)
                     scaler.update()
             else:
                 # 1. forward
-                total_loss, cls_loss, reg_loss, ctr_loss = tuple(
-                    map(lambda loss: loss / cfg.accumulation_steps,
+                cls_loss, reg_loss, ctr_loss = tuple(
+                    map(lambda loss: loss / cfg.acc_steps,
                         model(imgs, (labels, boxes))))
+                total_loss = cls_loss + reg_loss + ctr_loss
 
                 # 2. backward
                 total_loss.backward()
@@ -110,24 +112,25 @@ def train_model(cfg,
                                              cfg.max_grad_norm)
 
                 # 3. update weights
-                if (i + 1) % cfg.accumulation_steps == 0:
+                if (i + 1) % cfg.acc_steps == 0:
                     optimizer.step()
 
-            if (i + 1) % cfg.accumulation_steps == 0:
-                # 4.reset grads
+            if (i + 1) % cfg.acc_steps == 0:
+                # 4. reset grads
                 optimizer.zero_grad(set_to_none=True)
 
-                # 5.update lr
-                if epoch < cfg.warmup_epochs * cfg.accumulation_steps:
+                # 5. update lr
+                if epoch < cfg.warmup_epochs * cfg.acc_steps:
                     warmup_scheduler.step()
                 elif cfg.step_per_iter:
                     scheduler.step()
 
         elif mode == "valid":
             with torch.no_grad():
-                total_loss, cls_loss, reg_loss, ctr_loss = tuple(
-                    map(lambda loss: loss / cfg.accumulation_steps,
+                cls_loss, reg_loss, ctr_loss = tuple(
+                    map(lambda loss: loss / cfg.acc_steps,
                         model(imgs, (labels, boxes))))
+                total_loss = cls_loss + reg_loss + ctr_loss
 
         if torch.cuda.is_available():
             torch.cuda.synchronize()
@@ -148,8 +151,7 @@ def train_model(cfg,
         loss_rec["ctr"].append(ctr_loss.item())
 
     return tuple(
-        map(lambda loss: np.mean(loss) * cfg.accumulation_steps,
-            loss_rec.values()))
+        map(lambda loss: np.mean(loss) * cfg.acc_steps, loss_rec.values()))
 
 
 if __name__ == "__main__":
@@ -168,7 +170,7 @@ if __name__ == "__main__":
     # 创建 Logger
     logger, log_dir = make_logger(cfg)
 
-    # 1. dataset
+    # 1. data
     # 构建 Dataset
     if cfg.data_folder == "kitti":
         train_set = KITTIDataset(
@@ -261,7 +263,7 @@ if __name__ == "__main__":
     reg_loss_rec = {"train": [], "valid": []}
     ctr_loss_rec = {"train": [], "valid": []}
 
-    num_epochs = cfg.num_epochs * cfg.accumulation_steps
+    num_epochs = cfg.num_epochs * cfg.acc_steps
     best_epoch, best_mAP = 0, 0.0
 
     for epoch in range(num_epochs):
@@ -304,14 +306,14 @@ if __name__ == "__main__":
         plot_curve(plt_x, reg_loss_rec, "loss", "regression", log_dir)
         plot_curve(plt_x, ctr_loss_rec, "loss", "centerness", log_dir)
 
-        if (epoch + 1) % cfg.accumulation_steps == 0:
+        if (epoch + 1) % cfg.acc_steps == 0:
             # 3. update lr
-            if (epoch >= cfg.warmup_epochs * cfg.accumulation_steps) and (
+            if (epoch >= cfg.warmup_epochs * cfg.acc_steps) and (
                     not cfg.step_per_iter):
                 scheduler.step()
 
             # 4. eval
-            if epoch >= cfg.milestones[0] * cfg.accumulation_steps:
+            if epoch >= cfg.milestones[0] * cfg.acc_steps:
                 # 评估指标
                 metrics = eval_model(model, valid_loader, cfg.num_classes,
                                      cfg.map_iou_thr, cfg.use_07_metric,

@@ -259,7 +259,7 @@ if __name__ == "__main__":
     data_folder = "kitti"
     # data_folder = "bdd100k"
 
-    data_dir = os.path.join(BASE_DIR, "..", "data", "samples", data_folder)
+    data_dir = os.path.join(BASE_DIR, "samples", data_folder)
 
     if data_folder == "kitti":
         train_set = KITTIDataset(data_dir,

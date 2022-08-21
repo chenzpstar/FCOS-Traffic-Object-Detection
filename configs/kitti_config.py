@@ -126,7 +126,7 @@ cfg.use_fp16 = False
 
 # train
 cfg.num_epochs = 12
-cfg.accumulation_steps = 1
+cfg.acc_steps = 1
 cfg.log_interval = 100
 
 cfg.mixup = False

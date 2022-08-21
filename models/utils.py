@@ -14,13 +14,15 @@ __all__ = [
     'offset_area', 'offset_iou', 'clip_boxes', 'nms_boxes'
 ]
 
+eps = 1e-7
+
 
 def decode_coords(feat, stride=1):
     h, w = feat.shape[-2:]  # bchw
     x_shifts = (torch.arange(0, w) + 0.5) * stride
     y_shifts = (torch.arange(0, h) + 0.5) * stride
 
-    y_shift, x_shift = torch.meshgrid(y_shifts, x_shifts)
+    y_shift, x_shift = torch.meshgrid(y_shifts, x_shifts, indexing='ij')
     x_shift = x_shift.reshape(-1)  # [h,w] -> [h*w]
     y_shift = y_shift.reshape(-1)  # [h,w] -> [h*w]
 
@@ -95,7 +97,7 @@ def box_iou(boxes1, boxes2):
 
     union = box_area(boxes1) + box_area(boxes2) - overlap
 
-    return overlap / union.clamp(min=1e-7)
+    return overlap / union.clamp(min=eps)
 
 
 def offset_area(offsets):
@@ -113,7 +115,7 @@ def offset_iou(offsets1, offsets2):
 
     union = offset_area(offsets1) + offset_area(offsets2) - overlap
 
-    return overlap / union.clamp(min=1e-7)
+    return overlap / union.clamp(min=eps)
 
 
 def clip_boxes(boxes, imgs):
@@ -157,7 +159,7 @@ def nms_boxes(boxes, scores, iou_thr=0.5, method="iou"):
             cwh = top_cxy - other_cxy
             p_dist = cwh[..., 0].pow(2) + cwh[..., 1].pow(2)
 
-            iou -= p_dist / c_dist.clamp(min=1e-7)
+            iou -= p_dist / c_dist.clamp(min=eps)
 
         idx = torch.where(iou <= iou_thr)[0]
         if idx.numel() == 0:

@@ -130,7 +130,7 @@ if __name__ == "__main__":
     cmap = plt.get_cmap("rainbow")
     colors = tuple(map(cmap, np.linspace(0, 1, 10)))
 
-    data_dir = os.path.join(BASE_DIR, "..", "data", "samples", "bdd100k")
+    data_dir = os.path.join(BASE_DIR, "samples", "bdd100k")
     train_set = BDD100KDataset(data_dir, "train")
     train_loader = DataLoader(train_set)
 

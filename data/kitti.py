@@ -143,7 +143,7 @@ if __name__ == "__main__":
     cmap = plt.get_cmap("rainbow")
     colors = tuple(map(cmap, np.linspace(0, 1, 10)))
 
-    data_dir = os.path.join(BASE_DIR, "..", "data", "samples", "kitti")
+    data_dir = os.path.join(BASE_DIR, "samples", "kitti")
     train_set = KITTIDataset(data_dir, "training", mode="train", split=True)
     train_loader = DataLoader(train_set)
 

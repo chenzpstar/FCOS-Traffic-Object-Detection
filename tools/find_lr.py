@@ -70,34 +70,36 @@ def find_lr(cfg,
         if cfg.mixup:
             imgs, labels, boxes = mixup(imgs, labels, boxes, cfg.mixup_alpha,
                                         cfg.device)
-        
-        if (i + 1) % cfg.accumulation_steps == 0:
+
+        if (i + 1) % cfg.acc_steps == 0:
             optimizer.zero_grad(set_to_none=True)
-        
+
         if cfg.use_fp16:
             with autocast():
                 losses = tuple(
-                    map(lambda loss: loss / cfg.accumulation_steps,
+                    map(lambda loss: loss / cfg.acc_steps,
                         model(imgs, (labels, boxes))))
+                total_loss = np.sum(losses)
 
-            scaler.scale(losses[0]).backward()
+            scaler.scale(total_loss).backward()
             if cfg.clip_grad:
                 scaler.unscale_(optimizer)
                 nn.utils.clip_grad_norm_(model.parameters(), cfg.max_grad_norm)
 
-            if (i + 1) % cfg.accumulation_steps == 0:
+            if (i + 1) % cfg.acc_steps == 0:
                 scaler.step(optimizer)
                 scaler.update()
         else:
             losses = tuple(
-                map(lambda loss: loss / cfg.accumulation_steps,
+                map(lambda loss: loss / cfg.acc_steps,
                     model(imgs, (labels, boxes))))
+            total_loss = np.sum(losses)
 
-            losses[0].backward()
+            total_loss.backward()
             if cfg.clip_grad:
                 nn.utils.clip_grad_norm_(model.parameters(), cfg.max_grad_norm)
 
-            if (i + 1) % cfg.accumulation_steps == 0:
+            if (i + 1) % cfg.acc_steps == 0:
                 optimizer.step()
 
         avg_loss = beta * avg_loss + (1.0 - beta) * losses[0].item()
@@ -128,7 +130,7 @@ if __name__ == "__main__":
     data_dir = os.path.join(cfg.data_root_dir, cfg.data_folder)
     assert os.path.exists(data_dir)
 
-    # 1. dataset
+    # 1. data
     if cfg.data_folder == "kitti":
         train_set = KITTIDataset(
             data_dir,

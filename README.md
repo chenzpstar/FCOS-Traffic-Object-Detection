@@ -62,7 +62,7 @@ This project is for personal study and under development, please click 'watch' o
 
 代码：https://github.com/tianzhi0549/FCOS
 
-### 2.1 网络结构
+### 2.1 网络架构
 
 ![FCOS](https://production-media.paperswithcode.com/methods/Screen_Shot_2020-06-23_at_3.34.09_PM_SAg1OBo.png)
 

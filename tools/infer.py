@@ -47,7 +47,7 @@ if __name__ == "__main__":
     ckpt_path = os.path.join(ckpt_dir, "checkpoint_best.pth")
     assert os.path.exists(ckpt_path)
 
-    # 1. dataset
+    # 1. data
     if cfg.data_folder == "kitti":
         img_dir = os.path.join(data_dir, "testing", "image_2")
         dataset = KITTIDataset

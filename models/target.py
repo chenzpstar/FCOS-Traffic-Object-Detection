@@ -16,6 +16,8 @@ except:
     from config import FCOSConfig
     from utils import coords2centers, coords2offsets, offset_area
 
+eps = 1e-7
+
 
 class FCOSTarget(nn.Module):
     def __init__(self, cfg=None):
@@ -96,7 +98,7 @@ class FCOSTarget(nn.Module):
         max_tb = torch.max(reg_targets[..., 1], reg_targets[..., 3])
         ctr_targets = torch.sqrt(
             (min_lr * min_tb) /
-            (max_lr * max_tb).clamp_(min=1e-7)).unsqueeze_(dim=-1)
+            (max_lr * max_tb).clamp_(min=eps)).unsqueeze_(dim=-1)
         assert ctr_targets.shape == (batch_size, num_points, 1)
 
         # 7. 处理负样本
