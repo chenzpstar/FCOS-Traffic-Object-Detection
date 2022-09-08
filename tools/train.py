@@ -24,32 +24,26 @@ from models import FCOSDetector
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
 
-from common import (WarmupLR, build_optimizer, build_scheduler, make_logger,
-                    mixup, plot_curve, setup_seed)
+from common import (AverageMeter, WarmupLR, build_optimizer, build_scheduler,
+                    make_logger, mixup, plot_curve, setup_seed)
 from eval import eval_model
 
-# 添加解析参数
-parser = argparse.ArgumentParser(description="Training")
-parser.add_argument("--lr", default=None, type=float, help="learning rate")
-parser.add_argument("--bs", default=None, type=int, help="batch size")
-parser.add_argument("--epoch", default=None, type=int, help="num epochs")
-parser.add_argument("--data_folder",
-                    default="kitti",
-                    type=str,
-                    help="dataset folder name")
-parser.add_argument("--ckpt_folder",
-                    default=None,
-                    type=str,
-                    help="checkpoint folder name")
-args = parser.parse_args()
 
-# 修改配置参数
-cfg.init_lr = args.lr if args.lr else cfg.init_lr
-cfg.train_bs = args.bs if args.bs else cfg.train_bs
-cfg.valid_bs = args.bs if args.bs else cfg.valid_bs
-cfg.num_epochs = args.epoch if args.epoch else cfg.num_epochs
-cfg.data_folder = args.data_folder if args.data_folder else cfg.data_folder
-cfg.ckpt_folder = args.ckpt_folder if args.ckpt_folder else cfg.ckpt_folder
+def get_args():
+    parser = argparse.ArgumentParser(description="Training")
+    parser.add_argument("--lr", default=None, type=float, help="learning rate")
+    parser.add_argument("--bs", default=None, type=int, help="batch size")
+    parser.add_argument("--epoch", default=None, type=int, help="num epochs")
+    parser.add_argument("--data_folder",
+                        default=None,
+                        type=str,
+                        help="dataset folder name")
+    parser.add_argument("--ckpt_folder",
+                        default=None,
+                        type=str,
+                        help="checkpoint folder name")
+
+    return parser.parse_args()
 
 
 def train_model(cfg,
@@ -62,10 +56,19 @@ def train_model(cfg,
                 scheduler=None,
                 warmup_scheduler=None,
                 scaler=None):
-    loss_rec = {"total": [], "cls": [], "reg": [], "ctr": []}
+    loss_rec = {
+        "total": AverageMeter(),
+        "cls": AverageMeter(),
+        "reg": AverageMeter(),
+        "ctr": AverageMeter(),
+    }
+
+    epoch_idx = epoch + 1
     num_iters = len(data_loader)
 
-    for i, (imgs, labels, boxes) in enumerate(data_loader):
+    for iter, (imgs, labels, boxes) in enumerate(data_loader):
+        iter_idx = iter + 1
+
         imgs = imgs.to(cfg.device, non_blocking=True)
         labels = labels.to(cfg.device, non_blocking=True)
         boxes = boxes.to(cfg.device, non_blocking=True)
@@ -95,7 +98,7 @@ def train_model(cfg,
                                              cfg.max_grad_norm)
 
                 # 3. update weights
-                if (i + 1) % cfg.acc_steps == 0:
+                if iter_idx % cfg.acc_steps == 0:
                     scaler.step(optimizer)
                     scaler.update()
             else:
@@ -112,10 +115,10 @@ def train_model(cfg,
                                              cfg.max_grad_norm)
 
                 # 3. update weights
-                if (i + 1) % cfg.acc_steps == 0:
+                if iter_idx % cfg.acc_steps == 0:
                     optimizer.step()
 
-            if (i + 1) % cfg.acc_steps == 0:
+            if iter_idx % cfg.acc_steps == 0:
                 # 4. reset grads
                 optimizer.zero_grad(set_to_none=True)
 
@@ -134,29 +137,40 @@ def train_model(cfg,
 
         if torch.cuda.is_available():
             torch.cuda.synchronize()
-        cost_time = int((time.time() - start_time) * 1000)
-
-        # 记录训练信息
-        if (i + 1) % cfg.log_interval == 0:
-            logger.info(
-                "{}: epoch: [{:0>2}/{:0>2}], iter: [{:0>3}/{:0>3}], total loss: {:.4f}, cls loss: {:.4f}, reg loss: {:.4f}, ctr loss: {:.4f}, cost time: {} ms"
-                .format(mode.title(), epoch + 1, cfg.num_epochs, i + 1,
-                        num_iters, total_loss.item(), cls_loss.item(),
-                        reg_loss.item(), ctr_loss.item(), cost_time))
+        cost_time = time.time() - start_time
 
         # 记录loss信息
-        loss_rec["total"].append(total_loss.item())
-        loss_rec["cls"].append(cls_loss.item())
-        loss_rec["reg"].append(reg_loss.item())
-        loss_rec["ctr"].append(ctr_loss.item())
+        loss_rec["total"].update(total_loss.item() * cfg.acc_steps, len(imgs))
+        loss_rec["cls"].update(cls_loss.item() * cfg.acc_steps, len(imgs))
+        loss_rec["reg"].update(reg_loss.item() * cfg.acc_steps, len(imgs))
+        loss_rec["ctr"].update(ctr_loss.item() * cfg.acc_steps, len(imgs))
 
-    return tuple(
-        map(lambda loss: np.mean(loss) * cfg.acc_steps, loss_rec.values()))
+        # 记录训练信息
+        if iter_idx % (cfg.log_interval * cfg.acc_steps) == 0:
+            logger.info(
+                "{}: epoch: [{:0>2}/{:0>2}], iter: [{:0>3}/{:0>3}], total loss: {:.4f}, cls loss: {:.4f}, reg loss: {:.4f}, ctr loss: {:.4f}, cost time: {:.0f} ms"
+                .format(mode.title(), epoch_idx, cfg.num_epochs, iter_idx,
+                        num_iters, loss_rec["total"].avg, loss_rec["cls"].avg,
+                        loss_rec["reg"].avg, loss_rec["ctr"].avg,
+                        cost_time * 1000))
+
+    return tuple(map(lambda loss: loss.avg, loss_rec.values()))
 
 
 if __name__ == "__main__":
     # 0. config
-    setup_seed(0)
+    setup_seed(seed=0, deterministic=True)
+
+    # 获取解析参数
+    args = get_args()
+
+    # 修改配置参数
+    cfg.init_lr = args.lr if args.lr else cfg.init_lr
+    cfg.train_bs = args.bs if args.bs else cfg.train_bs
+    cfg.valid_bs = args.bs if args.bs else cfg.valid_bs
+    cfg.num_epochs = args.epoch if args.epoch else cfg.num_epochs
+    cfg.data_folder = args.data_folder if args.data_folder else cfg.data_folder
+    cfg.ckpt_folder = args.ckpt_folder if args.ckpt_folder else cfg.ckpt_folder
 
     # 设置路径
     data_dir = os.path.join(cfg.data_root_dir, cfg.data_folder)
@@ -267,6 +281,8 @@ if __name__ == "__main__":
     best_epoch, best_mAP = 0, 0.0
 
     for epoch in range(num_epochs):
+        epoch_idx = epoch + 1
+
         # 1. train
         model.train()
         optimizer.zero_grad(set_to_none=True)
@@ -284,7 +300,7 @@ if __name__ == "__main__":
             "Epoch: [{:0>2}/{:0>2}], lr: {}\n"
             "Train: total loss: {:.4f}, cls loss: {:.4f}, reg loss: {:.4f}, ctr loss: {:.4f}\n"
             "Valid: total loss: {:.4f}, cls loss: {:.4f}, reg loss: {:.4f}, ctr loss: {:.4f}\n"
-            .format(epoch + 1, num_epochs, optimizer.param_groups[0]["lr"],
+            .format(epoch_idx, num_epochs, optimizer.param_groups[0]["lr"],
                     train_total_loss, train_cls_loss, train_reg_loss,
                     train_ctr_loss, valid_total_loss, valid_cls_loss,
                     valid_reg_loss, valid_ctr_loss))
@@ -300,13 +316,13 @@ if __name__ == "__main__":
         ctr_loss_rec["valid"].append(valid_ctr_loss)
 
         # 绘制loss曲线
-        plt_x = np.arange(1, epoch + 2)
+        plt_x = np.arange(1, epoch_idx + 1)
         plot_curve(plt_x, total_loss_rec, "loss", "total", log_dir)
         plot_curve(plt_x, cls_loss_rec, "loss", "classification", log_dir)
         plot_curve(plt_x, reg_loss_rec, "loss", "regression", log_dir)
         plot_curve(plt_x, ctr_loss_rec, "loss", "centerness", log_dir)
 
-        if (epoch + 1) % cfg.acc_steps == 0:
+        if epoch_idx % cfg.acc_steps == 0:
             # 3. update lr
             if (epoch >= cfg.warmup_epochs * cfg.acc_steps) and (
                     not cfg.step_per_iter):
@@ -320,12 +336,12 @@ if __name__ == "__main__":
                                      cfg.device)
 
                 # 计算 mAP
-                mAP = np.mean(metrics["ap"])
-                logger.info("mAP: {:.3%}\n".format(mAP))
+                valid_mAP = np.mean(metrics["ap"])
+                logger.info("mAP: {:.3%}\n".format(valid_mAP))
 
                 # 保存模型
-                if mAP > best_mAP:
-                    best_epoch, best_mAP = epoch + 1, mAP
+                if valid_mAP > best_mAP:
+                    best_epoch, best_mAP = epoch_idx, valid_mAP
                     ckpt_path = os.path.join(log_dir, "checkpoint_best.pth")
                     torch.save(model.state_dict(), ckpt_path)
                     logger.info("saving the best checkpoint successfully\n")

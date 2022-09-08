@@ -22,24 +22,28 @@ from data import BDD100KDataset, KITTIDataset, Normalize, Resize
 from models import FCOSDetector
 from tqdm import tqdm
 
-# 添加解析参数
-parser = argparse.ArgumentParser(description="Inference")
-parser.add_argument("--data_folder",
-                    default="kitti",
-                    type=str,
-                    help="dataset folder name")
-parser.add_argument("--ckpt_folder",
-                    default="kitti_12e_2022-07-01_14-24",
-                    type=str,
-                    help="checkpoint folder name")
-args = parser.parse_args()
 
-# 修改配置参数
-cfg.data_folder = args.data_folder if args.data_folder else cfg.data_folder
-cfg.ckpt_folder = args.ckpt_folder if args.ckpt_folder else cfg.ckpt_folder
+def get_args():
+    parser = argparse.ArgumentParser(description="Inference")
+    parser.add_argument("--data_folder",
+                        default="kitti",
+                        type=str,
+                        help="dataset folder name")
+    parser.add_argument("--ckpt_folder",
+                        default="kitti_12e_2022-07-01_14-24",
+                        type=str,
+                        help="checkpoint folder name")
+
+    return parser.parse_args()
+
 
 if __name__ == "__main__":
     # 0. config
+    args = get_args()
+
+    cfg.data_folder = args.data_folder if args.data_folder else cfg.data_folder
+    cfg.ckpt_folder = args.ckpt_folder if args.ckpt_folder else cfg.ckpt_folder
+
     data_dir = os.path.join(BASE_DIR, "..", "..", "datasets", cfg.data_folder)
     assert os.path.exists(data_dir)
 
@@ -91,5 +95,5 @@ if __name__ == "__main__":
         infer_time += cost_time
 
     infer_time /= num_imgs
-    print("T: {:.3f} ms, FPS: {:.3f}".format(infer_time * 1000,
-                                             1.0 / infer_time))
+    print("time: {:.3f} ms, speed: {:.3f} FPS".format(infer_time * 1000,
+                                                      1.0 / infer_time))

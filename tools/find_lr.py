@@ -52,17 +52,19 @@ def find_lr(cfg,
             method="exp"):
     lr = init_lr
     optimizer.param_groups[0]["lr"] = lr
-    num_iters = len(data_loader) - 1
+    num_steps = len(data_loader) // cfg.acc_steps - 1
 
     if method == "exp":
-        gamma = (final_lr / init_lr)**(1 / num_iters)
+        gamma = (final_lr / init_lr)**(1 / num_steps)
     elif method == "linear":
-        gamma = (final_lr - init_lr) / num_iters
+        gamma = (final_lr - init_lr) / num_steps
 
     lr_rec, loss_rec = [], []
-    avg_loss, best_loss = 0.0, 0.0
+    tmp_loss, avg_loss, best_loss = 0.0, 0.0, 0.0
 
-    for i, (imgs, labels, boxes) in tqdm(enumerate(data_loader)):
+    for iter, (imgs, labels, boxes) in tqdm(enumerate(data_loader)):
+        iter_idx = iter + 1
+
         imgs = imgs.to(cfg.device, non_blocking=True)
         labels = labels.to(cfg.device, non_blocking=True)
         boxes = boxes.to(cfg.device, non_blocking=True)
@@ -71,53 +73,57 @@ def find_lr(cfg,
             imgs, labels, boxes = mixup(imgs, labels, boxes, cfg.mixup_alpha,
                                         cfg.device)
 
-        if (i + 1) % cfg.acc_steps == 0:
+        if iter_idx % cfg.acc_steps == 0:
             optimizer.zero_grad(set_to_none=True)
 
         if cfg.use_fp16:
             with autocast():
-                losses = tuple(
+                cls_loss, reg_loss, ctr_loss = tuple(
                     map(lambda loss: loss / cfg.acc_steps,
                         model(imgs, (labels, boxes))))
-                total_loss = np.sum(losses)
+                total_loss = cls_loss + reg_loss + ctr_loss
 
             scaler.scale(total_loss).backward()
             if cfg.clip_grad:
                 scaler.unscale_(optimizer)
                 nn.utils.clip_grad_norm_(model.parameters(), cfg.max_grad_norm)
 
-            if (i + 1) % cfg.acc_steps == 0:
+            if iter_idx % cfg.acc_steps == 0:
                 scaler.step(optimizer)
                 scaler.update()
         else:
-            losses = tuple(
+            cls_loss, reg_loss, ctr_loss = tuple(
                 map(lambda loss: loss / cfg.acc_steps,
                     model(imgs, (labels, boxes))))
-            total_loss = np.sum(losses)
+            total_loss = cls_loss + reg_loss + ctr_loss
 
             total_loss.backward()
             if cfg.clip_grad:
                 nn.utils.clip_grad_norm_(model.parameters(), cfg.max_grad_norm)
 
-            if (i + 1) % cfg.acc_steps == 0:
+            if iter_idx % cfg.acc_steps == 0:
                 optimizer.step()
 
-        avg_loss = beta * avg_loss + (1.0 - beta) * losses[0].item()
-        smooth_loss = avg_loss / (1.0 - beta**(i + 1))
+        tmp_loss += total_loss.item()
 
-        lr_rec.append(lr)
-        loss_rec.append(smooth_loss)
+        if iter_idx % cfg.acc_steps:
+            avg_loss = beta * avg_loss + (1.0 - beta) * tmp_loss
+            smooth_loss = avg_loss / (1.0 - beta**(iter_idx // cfg.acc_steps))
+            tmp_loss = 0.0
 
-        if smooth_loss > 4 * best_loss and i > 0:
-            return lr_rec, loss_rec
-        if smooth_loss < best_loss or i == 0:
-            best_loss = smooth_loss
+            lr_rec.append(lr)
+            loss_rec.append(smooth_loss)
 
-        if method == "exp":
-            lr *= gamma
-        elif method == "linear":
-            lr += gamma
-        optimizer.param_groups[0]['lr'] = lr
+            if smooth_loss > 4 * best_loss and iter > 0:
+                return lr_rec, loss_rec
+            if smooth_loss < best_loss or iter == 0:
+                best_loss = smooth_loss
+
+            if method == "exp":
+                lr *= gamma
+            elif method == "linear":
+                lr += gamma
+            optimizer.param_groups[0]['lr'] = lr
 
     return lr_rec, loss_rec
 

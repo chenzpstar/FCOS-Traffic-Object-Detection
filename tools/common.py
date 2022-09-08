@@ -86,7 +86,7 @@ def build_scheduler(cfg, optimizer, method="mstep", num_steps=1):
     if method == "mstep":
         scheduler = MultiStepLR(
             optimizer,
-            milestones=list(
+            milestones=tuple(
                 map(lambda x: (x - cfg.warmup_epochs) * num_steps,
                     cfg.milestones)),
             gamma=cfg.decay_factor,
@@ -111,12 +111,12 @@ def build_scheduler(cfg, optimizer, method="mstep", num_steps=1):
 class Logger(object):
     def __init__(self, log_path):
         log_name = os.path.basename(log_path)
-        self.log_name = log_name if log_name else "root"
-        self.log_path = log_path
-
-        log_dir = os.path.dirname(self.log_path)
+        log_dir = os.path.dirname(log_path)
         if not os.path.exists(log_dir):
             os.makedirs(log_dir)
+
+        self.log_name = log_name if log_name else "train.log"
+        self.log_path = log_path
 
     def init_logger(self):
         logger = logging.getLogger(self.log_name)
@@ -124,12 +124,12 @@ class Logger(object):
         log_formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
-        # 配置文件 Handler
+        # 配置文件 handler
         file_handler = logging.FileHandler(self.log_path, "w")
         file_handler.setLevel(logging.INFO)
         file_handler.setFormatter(log_formatter)
 
-        # 配置屏幕 Handler
+        # 配置屏幕 handler
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.INFO)
         # console_handler.setFormatter(log_formatter)
@@ -147,14 +147,11 @@ def make_logger(cfg):
     :param out_dir: str
     :return:
     """
-    now_time = datetime.now()
-    time_str = datetime.strftime(now_time, "%Y-%m-%d_%H-%M")
+    time_str = datetime.strftime(datetime.now(), "%Y-%m-%d_%H-%M")
     folder_name = "{}_{}e_{}".format(cfg.data_folder, cfg.num_epochs, time_str)
     log_dir = os.path.join(cfg.ckpt_root_dir, folder_name)
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
 
-    # 创建logger
+    # 创建 logger
     log_path = os.path.join(log_dir, "train.log")
     logger = Logger(log_path)
     logger = logger.init_logger()
@@ -183,6 +180,26 @@ def plot_curve(plt_x, plt_y, mode="loss", name="total", out_dir=None):
     plt.title(" ".join((name, mode)).title())
     plt.savefig(os.path.join(out_dir, "_".join((name, mode)) + ".png"))
     plt.close()
+
+
+class AverageMeter(object):
+    def __init__(self):
+        self.reset()
+
+    def is_empty(self):
+        return self.count == 0
+
+    def reset(self):
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count
 
 
 class WarmupLR(_LRScheduler):
