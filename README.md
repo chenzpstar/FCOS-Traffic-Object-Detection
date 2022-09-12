@@ -9,49 +9,44 @@ This project is for personal study and under development, please click 'watch' o
 目录结构：
 
 ```txt
-- ./configs 配置
-    - kitti_config.py
-    - bdd100k_config.py
-
-- ./data 数据
-    - kitti.py
-    - bdd100k.py
-    - transform.py 数据变换
-    - collate.py 数据打包
-
-- ./models 模型
-    - ./backbones 特征提取网络
-        - vgg.py
-        - resnet.py
-        - darknet.py
-        - mobilenet.py
-        - shufflenet.py
-        - efficientnet.py
-
-    - ./necks 特征融合网络
-        - fpn.py
-        - pan.py
-        - bifpn.py
-
-    - ./layers 网络模块
-        - conv.py
-        - spp.py
-        - aspp.py
-        - se.py
-        - cbam.py
-
-    - head.py 检测网络
-    - target.py 训练目标
-    - loss.py 损失函数
-    - detect.py 检测后处理
-    - fcos.py 完整网络
-
-- ./tools 工具
-    - train.py 训练
-    - test.py 测试
-    - eval.py 评估
-    - infer.py 推理
-    - demo.py 演示
+FCOS
+├── configs 配置
+|   ├── kitti_config.py
+|   └── bdd100k_config.py
+├── data 数据
+|   ├── kitti.py
+|   ├── bdd100k.py
+|   ├── transform.py 数据变换
+|   └── collate.py 数据打包
+├── models 模型
+|   ├── backbones 特征提取网络
+|   |   ├── vgg.py
+|   |   ├── resnet.py
+|   |   ├── darknet.py
+|   |   ├── mobilenet.py
+|   |   ├── shufflenet.py
+|   |   └── efficientnet.py
+|   ├── necks 特征融合网络
+|   |   ├── fpn.py
+|   |   ├── pan.py
+|   |   └── bifpn.py
+|   ├── layers 网络模块
+|   |   ├── conv.py
+|   |   ├── spp.py
+|   |   ├── aspp.py
+|   |   ├── se.py
+|   |   └── cbam.py
+|   ├── head.py 检测网络
+|   ├── target.py 训练目标
+|   ├── loss.py 损失函数
+|   ├── detect.py 检测后处理
+|   └── fcos.py 完整网络
+└── tools 工具
+    ├── train.py 训练
+    ├── test.py 测试
+    ├── eval.py 评估
+    ├── infer.py 推理
+    └── demo.py 演示
 ```
 
 ## 2 模型
@@ -115,14 +110,17 @@ This project is for personal study and under development, please click 'watch' o
 目录结构：
 
 ```txt
-- kitti
-    - training
-        - image_2
-            - 000000.png
-        - label_2
-            - 000000.txt
-    - testing
-        - image_2
+kitti
+├── training
+|   ├── image_2
+|   |   ├── 000000.png
+|   |   └── ...
+|   └── label_2
+|       ├── 000000.txt
+|       └── ...
+└── testing
+    └── image_2
+        └── ...
 ```
 
 统计信息：
@@ -152,18 +150,23 @@ This project is for personal study and under development, please click 'watch' o
 目录结构：
 
 ```txt
-- bdd100k
-    - images
-        - 100k
-            - train
-                - 0000f77c-6257be58.jpg
-            - val
-            - test
-    - labels
-        - 100k
-            - train
-                - 0000f77c-6257be58.json
-            - val
+bdd100k
+├── images
+|   └── 100k
+|       ├── train
+|       |   ├── 0000f77c-6257be58.jpg
+|       |   └── ...
+|       ├── val
+|       |   └── ...
+|       └── test
+|           └── ...
+└── labels
+    └── 100k
+        ├── train
+        |   ├── 0000f77c-6257be58.json
+        |   └── ...
+        └── val
+            └── ...
 ```
 
 统计信息：
@@ -231,8 +234,8 @@ This project is for personal study and under development, please click 'watch' o
 
 - 帧率
 
-    ![](http://latex.codecogs.com/svg.latex?FPS\ge25)
+    ![](http://latex.codecogs.com/svg.latex?speed\ge25FPS)
 
 - 推理时间
 
-    ![](http://latex.codecogs.com/svg.latex?T\le40ms)
+    ![](http://latex.codecogs.com/svg.latex?time\le40ms)

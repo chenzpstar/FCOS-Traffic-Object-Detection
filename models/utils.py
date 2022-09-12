@@ -93,8 +93,8 @@ def box_iou(boxes1, boxes2):
     xy1 = torch.max(boxes1[..., :2], boxes2[..., :2])
     xy2 = torch.min(boxes1[..., 2:], boxes2[..., 2:])
     wh = (xy2 - xy1).clamp_(min=0)
-    overlap = wh[..., 0] * wh[..., 1]
 
+    overlap = wh[..., 0] * wh[..., 1]
     union = box_area(boxes1) + box_area(boxes2) - overlap
 
     return overlap / union.clamp(min=eps)
@@ -111,8 +111,8 @@ def offset_iou(offsets1, offsets2):
     lt = torch.min(offsets1[..., :2], offsets2[..., :2])
     rb = torch.min(offsets1[..., 2:], offsets2[..., 2:])
     wh = (lt + rb).clamp_(min=0)
-    overlap = wh[..., 0] * wh[..., 1]
 
+    overlap = wh[..., 0] * wh[..., 1]
     union = offset_area(offsets1) + offset_area(offsets2) - overlap
 
     return overlap / union.clamp(min=eps)
@@ -157,9 +157,9 @@ def nms_boxes(boxes, scores, iou_thr=0.5, method="iou"):
             top_cxy = (top_boxes[..., :2] + top_boxes[..., 2:]) / 2.0
             other_cxy = (other_boxes[..., :2] + other_boxes[..., 2:]) / 2.0
             cwh = top_cxy - other_cxy
-            p_dist = cwh[..., 0].pow(2) + cwh[..., 1].pow(2)
+            rho_dist = cwh[..., 0].pow(2) + cwh[..., 1].pow(2)
 
-            iou -= p_dist / c_dist.clamp(min=eps)
+            iou -= rho_dist / c_dist.clamp(min=eps)
 
         idx = torch.where(iou <= iou_thr)[0]
         if idx.numel() == 0:

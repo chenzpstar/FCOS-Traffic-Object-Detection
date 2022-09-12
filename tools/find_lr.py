@@ -27,18 +27,16 @@ from tqdm import tqdm
 
 from common import build_optimizer, mixup, setup_seed
 
-# 添加解析参数
-parser = argparse.ArgumentParser(description="Training")
-parser.add_argument("--bs", default=None, type=int, help="batch size")
-parser.add_argument("--data_folder",
-                    default="kitti",
-                    type=str,
-                    help="dataset folder name")
-args = parser.parse_args()
 
-# 修改配置参数
-cfg.train_bs = args.bs if args.bs else cfg.train_bs
-cfg.data_folder = args.data_folder if args.data_folder else cfg.data_folder
+def get_args():
+    parser = argparse.ArgumentParser(description="Training")
+    parser.add_argument("--bs", default=None, type=int, help="batch size")
+    parser.add_argument("--data_folder",
+                        default=None,
+                        type=str,
+                        help="dataset folder name")
+
+    return parser.parse_args()
 
 
 def find_lr(cfg,
@@ -106,7 +104,7 @@ def find_lr(cfg,
 
         tmp_loss += total_loss.item()
 
-        if iter_idx % cfg.acc_steps:
+        if iter_idx % cfg.acc_steps == 0:
             avg_loss = beta * avg_loss + (1.0 - beta) * tmp_loss
             smooth_loss = avg_loss / (1.0 - beta**(iter_idx // cfg.acc_steps))
             tmp_loss = 0.0
@@ -130,9 +128,13 @@ def find_lr(cfg,
 
 if __name__ == "__main__":
     # 0. config
-    setup_seed(0)
+    setup_seed(seed=0, deterministic=True)
 
-    # 设置路径
+    args = get_args()
+
+    cfg.train_bs = args.bs if args.bs else cfg.train_bs
+    cfg.data_folder = args.data_folder if args.data_folder else cfg.data_folder
+
     data_dir = os.path.join(cfg.data_root_dir, cfg.data_folder)
     assert os.path.exists(data_dir)
 

@@ -81,8 +81,8 @@ def offset_iou_loss(preds, targets, method="iou", reduction="sum"):
     lt_min = torch.min(preds[..., :2], targets[..., :2])
     rb_min = torch.min(preds[..., 2:], targets[..., 2:])
     wh_min = (lt_min + rb_min).clamp_(min=0)
-    overlap = wh_min[..., 0] * wh_min[..., 1]
 
+    overlap = wh_min[..., 0] * wh_min[..., 1]
     union = offset_area(preds) + offset_area(targets) - overlap
     iou = overlap / union.clamp(min=eps)
 
@@ -90,8 +90,8 @@ def offset_iou_loss(preds, targets, method="iou", reduction="sum"):
         lt_max = torch.max(preds[..., :2], targets[..., :2])
         rb_max = torch.max(preds[..., 2:], targets[..., 2:])
         wh_max = (lt_max + rb_max).clamp_(min=0)
-        C_area = wh_max[..., 0] * wh_max[..., 1]
 
+        C_area = wh_max[..., 0] * wh_max[..., 1]
         iou -= (C_area - union) / C_area.clamp(min=eps)
 
     loss = 1.0 - iou
@@ -109,8 +109,8 @@ def box_iou_loss(preds, targets, method="iou", reduction="sum"):
     xy1_max = torch.max(preds[..., :2], targets[..., :2])
     xy2_min = torch.min(preds[..., 2:], targets[..., 2:])
     wh_min = (xy2_min - xy1_max).clamp_(min=0)
-    overlap = wh_min[..., 0] * wh_min[..., 1]
 
+    overlap = wh_min[..., 0] * wh_min[..., 1]
     union = box_area(preds) + box_area(targets) - overlap
     iou = overlap / union.clamp(min=eps)
 
@@ -121,24 +121,21 @@ def box_iou_loss(preds, targets, method="iou", reduction="sum"):
 
         if method == "giou":
             C_area = wh_max[..., 0] * wh_max[..., 1]
-
             iou -= (C_area - union) / C_area.clamp(min=eps)
         else:
-            c_dist = wh_max[..., 0].pow(2) + wh_max[..., 1].pow(2)
-
             pred_cxy = (preds[..., :2] + preds[..., 2:]) / 2.0
             target_cxy = (targets[..., :2] + targets[..., 2:]) / 2.0
             cwh = pred_cxy - target_cxy
-            p_dist = cwh[..., 0].pow(2) + cwh[..., 1].pow(2)
 
-            iou -= p_dist / c_dist.clamp(min=eps)
+            c_dist = wh_max[..., 0].pow(2) + wh_max[..., 1].pow(2)
+            rho_dist = cwh[..., 0].pow(2) + cwh[..., 1].pow(2)
+            iou -= rho_dist / c_dist.clamp(min=eps)
 
             if method == "ciou":
                 v = (4 / pi**2) * (torch.atan(box_ratio(targets)) -
                                    torch.atan(box_ratio(preds))).pow(2)
                 with torch.no_grad():
                     alpha = v / (1.0 - iou + v).clamp_(min=eps)
-
                 iou -= alpha * v
 
     loss = 1.0 - iou

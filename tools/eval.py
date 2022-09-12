@@ -10,6 +10,8 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
+eps = 1e-7
+
 
 def eval_model(model,
                data_loader,
@@ -70,11 +72,10 @@ def _compute_iou(boxes_a, boxes_b):
     boxes_b = np.expand_dims(boxes_b, axis=0)  # [1,M,4]
 
     # compute overlap
-    overlap = np.maximum(
-        0.0,
-        np.minimum(boxes_a[..., 2:], boxes_b[..., 2:]) -
-        np.maximum(boxes_a[..., :2], boxes_b[..., :2]))  # [N,M,(w,h)]
-    overlap = np.prod(overlap, axis=-1)  # [N,M]
+    xy1 = np.maximum(boxes_a[..., :2], boxes_b[..., :2])  # [N,M,2]
+    xy2 = np.minimum(boxes_a[..., 2:], boxes_b[..., 2:])  # [N,M,2]
+    wh = (xy2 - xy1).clip(0.0)  # [N,M,2]
+    overlap = np.prod(wh, axis=-1)  # [N,M]
 
     # compute area
     area_a = np.prod(boxes_a[..., 2:] - boxes_a[..., :2], axis=-1)  # [N,M]
@@ -82,7 +83,7 @@ def _compute_iou(boxes_a, boxes_b):
 
     # compute iou
     union = area_a + area_b - overlap  # [N,M]
-    iou = overlap / np.maximum(union, np.finfo(np.float32).eps)  # [N,M]
+    iou = overlap / union.clip(eps)  # [N,M]
 
     return iou
 
@@ -108,8 +109,8 @@ def _compute_ap(recall, precision, use_07_metric=False):
     else:
         # correct AP calculation
         # first append sentinel values at the end
-        mrec = np.concatenate(((0.0), recall, (1.0)))
-        mprec = np.concatenate(((0.0), precision, (0.0)))
+        mrec = np.concatenate(([0.0], recall, [1.0]))
+        mprec = np.concatenate(([0.0], precision, [0.0]))
 
         # compute the precision envelope
         for i in range(mprec.size - 1, 0, -1):
@@ -203,10 +204,9 @@ def eval_metrics(pred_boxes,
         fp = np.cumsum(fp)
         tp = np.cumsum(tp)
         # compute recall, precision and f1 score
-        rec = tp / np.maximum(total_gt_boxes, np.finfo(np.float32).eps)
-        prec = tp / np.maximum(tp + fp, np.finfo(np.float32).eps)
-        f1 = 2 * rec[-1] * prec[-1] / np.maximum(rec[-1] + prec[-1],
-                                                 np.finfo(np.float32).eps)
+        rec = tp / np.maximum(total_gt_boxes, eps)
+        prec = tp / (tp + fp).clip(eps)
+        f1 = 2 * rec[-1] * prec[-1] / (rec[-1] + prec[-1]).clip(eps)
         # compute average precision
         ap = _compute_ap(rec, prec, use_07_metric)
 

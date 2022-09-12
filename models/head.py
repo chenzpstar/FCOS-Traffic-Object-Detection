@@ -27,7 +27,7 @@ class FCOSHead(nn.Module):
                  prior=0.01,
                  use_gn=True,
                  ctr_on_reg=True,
-                 strides=[8, 16, 32, 64, 128],
+                 strides=(8, 16, 32, 64, 128),
                  init_weights=True):
         super(FCOSHead, self).__init__()
         self.in_channels = in_channels
