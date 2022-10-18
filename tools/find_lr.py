@@ -17,9 +17,7 @@ sys.path.append(os.path.join(BASE_DIR, ".."))
 import matplotlib.pyplot as plt
 import numpy as np
 import torch.nn as nn
-# from configs.bdd100k_config import cfg
-from configs.kitti_config import cfg
-from data import BDD100KDataset, Collate, KITTIDataset
+from data import BDD100KDataset, Collate, KITTIDataset, VOCDataset
 from models import FCOSDetector
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
@@ -32,7 +30,7 @@ def get_args():
     parser = argparse.ArgumentParser(description="Training")
     parser.add_argument("--bs", default=None, type=int, help="batch size")
     parser.add_argument("--data_folder",
-                        default=None,
+                        default="kitti",
                         type=str,
                         help="dataset folder name")
 
@@ -132,14 +130,27 @@ if __name__ == "__main__":
 
     args = get_args()
 
+    if args.data_folder == "voc":
+        from configs.voc_config import cfg
+    elif args.data_folder == "kitti":
+        from configs.kitti_config import cfg
+    elif args.data_folder == "bdd100k":
+        from configs.bdd100k_config import cfg
+
     cfg.train_bs = args.bs if args.bs else cfg.train_bs
-    cfg.data_folder = args.data_folder if args.data_folder else cfg.data_folder
 
     data_dir = os.path.join(cfg.data_root_dir, cfg.data_folder)
     assert os.path.exists(data_dir)
 
     # 1. data
-    if cfg.data_folder == "kitti":
+    if cfg.data_folder == "voc":
+        train_set = VOCDataset(
+            data_dir,
+            year="2007",
+            set_name="train",
+            transform=cfg.aug_tf,
+        )
+    elif cfg.data_folder == "kitti":
         train_set = KITTIDataset(
             data_dir,
             set_name="training",
@@ -177,14 +188,19 @@ if __name__ == "__main__":
     scaler = GradScaler() if cfg.use_fp16 else None
 
     # 4. loop
-    lr, loss = find_lr(cfg, model, train_loader, optimizer, scaler)
+    lrs, losses = find_lr(cfg, model, train_loader, optimizer, scaler)
+    lrs, losses = lrs[10:-5], losses[10:-5]
 
-    min_grad_idx = np.argmin(np.gradient(np.array(loss)))
-    suggested_lr = lr[min_grad_idx]
+    min_grad_idx = np.argmin(np.gradient(np.array(losses)))
+    suggested_lr = lrs[min_grad_idx]
     print("suggested lr: {:.3e}".format(suggested_lr))
 
-    plt.semilogx(lr[10:-5], loss[10:-5])
-    plt.scatter(lr[min_grad_idx], loss[min_grad_idx], s=50, c="r", marker="o")
+    plt.semilogx(lrs, losses)
+    plt.scatter(lrs[min_grad_idx],
+                losses[min_grad_idx],
+                s=50,
+                c="r",
+                marker="o")
     plt.xlabel("lr")
     plt.ylabel("loss")
     plt.title("Suggested LR: {:.3e}".format(suggested_lr))

@@ -158,10 +158,13 @@ def calc_cls_loss(logits, targets, num_pos, method="fl", smooth_eps=0.1):
     label = torch.arange(1, num_classes + 1, device=targets.device)
 
     for logit, target in zip(logits, targets):
-        target = (label == target).float()  # one-hot
-        if 0 < smooth_eps <= 1:
-            target.clamp_(min=smooth_eps / (num_classes - 1),
-                          max=1.0 - smooth_eps)  # label smoothing
+        # one-hot
+        target = (label == target).float()
+        # label smoothing
+        if 0 < smooth_eps < 1:
+            with torch.no_grad():
+                target *= (1.0 - smooth_eps)
+                target += smooth_eps / (num_classes - 1)
         assert logit.shape == target.shape
 
         if method == "bce":

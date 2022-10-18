@@ -37,16 +37,28 @@ if __name__ == '__main__':
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     sys.path.append(os.path.join(BASE_DIR, ".."))
 
-    from data import BDD100KDataset, Collate, KITTIDataset
+    from data import BDD100KDataset, Collate, KITTIDataset, VOCDataset
     from torch.utils.data import DataLoader
 
+    # data_folder = "voc"
     data_folder = "kitti"
     # data_folder = "bdd100k"
 
     root_dir = os.path.join(BASE_DIR, "..", "..", "datasets")
     data_dir = os.path.join(root_dir, data_folder)
 
-    if data_folder == "kitti":
+    if data_folder == "voc":
+        train_set = VOCDataset(
+            data_dir,
+            year="2007",
+            set_name="train",
+        )
+        valid_set = VOCDataset(
+            data_dir,
+            year="2007",
+            set_name="val",
+        )
+    elif data_folder == "kitti":
         train_set = KITTIDataset(
             data_dir,
             set_name="training",

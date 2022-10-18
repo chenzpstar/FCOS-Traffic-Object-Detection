@@ -248,20 +248,27 @@ if __name__ == "__main__":
 
     from bdd100k import BDD100KDataset
     from kitti import KITTIDataset
+    from voc import VOCDataset
 
     cmap = plt.get_cmap("rainbow")
-    colors = tuple(map(cmap, np.linspace(0, 1, 10)))
+    colors = tuple(map(cmap, np.linspace(0, 1, 20)))
 
     size = (600, 1000)
     mean = (0.485, 0.456, 0.406)
     std = (0.229, 0.224, 0.225)
 
+    # data_folder = "voc"
     data_folder = "kitti"
     # data_folder = "bdd100k"
 
     data_dir = os.path.join(BASE_DIR, "samples", data_folder)
 
-    if data_folder == "kitti":
+    if data_folder == "voc":
+        train_set = VOCDataset(data_dir,
+                               "2007",
+                               "train",
+                               transform=AugTransform(size, mean, std))
+    elif data_folder == "kitti":
         train_set = KITTIDataset(data_dir,
                                  "training",
                                  transform=AugTransform(size, mean, std))

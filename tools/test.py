@@ -15,9 +15,7 @@ sys.path.append(os.path.join(BASE_DIR, ".."))
 
 import numpy as np
 import torch
-# from configs.bdd100k_config import cfg
-from configs.kitti_config import cfg
-from data import BDD100KDataset, Collate, KITTIDataset
+from data import BDD100KDataset, Collate, KITTIDataset, VOCDataset
 from models import FCOSDetector
 from torch.utils.data import DataLoader
 
@@ -43,8 +41,14 @@ if __name__ == "__main__":
     # 0. config
     args = get_args()
 
+    if args.data_folder == "voc":
+        from configs.voc_config import cfg
+    elif args.data_folder == "kitti":
+        from configs.kitti_config import cfg
+    elif args.data_folder == "bdd100k":
+        from configs.bdd100k_config import cfg
+
     cfg.valid_bs = args.bs if args.bs else cfg.valid_bs
-    cfg.data_folder = args.data_folder if args.data_folder else cfg.data_folder
     cfg.ckpt_folder = args.ckpt_folder if args.ckpt_folder else cfg.ckpt_folder
 
     data_dir = os.path.join(BASE_DIR, "..", "..", "datasets", cfg.data_folder)
@@ -57,7 +61,14 @@ if __name__ == "__main__":
     out_path = os.path.join(ckpt_dir, "eval.txt")
 
     # 1. data
-    if cfg.data_folder == "kitti":
+    if cfg.data_folder == "voc":
+        test_set = VOCDataset(
+            data_dir,
+            year="2007",
+            set_name="val",
+            transform=cfg.base_tf,
+        )
+    elif cfg.data_folder == "kitti":
         test_set = KITTIDataset(
             data_dir,
             set_name="training",
@@ -75,11 +86,10 @@ if __name__ == "__main__":
 
     test_loader = DataLoader(
         test_set,
-        batch_size=cfg.valid_bs,
+        batch_size=1,
         shuffle=False,
         num_workers=cfg.workers,
         collate_fn=Collate(),
-        pin_memory=True,
     )
     print("test loader has {} iters".format(len(test_loader)))
 

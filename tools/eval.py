@@ -30,7 +30,7 @@ def eval_model(model,
         imgs = imgs.to(device, non_blocking=True)
 
         with torch.no_grad():
-            outs = model(imgs, mode="infer")
+            outs = model(imgs)
 
         pred_scores.extend(map(lambda scores: scores.cpu().numpy(), outs[0]))
         pred_labels.extend(map(lambda labels: labels.cpu().numpy(), outs[1]))

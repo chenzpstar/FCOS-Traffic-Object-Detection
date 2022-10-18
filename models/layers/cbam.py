@@ -4,6 +4,7 @@
 # @author     : chenzhanpeng https://github.com/chenzpstar
 # @date       : 2022-04-08
 # @brief      : CBAM模块类
+# @reference  : https://github.com/Jongchan/attention-module/blob/master/MODELS/cbam.py
 """
 
 import torch
@@ -17,21 +18,18 @@ except:
 
 
 class ChannelGate(nn.Module):
-    def __init__(self,
-                 channels,
-                 reduction_ratio=16,
-                 pool_types=("avg", "max")):
+    def __init__(self, channels, reduction=16, pool_types=("avg", "max")):
         super(ChannelGate, self).__init__()
         self.pool_types = pool_types
         self.fc = nn.Sequential(
-            nn.Conv2d(channels, channels // reduction_ratio, kernel_size=1),
+            nn.Conv2d(channels, channels // reduction, kernel_size=1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(channels // reduction_ratio, channels, kernel_size=1),
+            nn.Conv2d(channels // reduction, channels, kernel_size=1),
         )
 
     def forward(self, x):
-        h, w = x.shape[-2:]  # bchw
-        channel_att = 0.0
+        b, c, h, w = x.shape  # bchw
+        channel_att = torch.zeros(b, c)
 
         for type in self.pool_types:
             if type == 'avg':
@@ -67,11 +65,11 @@ class SpatialGate(nn.Module):
 class CBAM(nn.Module):
     def __init__(self,
                  channels,
-                 reduction_ratio=16,
+                 reduction=16,
                  pool_types=("avg", "max"),
                  no_spatial=False):
         super(CBAM, self).__init__()
-        self.ChannelGate = ChannelGate(channels, reduction_ratio, pool_types)
+        self.ChannelGate = ChannelGate(channels, reduction, pool_types)
         if not no_spatial:
             self.SpatialGate = SpatialGate(pool_types)
         self.no_spatial = no_spatial

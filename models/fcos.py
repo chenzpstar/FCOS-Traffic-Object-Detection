@@ -115,17 +115,15 @@ class FCOSDetector(nn.Module):
         self.loss_layer = FCOSLoss(self.cfg)
         self.detect_layer = FCOSDetect(self.cfg)
 
-    def forward(self, imgs, annos=None, mode="train"):
+    def forward(self, imgs, annos=None):
         preds = self.fcos(imgs)
 
-        if mode == "train":
-            assert annos is not None
+        if annos is not None:
             labels, boxes = annos
             targets = self.target_layer(labels, boxes, preds[-1])
 
             return self.loss_layer(preds, targets)
-
-        elif mode == "infer":
+        else:
             return self.detect_layer(preds, imgs)
 
 
@@ -148,7 +146,7 @@ if __name__ == "__main__":
         [print(branch_outs.item()) for branch_outs in outs]
 
     if flag == 2:
-        outs = model(imgs, mode="infer")
+        outs = model(imgs)
         [
             print(batch_outs.shape) for result_outs in outs
             for batch_outs in result_outs

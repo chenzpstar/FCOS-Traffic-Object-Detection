@@ -17,9 +17,7 @@ sys.path.append(os.path.join(BASE_DIR, ".."))
 import numpy as np
 import torch
 import torch.nn as nn
-# from configs.bdd100k_config import cfg
-from configs.kitti_config import cfg
-from data import BDD100KDataset, Collate, KITTIDataset
+from data import BDD100KDataset, Collate, KITTIDataset, VOCDataset
 from models import FCOSDetector
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
@@ -35,7 +33,7 @@ def get_args():
     parser.add_argument("--bs", default=None, type=int, help="batch size")
     parser.add_argument("--epoch", default=None, type=int, help="num epochs")
     parser.add_argument("--data_folder",
-                        default=None,
+                        default="kitti",
                         type=str,
                         help="dataset folder name")
     parser.add_argument("--ckpt_folder",
@@ -62,6 +60,7 @@ def train_model(cfg,
         "reg": AverageMeter(),
         "ctr": AverageMeter(),
     }
+    time_rec = AverageMeter()
 
     epoch_idx = epoch + 1
     num_iters = len(data_loader)
@@ -137,7 +136,7 @@ def train_model(cfg,
 
         if torch.cuda.is_available():
             torch.cuda.synchronize()
-        cost_time = time.time() - start_time
+        time_rec.update(time.time() - start_time)
 
         # 记录loss信息
         loss_rec["total"].update(total_loss.item() * cfg.acc_steps, len(imgs))
@@ -152,7 +151,7 @@ def train_model(cfg,
                 .format(mode.title(), epoch_idx, cfg.num_epochs, iter_idx,
                         num_iters, loss_rec["total"].avg, loss_rec["cls"].avg,
                         loss_rec["reg"].avg, loss_rec["ctr"].avg,
-                        cost_time * 1000))
+                        time_rec.avg * 1000))
 
     return tuple(map(lambda loss: loss.avg, loss_rec.values()))
 
@@ -164,12 +163,19 @@ if __name__ == "__main__":
     # 获取解析参数
     args = get_args()
 
+    # 导入配置文件
+    if args.data_folder == "voc":
+        from configs.voc_config import cfg
+    elif args.data_folder == "kitti":
+        from configs.kitti_config import cfg
+    elif args.data_folder == "bdd100k":
+        from configs.bdd100k_config import cfg
+
     # 修改配置参数
     cfg.init_lr = args.lr if args.lr else cfg.init_lr
     cfg.train_bs = args.bs if args.bs else cfg.train_bs
     cfg.valid_bs = args.bs if args.bs else cfg.valid_bs
     cfg.num_epochs = args.epoch if args.epoch else cfg.num_epochs
-    cfg.data_folder = args.data_folder if args.data_folder else cfg.data_folder
     cfg.ckpt_folder = args.ckpt_folder if args.ckpt_folder else cfg.ckpt_folder
 
     # 设置路径
@@ -186,7 +192,20 @@ if __name__ == "__main__":
 
     # 1. data
     # 构建 Dataset
-    if cfg.data_folder == "kitti":
+    if cfg.data_folder == "voc":
+        train_set = VOCDataset(
+            data_dir,
+            year="2007",
+            set_name="train",
+            transform=cfg.aug_tf,
+        )
+        valid_set = VOCDataset(
+            data_dir,
+            year="2007",
+            set_name="val",
+            transform=cfg.base_tf,
+        )
+    elif cfg.data_folder == "kitti":
         train_set = KITTIDataset(
             data_dir,
             set_name="training",
@@ -232,8 +251,16 @@ if __name__ == "__main__":
         collate_fn=Collate(),
         pin_memory=True,
     )
+    eval_loader = DataLoader(
+        valid_set,
+        batch_size=1,
+        shuffle=False,
+        num_workers=cfg.workers,
+        collate_fn=Collate(),
+    )
     logger.info("train loader has {} iters".format(len(train_loader)))
     logger.info("valid loader has {} iters".format(len(valid_loader)))
+    logger.info("eval loader has {} iters".format(len(eval_loader)))
 
     # 2. model
     model = FCOSDetector(cfg).to(cfg.device)
@@ -331,7 +358,7 @@ if __name__ == "__main__":
             # 4. eval
             if epoch >= cfg.milestones[0] * cfg.acc_steps:
                 # 评估指标
-                metrics = eval_model(model, valid_loader, cfg.num_classes,
+                metrics = eval_model(model, eval_loader, cfg.num_classes,
                                      cfg.map_iou_thr, cfg.use_07_metric,
                                      cfg.device)
 

@@ -4,6 +4,7 @@
 # @author     : chenzhanpeng https://github.com/chenzpstar
 # @date       : 2022-04-05
 # @brief      : SPP模块类
+# @reference  : https://github.com/ultralytics/yolov5/blob/master/models/common.py
 """
 
 import torch
@@ -16,7 +17,7 @@ except:
 
 
 class SPP(nn.Module):
-    # Spatial Pyramid Pooling layer used in YOLOv3-SPP
+    # Spatial Pyramid Pooling (SPP) layer used in YOLOv3-SPP
     def __init__(self, in_channels, out_channels, kernel_size=(5, 9, 13)):
         super(SPP, self).__init__()
         num_channels = in_channels // 2  # hidden channels

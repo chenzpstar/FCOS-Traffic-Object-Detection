@@ -4,6 +4,7 @@
 # @author     : chenzhanpeng https://github.com/chenzpstar
 # @date       : 2022-04-07
 # @brief      : SE模块类
+# @reference  : https://github.com/moskomule/senet.pytorch/blob/master/senet/se_module.py
 """
 
 import torch.nn as nn

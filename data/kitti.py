@@ -114,7 +114,7 @@ class KITTIDataset(Dataset):
 
         with open(txt_path, 'r') as f:
             for line in f.readlines():
-                obj = line.rstrip().split(' ')
+                obj = line.strip().split(' ')
                 name = obj[0].lower()
                 if name in ("car", "van", "truck", "tram"):
                     labels.append(self.classes_dict["car"])

@@ -18,9 +18,7 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-# from configs.bdd100k_config import cfg
-from configs.kitti_config import cfg
-from data import BDD100KDataset, KITTIDataset, Normalize, Resize
+from data import BDD100KDataset, KITTIDataset, Normalize, Resize, VOCDataset
 from models import FCOSDetector
 
 
@@ -42,11 +40,17 @@ if __name__ == "__main__":
     # 0. config
     args = get_args()
 
-    cfg.data_folder = args.data_folder if args.data_folder else cfg.data_folder
+    if args.data_folder == "voc":
+        from configs.voc_config import cfg
+    elif args.data_folder == "kitti":
+        from configs.kitti_config import cfg
+    elif args.data_folder == "bdd100k":
+        from configs.bdd100k_config import cfg
+
     cfg.ckpt_folder = args.ckpt_folder if args.ckpt_folder else cfg.ckpt_folder
 
     cmap = plt.get_cmap("rainbow")
-    colors = tuple(map(cmap, np.linspace(0, 1, 10)))
+    colors = tuple(map(cmap, np.linspace(0, 1, 20)))
 
     data_dir = os.path.join(BASE_DIR, "..", "..", "datasets", cfg.data_folder)
     assert os.path.exists(data_dir)
@@ -56,7 +60,10 @@ if __name__ == "__main__":
     assert os.path.exists(ckpt_path)
 
     # 1. data
-    if cfg.data_folder == "kitti":
+    if cfg.data_folder == "voc":
+        img_dir = os.path.join(data_dir, "VOC2007", "JPEGImages")
+        dataset = VOCDataset
+    elif cfg.data_folder == "kitti":
         img_dir = os.path.join(data_dir, "testing", "image_2")
         dataset = KITTIDataset
     elif cfg.data_folder == "bdd100k":
@@ -88,7 +95,7 @@ if __name__ == "__main__":
 
         with torch.no_grad():
             img_tensor = img_tensor.to(cfg.device, non_blocking=True)
-            scores, labels, boxes = model(img_tensor, mode="infer")
+            scores, labels, boxes = model(img_tensor)
 
         if torch.cuda.is_available():
             torch.cuda.synchronize()
